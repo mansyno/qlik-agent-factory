@@ -1,0 +1,16 @@
+{
+    "name": "qlik-architect-agent",
+    "version": "1.0.0",
+    "description": "Standalone Qlik Data Architect Agent",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "dependencies": {
+        "@google/generative-ai": "^0.11.0",
+        "dotenv": "^16.4.5",
+        "enigma.js": "^2.10.0",
+        "inquirer": "^13.2.5",
+        "ws": "^8.16.0"
+    }
+}

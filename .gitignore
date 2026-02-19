@@ -1,0 +1,9 @@
+node_modules/
+.env
+jobs/
+data/
+data2/
+.agent/
+*.qvs
+*.log
+*.qvf
