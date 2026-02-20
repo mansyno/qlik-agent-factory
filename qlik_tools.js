@@ -93,7 +93,7 @@ async function validateScript(global, scriptContent, app = null) {
             return {
                 success: false,
                 synKeys: 0,
-                errors: syntaxCheck.map(e => e.qErrorString || 'Syntax Error')
+                errors: syntaxCheck.map(e => `Line ${e.qLineInTab}: ${JSON.stringify(e)}`)
             };
         }
 

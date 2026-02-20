@@ -8,6 +8,7 @@ STRATEGIC GOALS:
 2. Avoid Synthetic Keys ($Syn). Ensure the Data Model Viewer shows a clean "Switchboard" or "Star" structure, NOT clusters or multi-table junctions.  
 3. Handle naming collisions using ALIAS (AS). Do NOT use QUALIFY \*.  
 4. AutoNumber all link keys. For composite keys, use AutoNumber(Hash128(Field1 & '|' & Field2)).
+5. **DO NOT CREATE A MASTER CALENDAR.** Do not generate `Dim_Calendar`, `MasterCalendar`, or any derived date tables. The user has a separate process for this. Stick strictly to Fact and Dimension tables based on the CSV data.
 
 TABLE RELATIONSHIP HEURISTICS (CRITICAL):
 

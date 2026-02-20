@@ -1,0 +1,145 @@
+[
+  {
+    "timestamp": "2026-02-19T23:29:49.352Z",
+    "category": "System",
+    "message": "Logger Initialized",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-19T23:29:49.352Z",
+    "category": "System",
+    "message": "Job Started",
+    "details": {
+      "dataDir": "./data2",
+      "targetAppName": "enhanced1"
+    }
+  },
+  {
+    "timestamp": "2026-02-19T23:29:49.386Z",
+    "category": "System",
+    "message": "Connected to Qlik Engine",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-19T23:29:49.503Z",
+    "category": "Architect",
+    "message": "Starting Data Profiling",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-19T23:29:50.967Z",
+    "category": "Architect",
+    "message": "Generating Script Attempt 1",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-19T23:30:36.245Z",
+    "category": "Architect",
+    "message": "Validation Failed",
+    "details": {
+      "synKeys": 1,
+      "errors": []
+    }
+  },
+  {
+    "timestamp": "2026-02-19T23:30:36.245Z",
+    "category": "Architect",
+    "message": "Generating Script Attempt 2",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-19T23:31:08.308Z",
+    "category": "Architect",
+    "message": "Validation Failed",
+    "details": {
+      "synKeys": 1,
+      "errors": []
+    }
+  },
+  {
+    "timestamp": "2026-02-19T23:31:08.308Z",
+    "category": "Architect",
+    "message": "Generating Script Attempt 3",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-19T23:32:31.465Z",
+    "category": "Architect",
+    "message": "Script Verification Passed",
+    "details": {
+      "attempt": 3
+    }
+  },
+  {
+    "timestamp": "2026-02-19T23:32:31.465Z",
+    "category": "Enhancer",
+    "message": "Starting Enrichment Phase",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-19T23:32:31.480Z",
+    "category": "Enhancement",
+    "message": "Metadata Inspection",
+    "details": "Found Canonical Date Key: Date_ID"
+  },
+  {
+    "timestamp": "2026-02-19T23:32:31.481Z",
+    "category": "Enhancement",
+    "message": "Bridge Builder",
+    "details": "Generated Canonical Bridge Script"
+  },
+  {
+    "timestamp": "2026-02-19T23:32:31.481Z",
+    "category": "Enhancement",
+    "message": "Derived Fields",
+    "details": "Generated Auto-Calendar Script"
+  },
+  {
+    "timestamp": "2026-02-19T23:32:31.481Z",
+    "category": "Enhancement",
+    "message": "Dual Injector",
+    "details": "Evaluated Dual Flags"
+  },
+  {
+    "timestamp": "2026-02-19T23:32:31.481Z",
+    "category": "Enhancement",
+    "message": "As-Of Generator",
+    "details": "Generated Rolling Period Table"
+  },
+  {
+    "timestamp": "2026-02-19T23:32:33.011Z",
+    "category": "Enhancement",
+    "message": "Validation Success",
+    "details": "Enriched script passed checks."
+  },
+  {
+    "timestamp": "2026-02-19T23:32:33.012Z",
+    "category": "System",
+    "message": "Final Script Saved",
+    "details": {
+      "path": "final_script.qvs"
+    }
+  },
+  {
+    "timestamp": "2026-02-19T23:32:34.769Z",
+    "category": "System",
+    "message": "App Reload Finished",
+    "details": {
+      "success": true
+    }
+  },
+  {
+    "timestamp": "2026-02-19T23:32:35.153Z",
+    "category": "System",
+    "message": "App Saved",
+    "details": {
+      "appName": "enhanced1"
+    }
+  },
+  {
+    "timestamp": "2026-02-19T23:32:35.155Z",
+    "category": "System",
+    "message": "Process Terminated",
+    "details": null
+  }
+]
