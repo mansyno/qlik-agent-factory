@@ -1,16 +1,23 @@
 {
     "name": "qlik-architect-agent",
-    "version": "1.0.0",
-    "description": "Standalone Qlik Data Architect Agent",
+    "version": "2.0.0",
+    "description": "Qlik Agent Factory — Architect + Enhancer agents with UI Command Center",
     "main": "index.js",
     "scripts": {
-        "start": "node index.js"
+        "start": "concurrently --names \"SERVER,UI\" --prefix-colors \"cyan,magenta\" \"node server.js\" \"npm run dev --prefix ui\"",
+        "server": "node server.js",
+        "agent": "node index.js",
+        "dev:ui": "npm run dev --prefix ui"
     },
     "dependencies": {
         "@google/generative-ai": "^0.11.0",
+        "concurrently": "^9.1.2",
+        "cors": "^2.8.5",
         "dotenv": "^16.4.5",
         "enigma.js": "^2.10.0",
+        "express": "^4.21.2",
         "inquirer": "^13.2.5",
+        "socket.io": "^4.8.1",
         "ws": "^8.16.0"
     }
 }
