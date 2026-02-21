@@ -3,6 +3,9 @@ node_modules/
 jobs/
 data/
 data2/
+DATA/
+northwind/
+adventureworks/
 .agent/
 *.qvs
 *.log
