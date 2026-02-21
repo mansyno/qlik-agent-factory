@@ -1,0 +1,57 @@
+[
+    {
+        "id": "master_calendar",
+        "description": "Generates a standard Qlik Master Calendar with physical fields for Year, Month, Quarter, etc.",
+        "parameters": [
+            "dateField",
+            "canonicalName"
+        ],
+        "template": "\n// --- MASTER CALENDAR ---\n[Temp_Calendar_Range]:\nLOAD\n    Min([{{dateField}}]) AS [MinDate],\n    Max([{{dateField}}]) AS [MaxDate]\nRESIDENT [LinkTable];\n\nLET vMinDate = Num(Peek('MinDate', 0, 'Temp_Calendar_Range'));\nLET vMaxDate = Num(Peek('MaxDate', 0, 'Temp_Calendar_Range'));\nDROP TABLE [Temp_Calendar_Range];\n\n[Master_Calendar]:\nLOAD\n    [TempDate] AS [{{dateField}}],\n    [TempDate] AS [{{canonicalName}}],\n    Year([TempDate]) AS [Year],\n    'Q' & Ceil(Month([TempDate])/3) AS [Quarter],\n    Month([TempDate]) AS [Month],\n    Date(MonthStart([TempDate]), 'MMM-YYYY') AS [MonthYear],\n    Week([TempDate]) AS [Week],\n    Day([TempDate]) AS [Day],\n    WeekDay([TempDate]) AS [WeekDay]\n;\nLOAD\n    Date($(vMinDate) + IterNo() - 1) AS [TempDate]\nAUTOGENERATE 1\nWHILE $(vMinDate) + IterNo() - 1 <= $(vMaxDate);\n"
+    },
+    {
+        "id": "as_of_table",
+        "description": "Creates a rolling-period mapping table for trend analysis using a high-performance WHILE loop.",
+        "parameters": [
+            "dateField"
+        ],
+        "template": "\n// --- AS-OF TABLE ---\n[Temp_AsOf_Dates]: \nLOAD DISTINCT [{{dateField}}] AS [AsOfDate] \nRESIDENT [Master_Calendar];\n\n[AsOf_Table]:\nLOAD \n    [AsOfDate] AS [AsOf Date], \n    [AsOfDate] AS [{{dateField}}], \n    'Current Day' AS [Period Type] \nRESIDENT [Temp_AsOf_Dates];\n\nCONCATENATE ([AsOf_Table])\nLOAD \n    [AsOfDate] AS [AsOf Date], \n    Date(AddMonths([AsOfDate], -IterNo()+1)) AS [{{dateField}}], \n    'Rolling 12 Months' AS [Period Type] \nRESIDENT [Temp_AsOf_Dates] \nWHILE IterNo() <= 12;\n\nDROP TABLE [Temp_AsOf_Dates];\n"
+    },
+    {
+        "id": "pareto_linked",
+        "description": "Implements 80/20 Pareto segmentation across two tables joined via a link table. Uses a deterministic 4-pass pattern: join → aggregate → pre-calculate total → apply running cumulative flag.",
+        "parameters": [
+            "factTable",
+            "linkTable",
+            "dimensionField",
+            "measureField"
+        ],
+        "template": "\n// --- PARETO ANALYSIS ({{dimensionField}} by {{measureField}}) ---\n[Temp_Pareto_Prep]:\nLOAD [%Key_Sales], [{{measureField}}] RESIDENT [{{factTable}}];\nLEFT JOIN ([Temp_Pareto_Prep])\nLOAD [%Key_Sales], [{{dimensionField}}] RESIDENT [{{linkTable}}];\n\n[Temp_Pareto_Agg]:\nLOAD [{{dimensionField}}], Sum([{{measureField}}]) AS _SumMeasure RESIDENT [Temp_Pareto_Prep] GROUP BY [{{dimensionField}}];\nDROP TABLE [Temp_Pareto_Prep];\n\n[Temp_Pareto_Total]: LOAD Sum(_SumMeasure) AS _Total RESIDENT [Temp_Pareto_Agg];\nLET vParetoTotal = Peek('_Total', 0, 'Temp_Pareto_Total');\nDROP TABLE [Temp_Pareto_Total];\n\n[Temp_Pareto_Sorted]:\nNOCONCATENATE\nLOAD [{{dimensionField}}], [_SumMeasure] RESIDENT [Temp_Pareto_Agg] ORDER BY [_SumMeasure] DESC;\nDROP TABLE [Temp_Pareto_Agg];\n\n[Pareto_{{dimensionField}}]:\nLOAD\n    [{{dimensionField}}],\n    If(RangeSum([_SumMeasure], Peek('_AccMeasure')) / $(vParetoTotal) <= 0.8, Dual('Top 80%', 1), Dual('Bottom 20%', 0)) AS [{{dimensionField}}_Pareto_Flag],\n    RangeSum([_SumMeasure], Peek('_AccMeasure')) AS _AccMeasure\nRESIDENT [Temp_Pareto_Sorted];\n\nDROP TABLE [Temp_Pareto_Sorted];\nDROP FIELD [_AccMeasure] FROM [Pareto_{{dimensionField}}];\n"
+    },
+    {
+        "id": "market_basket",
+        "description": "Generates a product co-occurrence table for basket analysis. Output columns are [Product_ID] (connects to Dim_Products) and [Co_Product_ID] (a second associative axis). Only produces results when multiple distinct items share the same order ID. This table is intentionally a one-sided bridge.",
+        "parameters": [
+            "factTable",
+            "idField",
+            "itemField"
+        ],
+        "template": "\n// --- MARKET BASKET ({{itemField}} co-occurrences within {{idField}}) ---\n[Basket_A]:\nLOAD [{{idField}}], [{{itemField}}] AS [{{itemField}}]\nRESIDENT [{{factTable}}];\n\n[Basket_B]:\nLOAD [{{idField}}], [{{itemField}}] AS [Co_{{itemField}}]\nRESIDENT [{{factTable}}];\n\nJOIN ([Basket_A])\nLOAD * RESIDENT [Basket_B];\nDROP TABLE [Basket_B];\n\n[Final_Market_Basket]:\nNOCONCATENATE\nLOAD\n    [{{itemField}}],\n    [Co_{{itemField}}],\n    Count([{{idField}}]) AS CoOccurrences\nRESIDENT [Basket_A]\nWHERE [{{itemField}}] < [Co_{{itemField}}]\nGROUP BY [{{itemField}}], [Co_{{itemField}}];\n\nDROP TABLE [Basket_A];\n"
+    },
+    {
+        "id": "dual_flag_injector",
+        "description": "Wraps categorical fields in Dual() logic based on identified mapping pairs.",
+        "parameters": [
+            "fieldName",
+            "mappingPairs"
+        ],
+        "template": "\n// --- DUAL FLAG INJECTION ---\n[Temp_Dual_{{fieldName}}]:\nLOAD *, Dual([{{fieldName}}], Match([{{fieldName}}], {{mappingPairs}})) AS [{{fieldName}}_Dual]\nRESIDENT [LinkTable];\nDROP TABLE [LinkTable];\nRENAME TABLE [Temp_Dual_{{fieldName}}] TO [LinkTable];\n"
+    },
+    {
+        "id": "autonumber_keys",
+        "description": "Optimizes specific link keys using the AutoNumber function.",
+        "parameters": [
+            "keyFields"
+        ],
+        "template": "\n// --- AUTONUMBER KEYS ---\nAutoNumber {{keyFields}};\n"
+    }
+]

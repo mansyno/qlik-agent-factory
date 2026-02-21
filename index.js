@@ -7,9 +7,14 @@ const logger = require('./.agent/utils/logger.js'); // Import Logger
 const args = process.argv.slice(2);
 const jobArg = args.find(a => a.startsWith('--job='));
 const dataDirArg = args.find(a => a.startsWith('--data='));
+const appNameArg = args.find(a => a.startsWith('--app='));
 
 let dataDir = './data';
 let targetAppName = "Architect_Agent_Output";
+
+if (appNameArg) {
+    targetAppName = appNameArg.split('=')[1];
+}
 
 if (jobArg) {
     const jobPath = jobArg.split('=')[1];
@@ -99,112 +104,148 @@ async function main() {
             process.exit(1);
         }
 
-        // 2. Inference Loop
-        console.log("\n--- Phase 2: Architectural Reasoning ---");
         let currentScript = "";
-        let attempt = 0;
-        let maxAttempts = 3;
         let success = false;
-        let feedback = null;
 
-        while (attempt < maxAttempts && !success) {
-            attempt++;
-            console.log(`\nAttempt ${attempt}/${maxAttempts}: Generating Script...`);
-            logger.log('Architect', `Generating Script Attempt ${attempt}`);
+        // --- CACHE BYPASS LOGIC ---
+        const skipArchitectArg = args.find(a => a === '--skip-architect');
+        const CACHE_FILE = '.cache_base_script.qvs';
 
-            // Start heartbeat to keep Qlik connection alive during AI generation
-            const heartbeat = setInterval(async () => {
+        if (skipArchitectArg && fs.existsSync(CACHE_FILE)) {
+            console.log("=== BYPASSING ARCHITECT ===");
+            console.log(`Loading cached base script from ${CACHE_FILE}...`);
+            logger.log('System', 'Bypassed Architect Phase using cached script.');
+            currentScript = fs.readFileSync(CACHE_FILE, 'utf8');
+            success = true; // Pretend phase 2 succeeded
+        } else {
+            // 2. Inference Loop
+            console.log("\n--- Phase 2: Architectural Reasoning ---");
+            let attempt = 0;
+            let maxAttempts = 3;
+            let feedback = null;
+
+            while (attempt < maxAttempts && !success) {
+                attempt++;
+                console.log(`\nAttempt ${attempt}/${maxAttempts}: Generating Script...`);
+                logger.log('Architect', `Generating Script Attempt ${attempt}`);
+
+                // Start heartbeat to keep Qlik connection alive during AI generation
+                const heartbeat = setInterval(async () => {
+                    try {
+                        await global.engineVersion();
+                    } catch (e) { /* ignore */ }
+                }, 5000);
+
                 try {
-                    await global.engineVersion();
-                } catch (e) { /* ignore */ }
-            }, 5000);
+                    currentScript = await generateScript({
+                        profiles,
+                        feedback,
+                        previousScript: currentScript // Pass previous script for context if retrying
+                    });
+                } catch (err) {
+                    console.error("Error during inference loop:", err.message);
+                    logger.error('Architect', 'AI Inference Error', err);
 
-            try {
-                currentScript = await generateScript({
-                    profiles,
-                    feedback,
-                    previousScript: currentScript // Pass previous script for context if retrying
-                });
-            } catch (err) {
-                console.error("Error during inference loop:", err.message);
-                logger.error('Architect', 'AI Inference Error', err);
-
-                // Check for Rate Limit (429)
-                if (err.message.includes('429') || err.message.includes('Quota exceeded')) {
-                    console.log("Rate limit hit. Waiting 60 seconds before retrying...");
-                    await new Promise(resolve => setTimeout(resolve, 60000));
-                }
-
-                clearInterval(heartbeat);
-                continue; // Retry loop
-            } finally {
-                clearInterval(heartbeat);
-            }
-
-            console.log("Generated Script Preview:");
-            console.log(currentScript.substring(0, 200) + "...\n");
-
-            console.log("Validating Script...");
-            const validation = await validateScript(global, currentScript, workApp);
-
-            if (validation.success && validation.synKeys === 0) {
-                console.log("Validation Successful! No Syntax Errors, No Synthetic Keys.");
-                logger.log('Architect', 'Script Verification Passed', { attempt });
-
-                // --- PHASE 3: ENHANCER AGENT (Agent 3) ---
-                console.log("\n--- Phase 3: Enhancer Agent (Script Enrichment) ---");
-                logger.log('Enhancer', 'Starting Enrichment Phase');
-                try {
-                    const { enhanceScript } = require('./enhancer');
-                    const enrichedScript = await enhanceScript(workApp, currentScript);
-
-                    console.log("Enhancer finished. Validating Enriched Script...");
-                    const enhancedValidation = await validateScript(global, enrichedScript, workApp);
-
-                    if (enhancedValidation.success) {
-                        console.log("Enriched Script Validated Successfully!");
-                        logger.enhancement('Validation Success', 'Enriched script passed checks.');
-                        currentScript = enrichedScript; // Promote enriched script to final
-                        success = true;
-                    } else {
-                        console.error("Enhancer produced invalid script.");
-                        console.error(`Errors: ${enhancedValidation.errors.join(', ')}`);
-
-                        logger.error('Enhancer', 'Enhancement Failed Validation', {
-                            errors: enhancedValidation.errors
-                        });
-
-                        fs.writeFileSync('debug_enhanced_script.qvs', enrichedScript);
-                        console.error("Dumped invalid script to debug_enhanced_script.qvs");
-
-                        // CONFLICT RESOLUTION: WARN USER explicitly via Log and Console.
-                        console.warn("WARNING: Reverting to Base Script due to Enhancer errors.");
-                        logger.log('System', 'Fallback: Reverted to Base Architect Script');
-
-                        // We proceed with the Base Script to ensure delivery, but flagged as warning.
-                        success = true;
+                    // Check for Rate Limit (429)
+                    if (err.message.includes('429') || err.message.includes('Quota exceeded')) {
+                        console.log("Rate limit hit. Waiting 60 seconds before retrying...");
+                        await new Promise(resolve => setTimeout(resolve, 60000));
                     }
-                } catch (enhancerErr) {
-                    console.error("Critical Error in Enhancer Agent:", enhancerErr);
-                    logger.error('Enhancer', 'Critical Runtime Error', enhancerErr);
-                    // Fallback to base script
-                    console.warn("WARNING: Reverting to Base Script due to Enhancer Crash.");
-                    success = true;
+
+                    clearInterval(heartbeat);
+                    continue; // Retry loop
+                } finally {
+                    clearInterval(heartbeat);
                 }
-            } else {
-                console.warn("Validation Failed or Synthetic Keys found.");
-                console.warn(`Success: ${validation.success}, SynKeys: ${validation.synKeys}`);
-                if (validation.errors.length > 0) console.warn(`Errors: ${validation.errors.join(', ')}`);
 
-                logger.log('Architect', 'Validation Failed', {
-                    synKeys: validation.synKeys,
-                    errors: validation.errors
-                });
+                console.log("Generated Script Preview:");
+                console.log(currentScript.substring(0, 200) + "...\n");
 
-                feedback = validation;
+                console.log("Validating Script...");
+                const validation = await validateScript(global, currentScript, workApp);
+
+                if (validation.success && validation.synKeys === 0) {
+                    console.log("Validation Successful! No Syntax Errors, No Synthetic Keys.");
+                    logger.log('Architect', 'Script Verification Passed', { attempt });
+                    success = true;
+                    // Cache the successful base script
+                    fs.writeFileSync(CACHE_FILE, currentScript);
+                    console.log(`Saved base script to cache: ${CACHE_FILE}`);
+                } else {
+                    console.warn("Validation Failed or Synthetic Keys found.");
+                    console.warn(`Success: ${validation.success}, SynKeys: ${validation.synKeys}`);
+                    if (validation.errors.length > 0) console.warn(`Errors: ${validation.errors.join(', ')}`);
+
+                    logger.log('Architect', 'Validation Failed', {
+                        synKeys: validation.synKeys,
+                        errors: validation.errors
+                    });
+
+                    feedback = validation;
+                }
             }
+        } // End Cache Bypass block
 
+        if (success) {
+            // --- PHASE 3: ENHANCER AGENT (Tool-Aware Hybrid Model) ---
+            console.log("\n--- Phase 3: Enhancer Agent (Hybrid Reasoning) ---");
+            logger.log('Enhancer', 'Starting Enrichment Phase (Hybrid)');
+            try {
+                // 1. Inspect Metadata
+                const inspector = require('./.agent/skills/qlik-metadata-inspector/inspector.js');
+                const metadata = await inspector.inspectMetadata(workApp);
 
+                // 2. Brain Reasoning (LLM)
+                const { generateEnrichmentPlan } = require('./enhancer_brain');
+                const plan = await generateEnrichmentPlan(metadata, currentScript);
+                console.log("\n[Enhancer AI Reasoning]:", plan.reasoningSummary, "\n");
+
+                // 3. Composer Execution (Deterministic + Validation Sandbox)
+                const { composeEnrichment } = require('./enhancer_composer');
+                const { enrichedScript, report } = await composeEnrichment(plan, currentScript, global, workApp);
+
+                // Print Enhancement Report
+                console.log("\n=== Enhancement Report ===");
+                report.forEach(r => {
+                    const icon = r.status === 'Applied' ? '✅' : '❌';
+                    console.log(`${icon} [${r.tier.toUpperCase()}] ${r.tool}: ${r.status}`);
+                    if (r.status !== 'Applied') {
+                        console.log(`   └─ Reason: ${r.reason}`);
+                    }
+                });
+                console.log("==========================\n");
+
+                // Save report to audit log metadata
+                logger.enhancement('Enhancement Report', report);
+
+                console.log("Composer finished. Validating final Hybrid Script...");
+                const enhancedValidation = await validateScript(global, enrichedScript, workApp);
+
+                if (enhancedValidation.success && enhancedValidation.synKeys === 0) {
+                    console.log("Enriched Hybrid Script Validated Successfully!");
+                    logger.enhancement('Validation Success', 'Hybrid script passed checks.');
+                    currentScript = enrichedScript; // Promote enriched script to final
+                } else {
+                    // Because composeEnrichment is now isolated and self-healing, the final script 
+                    // should theoretically ALWAYS pass. If it doesn't, we have a critical Sandbox failure.
+                    console.error("CRITICAL: Enhancer produced invalid final script despite isolated validation.");
+                    console.error(`Errors: ${enhancedValidation.errors.join(', ')}`);
+
+                    logger.error('Enhancer', 'Final Enhancement Failed Validation', {
+                        errors: enhancedValidation.errors
+                    });
+
+                    fs.writeFileSync('debug_enhanced_script.qvs', enrichedScript);
+                    console.error("Dumped invalid script to debug_enhanced_script.qvs");
+
+                    console.warn("WARNING: Reverting to Base Architect Script.");
+                    logger.log('System', 'Fallback: Reverted to Base Architect Script');
+                }
+            } catch (enhancerErr) {
+                console.error("Critical Error in Enhancer Agent:", enhancerErr);
+                logger.error('Enhancer', 'Critical Runtime Error', enhancerErr);
+                console.warn("WARNING: Reverting to Base Script due to Enhancer Crash.");
+            }
         }
 
         // 4. Finalization
