@@ -14,6 +14,56 @@ async function openSession(appId = 'engineData') {
     return { session, global };
 }
 
+/**
+ * Opens a session connected directly to a named persistent app.
+ * Strategy:
+ *   1. Try getDocList() to resolve name → GUID (works when engine can enumerate apps).
+ *   2. Fall back to openDoc(appName) directly — Qlik Desktop accepts plain names too,
+ *      and getDocList() may return an empty list depending on engine/user context.
+ */
+async function openSessionForApp(appName) {
+    // Generic engine connection (no specific app)
+    const session = enigma.create({
+        schema,
+        url: `ws://localhost:4848/app/engineData`,
+        createSocket: url => new WebSocket(url),
+    });
+    const global = await session.open();
+
+    // --- Strategy 1: getDocList() name → GUID resolution ---
+    const docList = await global.getDocList();
+    console.log(`[openSessionForApp] getDocList returned ${docList.length} apps:`);
+    docList.forEach(d => console.log(`  qDocId=${d.qDocId}  qDocName=${d.qDocName}`));
+
+    const entry = docList.find(d =>
+        d.qDocName.toLowerCase() === appName.toLowerCase() ||
+        d.qDocName.replace(/\.qvf$/i, '').toLowerCase() === appName.toLowerCase() ||
+        d.qDocId === appName
+    );
+
+    if (entry) {
+        console.log(`[openSessionForApp] Matched via docList: ${entry.qDocId}`);
+        const appHandle = await global.openDoc(entry.qDocId);
+        return { session, global, appHandle };
+    }
+
+    // --- Strategy 2: direct openDoc by name (Qlik Desktop fallback) ---
+    // On Desktop, openDoc accepts the app name without .qvf if the app is saved.
+    console.log(`[openSessionForApp] Not in docList — trying openDoc('${appName}') directly...`);
+    try {
+        const appHandle = await global.openDoc(appName);
+        return { session, global, appHandle };
+    } catch (directErr) {
+        // Clean up before rethrowing so the caller gets a useful message
+        try { await session.close(); } catch (_) { }
+        throw new Error(
+            `App '${appName}' could not be opened. ` +
+            `getDocList returned ${docList.length} apps (see server console). ` +
+            `Direct openDoc error: ${directErr.message}`
+        );
+    }
+}
+
 async function closeSession(session) {
     if (session) {
         await session.close();
@@ -175,6 +225,7 @@ async function createPersistentApp(global, appName) {
 
 module.exports = {
     openSession,
+    openSessionForApp,
     closeSession,
     profileData,
     validateScript,

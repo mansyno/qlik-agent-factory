@@ -6,12 +6,14 @@
 
 const fs = require('fs');
 const path = require('path');
-const { openSession, closeSession, profileData, validateScript } = require('./qlik_tools');
+const { openSession, openSessionForApp, closeSession, profileData, validateScript } = require('./qlik_tools');
 const { generateScript } = require('./brain');
 
 const ENHANCER_MARKER = '// *** ENHANCER AGENT OUTPUT (Hybrid Model) ***';
+const CACHE_FILE = '.cache_base_script.qvs';
 
-// Pause/stop gate — call between operations. Returns true to continue, false to abort.
+// ── Pause/Stop Gate ───────────────────────────────────────────────────────────
+// Returns true to continue, false to abort.
 async function checkControl(ctrl, broadcast) {
     if (!ctrl) return true;
     if (ctrl.paused && !ctrl.stopRequested) {
@@ -26,30 +28,41 @@ async function checkControl(ctrl, broadcast) {
     return true;
 }
 
-async function fetchLiveBaseScript(appName, global, broadcast) {
+// ── Enhancer-Only: Read Live Script ──────────────────────────────────────────
+// Opens a dedicated session for the named persistent app, reads getScript(),
+// then closes it. Uses openSessionForApp which resolves name → GUID via
+// getDocList() to avoid "Unknown error" when passing a display name to openDoc.
+async function fetchLiveBaseScript(appName, broadcastFn) {
+    let readSession = null;
     try {
-        broadcast('System', `Enhancer-only mode: reading live script from '${appName}'...`, 'info');
-        const appHandle = await global.openDoc(appName);
-        const fullScript = await appHandle.getScript();
+        broadcastFn('System', `Enhancer-only mode: reading live script from '${appName}'...`, 'info');
+        const readConn = await openSessionForApp(appName);
+        readSession = readConn.session;
+        const fullScript = await readConn.appHandle.getScript();
         const parts = fullScript.split(ENHANCER_MARKER);
         const baseScript = parts[0].trim();
         if (!baseScript) throw new Error('Base script portion is empty.');
-        broadcast('System', 'Base script extracted from live app. Running Enhancer only.', 'success');
-        return { baseScript, appHandle };
+        broadcastFn('System', `Base script read from live app (${baseScript.split('\n').length} lines).`, 'success');
+        return baseScript;
     } catch (err) {
-        broadcast('System', `Could not read live app — falling back to full run. (${err.message || JSON.stringify(err)})`, 'warning');
+        const msg = err.message || JSON.stringify(err);
+        broadcastFn('System', `Could not read live app: ${msg}`, 'error');
         return null;
+    } finally {
+        if (readSession) { try { await closeSession(readSession); } catch (_) { } }
     }
 }
 
+// ── Main Agent Runner ─────────────────────────────────────────────────────────
 async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer'], io, broadcastAgentState, agentControl }) {
+    const broadcast = (typeof broadcastAgentState === 'function')
+        ? broadcastAgentState
+        : (agent, msg) => console.log(`[${agent}] ${msg}`);
     const ctrl = agentControl || null;
-    const broadcast = broadcastAgentState || ((agent, msg, type) => console.log(`[${agent}] ${msg}`));
 
     const logger = require('./.agent/utils/logger.js');
     logger.initialize();
     logger.log('System', 'Job Started', { dataDir, targetAppName: appName });
-
     broadcast('System', `Job Started — Data: ${dataDir} | App: ${appName}`, 'info');
 
     if (!fs.existsSync(dataDir)) {
@@ -63,34 +76,49 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
         throw new Error(`No CSV/TXT files found in ${dataDir}.`);
     }
 
-    let session, global;
+    let session = null;
+    let qlikGlobal = null;
+
+    // Determine pipeline flags early — needed before session opens
+    const runArchitect = pipeline.includes('architect');
+    const runEnhancer = pipeline.includes('enhancer');
+
+    // ── Enhancer-only: read base script BEFORE opening the working session ────
+    // This avoids "App already open" — the read session is opened and closed
+    // first, then the working session opens with no conflict.
+    let preloadedBaseScript = null;
+    if (!runArchitect && runEnhancer) {
+        preloadedBaseScript = await fetchLiveBaseScript(appName, broadcast);
+        if (!preloadedBaseScript) return; // error already broadcast
+    }
 
     try {
         broadcast('System', 'Connecting to Qlik Engine...', 'info');
         const connection = await openSession();
         session = connection.session;
-        global = connection.global;
+        qlikGlobal = connection.global;
         broadcast('System', 'Connected to Qlik Engine.', 'success');
         logger.log('System', 'Connected to Qlik Engine');
 
-        const workApp = await global.createSessionApp();
-        await workApp.createConnection({
-            qName: 'SourceData',
-            qConnectionString: path.resolve(dataDir),
-            qType: 'folder'
-        });
+        const workApp = await qlikGlobal.createSessionApp();
+        try {
+            await workApp.createConnection({
+                qName: 'SourceData',
+                qConnectionString: path.resolve(dataDir),
+                qType: 'folder'
+            });
+        } catch (e) {
+            if (!e.message?.includes('already exists')) throw e;
+        }
 
-        const runArchitect = pipeline.includes('architect');
-        const runEnhancer = pipeline.includes('enhancer');
-
-        // ── Phase 1: Profiling (skipped for Enhancer-only) ───────────────
+        // ── Phase 1: Profiling (skipped for Enhancer-only) ───────────────────
         const profiles = {};
         if (runArchitect) {
             broadcast('Architect', '── Phase 1: Profiling Data ──', 'phase');
             logger.log('Architect', 'Starting Data Profiling');
             for (const file of files) {
                 broadcast('Architect', `Profiling ${file}...`, 'info');
-                const profile = await profileData(global, path.resolve(dataDir, file), workApp);
+                const profile = await profileData(qlikGlobal, path.resolve(dataDir, file), workApp);
                 if (profile.error) {
                     broadcast('Architect', `Failed to profile ${file}: ${profile.error}`, 'error');
                     logger.error('Architect', `Profiling failed for ${file}`, profile.error);
@@ -101,16 +129,16 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             if (Object.keys(profiles).length === 0) throw new Error('No data could be profiled.');
             if (io) io.emit('model-artifact', profiles);
         }
-        // ── Phase 1 complete — check before Architect ─────────────────────
+
+        // ── Phase 1 → 2 gate ─────────────────────────────────────────────────
         if (!(await checkControl(ctrl, broadcast))) return;
 
-        // ── Phase 2: Architect ────────────────────────────────────────────
+        // ── Phase 2: Architect / Enhancer-only base read ──────────────────────
         let currentScript = '';
         let success = false;
 
         if (runArchitect) {
             broadcast('Architect', '── Phase 2: Architectural Reasoning ──', 'phase');
-            const CACHE_FILE = '.cache_base_script.qvs';
             const maxAttempts = 3;
             let feedback = null;
 
@@ -119,7 +147,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                 logger.log('Architect', `Generating Script Attempt ${attempt}`);
 
                 const heartbeat = setInterval(async () => {
-                    try { await global.engineVersion(); } catch (e) { /* ignore */ }
+                    try { await qlikGlobal.engineVersion(); } catch (_) { /* ignore */ }
                 }, 5000);
 
                 try {
@@ -133,7 +161,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                     clearInterval(heartbeat);
                 }
 
-                const validation = await validateScript(global, currentScript, workApp);
+                const validation = await validateScript(qlikGlobal, currentScript, workApp);
                 if (validation.success && validation.synKeys === 0) {
                     broadcast('Architect', `✅ Script validated (attempt ${attempt})`, 'success');
                     logger.log('Architect', 'Script Verification Passed', { attempt });
@@ -148,73 +176,98 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                     logger.log('Architect', 'Validation Failed', { synKeys: validation.synKeys, errors: validation.errors });
                     feedback = validation;
                 }
-                // check control between attempts
                 if (success) break;
                 if (!(await checkControl(ctrl, broadcast))) return;
             }
         } else if (runEnhancer) {
-            // Enhancer-only: fetch base script from live app
-            const live = await fetchLiveBaseScript(appName, global, broadcast);
-            if (live) {
-                currentScript = live.baseScript;
+            // preloadedBaseScript was fetched before the working session opened
+            // (see top of runAgent). Re-calling fetchLiveBaseScript here would
+            // conflict with the already-open working session — so we reuse it.
+            if (preloadedBaseScript) {
+                currentScript = preloadedBaseScript;
                 success = true;
             } else {
-                // Fallback: run full pipeline
-                broadcast('System', 'Falling back to full pipeline run.', 'warning');
-                pipeline.push('architect');
-                throw new Error('Enhancer-only fallback requires restart with full pipeline.');
+                return; // fetchLiveBaseScript already broadcast the error
             }
         }
-        // ── Phase 2 complete — check before Enhancer ──────────────────────
+
+        // ── Phase 2 → 3 gate ─────────────────────────────────────────────────
         if (!(await checkControl(ctrl, broadcast))) return;
 
-        // ── Phase 3: Enhancer ─────────────────────────────────────────────
+        // ── Phase 3: Enhancer ─────────────────────────────────────────────────
         if (success && runEnhancer) {
             broadcast('Enhancer', '── Phase 3: Enhancer Agent ──', 'phase');
             logger.log('Enhancer', 'Starting Enrichment Phase (Hybrid)');
 
+            let plan, enrichedScript, report;
+
+            // Stage A: Inspect + Plan
             try {
                 const inspector = require('./.agent/skills/qlik-metadata-inspector/inspector.js');
                 const metadata = await inspector.inspectMetadata(workApp);
-
                 const { generateEnrichmentPlan } = require('./enhancer_brain');
-                const plan = await generateEnrichmentPlan(metadata, currentScript);
+                plan = await generateEnrichmentPlan(metadata, currentScript);
                 broadcast('Enhancer', plan.reasoningSummary, 'reasoning');
-
-                const { composeEnrichment } = require('./enhancer_composer');
-                const { enrichedScript, report } = await composeEnrichment(plan, currentScript, global, workApp);
-
-                report.forEach(r => {
-                    const icon = r.status.startsWith('Applied') ? '✅' : '❌';
-                    broadcast('Enhancer', `${icon} [${r.tier.toUpperCase()}] ${r.tool}: ${r.status}`, r.status.startsWith('Applied') ? 'success' : 'warning');
-                });
-                logger.enhancement('Enhancement Report', report);
-
-                const enhancedValidation = await validateScript(global, enrichedScript, workApp);
-                if (enhancedValidation.success && enhancedValidation.synKeys === 0) {
-                    broadcast('Enhancer', '✅ Enriched script validated.', 'success');
-                    logger.enhancement('Validation Success', 'Hybrid script passed checks.');
-                    currentScript = enrichedScript;
-                    if (io) io.emit('script-update', { phase: 'enhancer', script: currentScript });
-                } else {
-                    broadcast('Enhancer', '⚠️ Enriched script invalid — reverting to base.', 'warning');
-                }
-            } catch (enhancerErr) {
-                broadcast('Enhancer', `Critical error: ${enhancerErr.message}`, 'error');
-                logger.error('Enhancer', 'Critical Runtime Error', enhancerErr);
+            } catch (planErr) {
+                console.error('[Enhancer] Plan stage error:', planErr.stack || planErr);
+                broadcast('Enhancer', `Plan generation failed [${planErr.constructor?.name}]: ${planErr.message}`, 'error');
+                logger.error('Enhancer', 'Plan Stage Error', planErr);
+                plan = null;
             }
+
+            // Stage B: Compose enrichments
+            if (plan) {
+                try {
+                    const { composeEnrichment } = require('./enhancer_composer');
+                    ({ enrichedScript, report } = await composeEnrichment(plan, currentScript, qlikGlobal, workApp));
+
+                    report.forEach(r => {
+                        const ok = r.status.startsWith('Applied');
+                        const icon = ok ? '✅' : '❌';
+                        const reason = !ok && r.reason ? ` — ${r.reason}` : '';
+                        broadcast('Enhancer', `${icon} [${r.tier.toUpperCase()}] ${r.tool}: ${r.status}${reason}`, ok ? 'success' : 'warning');
+                    });
+                    logger.enhancement('Enhancement Report', report);
+                } catch (composeErr) {
+                    console.error('[Enhancer] Compose stage error:', composeErr.stack || composeErr);
+                    broadcast('Enhancer', `Compose failed [${composeErr.constructor?.name}]: ${composeErr.message}`, 'error');
+                    logger.error('Enhancer', 'Compose Stage Error', composeErr);
+                    enrichedScript = null;
+                }
+            }
+
+            // Stage C: Final validation
+            if (enrichedScript) {
+                try {
+                    const enhancedValidation = await validateScript(qlikGlobal, enrichedScript, workApp);
+                    if (enhancedValidation.success && enhancedValidation.synKeys === 0) {
+                        broadcast('Enhancer', '✅ Enriched script validated.', 'success');
+                        logger.enhancement('Validation Success', 'Hybrid script passed checks.');
+                        currentScript = enrichedScript;
+                        if (io) io.emit('script-update', { phase: 'enhancer', script: currentScript });
+                    } else {
+                        broadcast('Enhancer', '⚠️ Enriched script invalid — reverting to base.', 'warning');
+                        if (enhancedValidation.errors?.length) {
+                            enhancedValidation.errors.forEach(e => broadcast('Enhancer', `↳ ${e}`, 'error'));
+                        }
+                    }
+                } catch (valErr) {
+                    console.error('[Enhancer] Validate stage error:', valErr.stack || valErr);
+                    broadcast('Enhancer', `Final validation failed [${valErr.constructor?.name}]: ${valErr.message}`, 'error');
+                }
+            }
+
         } else if (success && !runEnhancer) {
             broadcast('System', 'Enhancer skipped (Architect-only mode).', 'info');
         }
 
-        // ── Phase 4: Finalization ─────────────────────────────────────────
+        // ── Phase 4: Finalization ─────────────────────────────────────────────
         broadcast('System', '── Phase 4: Finalization ──', 'phase');
         if (success) {
             fs.writeFileSync('final_script.qvs', currentScript);
             broadcast('System', 'Final script saved to final_script.qvs', 'success');
             logger.log('System', 'Final Script Saved', { path: 'final_script.qvs' });
 
-            // Phase 5: Promote
             broadcast('System', '── Phase 5: Promoting to Persistent App ──', 'phase');
             if (session) { await closeSession(session); session = null; }
 
@@ -227,7 +280,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             try {
                 await persistentApp.createConnection({ qName: 'SourceData', qConnectionString: path.resolve(dataDir), qType: 'folder' });
             } catch (e) {
-                if (!e.message.includes('already exists')) throw e;
+                if (!e.message?.includes('already exists')) throw e;
             }
             await persistentApp.setScript(currentScript);
             const reloadResult = await persistentApp.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
@@ -252,7 +305,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
         logger.error('System', 'Fatal Process Error', err);
     } finally {
         if (session) {
-            try { await closeSession(session); } catch (e) { /* ignore */ }
+            try { await closeSession(session); } catch (_) { /* ignore */ }
         }
         logger.log('System', 'Process Terminated');
         logger.save();
