@@ -43,11 +43,11 @@ export default function App() {
     return () => socket.off()
   }, [])
 
-  const handleRun = async (dataDir, appName) => {
+  const handleRun = async (dataDir, appName, pipeline) => {
     await fetch('/api/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dataDir, appName })
+      body: JSON.stringify({ dataDir, appName, pipeline })
     })
   }
 
@@ -59,8 +59,8 @@ export default function App() {
         <ControlPanel onRun={handleRun} isRunning={isRunning} />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 20 }}>
-          <ReasoningFeed logs={logs} isRunning={isRunning} />
-          <ScriptForge script={script} phase={scriptPhase} />
+          <div style={{ minWidth: 0 }}><ReasoningFeed logs={logs} isRunning={isRunning} /></div>
+          <div style={{ minWidth: 0 }}><ScriptForge script={script} phase={scriptPhase} /></div>
         </div>
 
         {artifacts && (

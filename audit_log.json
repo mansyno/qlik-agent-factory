@@ -1,125 +1,148 @@
 [
   {
-    "timestamp": "2026-02-21T10:17:41.017Z",
+    "timestamp": "2026-02-22T07:06:47.050Z",
     "category": "System",
     "message": "Logger Initialized",
     "details": null
   },
   {
-    "timestamp": "2026-02-21T10:17:41.020Z",
+    "timestamp": "2026-02-22T07:06:47.050Z",
     "category": "System",
     "message": "Job Started",
     "details": {
-      "dataDir": "./data2",
-      "targetAppName": "Refined_AnalyticalStore_v7"
+      "dataDir": "./northwind",
+      "targetAppName": "northwind_Agent_Output"
     }
   },
   {
-    "timestamp": "2026-02-21T10:17:41.050Z",
+    "timestamp": "2026-02-22T07:06:47.085Z",
     "category": "System",
     "message": "Connected to Qlik Engine",
     "details": null
   },
   {
-    "timestamp": "2026-02-21T10:17:41.159Z",
+    "timestamp": "2026-02-22T07:06:47.557Z",
     "category": "Architect",
     "message": "Starting Data Profiling",
     "details": null
   },
   {
-    "timestamp": "2026-02-21T10:17:42.429Z",
+    "timestamp": "2026-02-22T07:06:49.790Z",
     "category": "Architect",
     "message": "Generating Script Attempt 1",
     "details": null
   },
   {
-    "timestamp": "2026-02-21T10:18:15.138Z",
+    "timestamp": "2026-02-22T07:07:56.332Z",
     "category": "Architect",
-    "message": "Script Verification Passed",
+    "message": "Validation Failed",
     "details": {
-      "attempt": 1
+      "synKeys": 0,
+      "errors": [
+        "Reload failed (Runtime error)"
+      ]
     }
   },
   {
-    "timestamp": "2026-02-21T10:18:15.139Z",
+    "timestamp": "2026-02-22T07:07:56.332Z",
+    "category": "Architect",
+    "message": "Generating Script Attempt 2",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-22T07:10:04.125Z",
+    "category": "Architect",
+    "message": "Script Verification Passed",
+    "details": {
+      "attempt": 2
+    }
+  },
+  {
+    "timestamp": "2026-02-22T07:10:04.126Z",
     "category": "Enhancer",
     "message": "Starting Enrichment Phase (Hybrid)",
     "details": null
   },
   {
-    "timestamp": "2026-02-21T10:18:15.153Z",
+    "timestamp": "2026-02-22T07:10:04.141Z",
     "category": "EnhancerBrain",
     "message": "Generating Enrichment Plan with model: gemini-3-flash-preview",
     "details": null
   },
   {
-    "timestamp": "2026-02-21T10:18:23.535Z",
+    "timestamp": "2026-02-22T07:10:04.367Z",
+    "category": "EnhancerBrain",
+    "message": "429 Quota Error. Waiting 60s before retry 2/3...",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-22T07:11:38.281Z",
     "category": "EnhancerBrain",
     "message": "Enrichment Plan Formulation Complete",
     "details": null
   },
   {
-    "timestamp": "2026-02-21T10:18:23.535Z",
+    "timestamp": "2026-02-22T07:11:38.281Z",
     "category": "Enhancement",
     "message": "Brain Reasoning",
-    "details": "The enrichment plan focuses on establishing a robust temporal framework and advanced customer segmentation. Since a canonical date key (Date_ID) was identified, a Master Calendar and an As-Of Table are implemented to support time-series and rolling-period analysis. A Pareto analysis is applied to the Customer dimension to identify the top 80% of revenue contributors. Market Basket analysis was excluded as the metadata indicates no multi-product orders."
+    "details": "The application contains a primary date field 'orderDate' which necessitates a Master Calendar and an As-Of Table for rolling period analysis. Although 'hasMultiProductOrders' is false (precluding Market Basket analysis), the presence of sales data allows for Pareto segmentation of products based on quantity sold. The plan implements these structural enhancements using standard catalog tools to ensure performance and maintainability."
   },
   {
-    "timestamp": "2026-02-21T10:18:23.537Z",
+    "timestamp": "2026-02-22T07:11:38.300Z",
     "category": "Enhancement",
     "message": "Catalog Tool Executed",
     "details": "Injected master_calendar"
   },
   {
-    "timestamp": "2026-02-21T10:18:23.538Z",
+    "timestamp": "2026-02-22T07:11:38.300Z",
     "category": "Composer",
     "message": "Validating [CATALOG] tool: master_calendar...",
     "details": null
   },
   {
-    "timestamp": "2026-02-21T10:18:25.099Z",
+    "timestamp": "2026-02-22T07:11:38.575Z",
     "category": "Enhancement",
     "message": "Tool Applied",
     "details": "master_calendar committed successfully."
   },
   {
-    "timestamp": "2026-02-21T10:18:25.099Z",
+    "timestamp": "2026-02-22T07:11:38.575Z",
     "category": "Enhancement",
     "message": "Catalog Tool Executed",
     "details": "Injected as_of_table"
   },
   {
-    "timestamp": "2026-02-21T10:18:25.099Z",
+    "timestamp": "2026-02-22T07:11:38.575Z",
     "category": "Composer",
     "message": "Validating [CATALOG] tool: as_of_table...",
     "details": null
   },
   {
-    "timestamp": "2026-02-21T10:18:26.687Z",
+    "timestamp": "2026-02-22T07:11:38.831Z",
     "category": "Enhancement",
     "message": "Tool Applied",
     "details": "as_of_table committed successfully."
   },
   {
-    "timestamp": "2026-02-21T10:18:26.687Z",
+    "timestamp": "2026-02-22T07:11:38.831Z",
     "category": "Enhancement",
     "message": "Catalog Tool Executed",
     "details": "Injected pareto_linked"
   },
   {
-    "timestamp": "2026-02-21T10:18:26.687Z",
+    "timestamp": "2026-02-22T07:11:38.831Z",
     "category": "Composer",
     "message": "Validating [CATALOG] tool: pareto_linked...",
     "details": null
   },
   {
-    "timestamp": "2026-02-21T10:18:28.468Z",
+    "timestamp": "2026-02-22T07:11:39.106Z",
     "category": "Enhancement",
     "message": "Tool Applied",
     "details": "pareto_linked committed successfully."
   },
   {
-    "timestamp": "2026-02-21T10:18:28.469Z",
+    "timestamp": "2026-02-22T07:11:39.107Z",
     "category": "Enhancement",
     "message": "Enhancement Report",
     "details": [
@@ -144,13 +167,13 @@
     ]
   },
   {
-    "timestamp": "2026-02-21T10:18:30.261Z",
+    "timestamp": "2026-02-22T07:11:39.402Z",
     "category": "Enhancement",
     "message": "Validation Success",
     "details": "Hybrid script passed checks."
   },
   {
-    "timestamp": "2026-02-21T10:18:30.262Z",
+    "timestamp": "2026-02-22T07:11:39.403Z",
     "category": "System",
     "message": "Final Script Saved",
     "details": {
@@ -158,7 +181,7 @@
     }
   },
   {
-    "timestamp": "2026-02-21T10:18:32.190Z",
+    "timestamp": "2026-02-22T07:11:39.824Z",
     "category": "System",
     "message": "App Reload Finished",
     "details": {
@@ -166,15 +189,15 @@
     }
   },
   {
-    "timestamp": "2026-02-21T10:18:32.521Z",
+    "timestamp": "2026-02-22T07:11:39.895Z",
     "category": "System",
     "message": "App Saved",
     "details": {
-      "appName": "Refined_AnalyticalStore_v7"
+      "appName": "northwind_Agent_Output"
     }
   },
   {
-    "timestamp": "2026-02-21T10:18:32.523Z",
+    "timestamp": "2026-02-22T07:11:39.897Z",
     "category": "System",
     "message": "Process Terminated",
     "details": null

@@ -97,13 +97,16 @@ async function validateScript(global, scriptContent, app = null) {
             };
         }
 
-        const reloadResult = await sessionApp.doReload();
+        const reloadResult = await sessionApp.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
 
-        if (!reloadResult) {
+        if (!reloadResult.qSuccess) {
+            const errDesc = reloadResult.qErrorDesc
+                ? `${reloadResult.qErrorDesc} (code ${reloadResult.qErrorCode})`
+                : 'Reload failed — no error description returned by engine.';
             return {
                 success: false,
                 synKeys: 0,
-                errors: ['Reload failed (Runtime error)']
+                errors: [`Reload failed (Runtime): ${errDesc}`]
             };
         }
 

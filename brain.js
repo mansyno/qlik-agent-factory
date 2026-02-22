@@ -75,6 +75,13 @@ STRATEGIC GOALS:
 3. Handle naming collisions using ALIAS (AS) manually. Do NOT use QUALIFY *.  
 4. AutoNumber all link keys. For composite keys, use AutoNumber(Hash128(Field1 & '|' & Field2)).
 
+TABLE NAMING RULES (CRITICAL):
+
+* ALL table names MUST be derived directly from the source filename. Strip the file extension and apply a standard prefix: fact tables become Fact_<Name>, dimension tables become Dim_<Name>.
+* Example: orders.csv → Fact_Orders, order_details.csv → Fact_OrderDetails, customers.csv → Dim_Customers.
+* Do NOT invent semantic names (e.g., do NOT rename 'order_details.csv' to 'Sales' or 'Transactions'). The names must be traceable back to the source file at a glance.
+* Exception: the centralized link table is always named exactly [LinkTable].
+
 AUTONUMBER RULES (CRITICAL):
 
 * NEVER apply AutoNumber() to date fields (e.g. Date_ID, OrderDate, ShipDate). Date fields must remain as their original numeric date serial values so the Enhancer can build a Master Calendar. AutoNumber converts dates to meaningless row indexes.  
@@ -89,6 +96,11 @@ TABLE RELATIONSHIP HEURISTICS (CRITICAL):
   * UNIQUE KEYS: Each Fact table must have its own UNIQUE Link Key name (e.g., %Key_Sales, %Key_Shipments).  
   * The Link Table must contain ALL of these unique keys to act as the bridge between facts.  
   * SHARED DIMENSIONS: Move all shared dimensions (Date, CustomerID, ProductID) into the Link Table. Remove or rename them in the Fact tables to prevent direct Fact-to-Dimension association.  
+* HEADER-DETAIL PATTERN (CRITICAL): When a header table (e.g., Orders) has a 1-to-many relationship with a detail table (e.g., OrderDetails), treat them as follows:
+  * The DETAIL table is the lowest-grain fact. It carries the composite link key (e.g., %Key_OrderDetails) into the LinkTable.
+  * The HEADER table connects to the LinkTable via its OWN dimension key ONLY (e.g., %Key_Orders). It must NEVER contain the detail table's composite key.
+  * The header's shared dimension IDs (CustomerID, EmployeeID, ShipperID, OrderDate, etc.) are promoted as columns into the LinkTable.
+  * The header table itself retains only its own dimension key and any non-shared descriptive fields (e.g., shipping address, freight).
 * LEFT JOIN: Only join tables if you can prove a strict 1:1 relationship based on cardinality and primary keys.
 
 LOAD SPECIFICATIONS:

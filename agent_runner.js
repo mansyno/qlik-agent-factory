@@ -9,7 +9,25 @@ const path = require('path');
 const { openSession, closeSession, profileData, validateScript } = require('./qlik_tools');
 const { generateScript } = require('./brain');
 
-async function runAgent({ dataDir, appName, io, broadcastAgentState }) {
+const ENHANCER_MARKER = '// *** ENHANCER AGENT OUTPUT (Hybrid Model) ***';
+
+async function fetchLiveBaseScript(appName, global, broadcast) {
+    try {
+        broadcast('System', `Enhancer-only mode: reading live script from '${appName}'...`, 'info');
+        const appHandle = await global.openDoc(appName);
+        const fullScript = await appHandle.getScript();
+        const parts = fullScript.split(ENHANCER_MARKER);
+        const baseScript = parts[0].trim();
+        if (!baseScript) throw new Error('Base script portion is empty.');
+        broadcast('System', 'Base script extracted from live app. Running Enhancer only.', 'success');
+        return { baseScript, appHandle };
+    } catch (err) {
+        broadcast('System', `Could not read live app — falling back to full run. (${err.message || JSON.stringify(err)})`, 'warning');
+        return null;
+    }
+}
+
+async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer'], io, broadcastAgentState }) {
     const broadcast = broadcastAgentState || ((agent, msg, type) => console.log(`[${agent}] ${msg}`));
 
     const logger = require('./.agent/utils/logger.js');
@@ -46,72 +64,89 @@ async function runAgent({ dataDir, appName, io, broadcastAgentState }) {
             qType: 'folder'
         });
 
-        // ── Phase 1: Profiling ────────────────────────────────────────────
-        broadcast('Architect', '── Phase 1: Profiling Data ──', 'phase');
-        logger.log('Architect', 'Starting Data Profiling');
+        const runArchitect = pipeline.includes('architect');
+        const runEnhancer = pipeline.includes('enhancer');
 
+        // ── Phase 1: Profiling (skipped for Enhancer-only) ───────────────
         const profiles = {};
-        for (const file of files) {
-            broadcast('Architect', `Profiling ${file}...`, 'info');
-            const profile = await profileData(global, path.resolve(dataDir, file), workApp);
-            if (profile.error) {
-                broadcast('Architect', `Failed to profile ${file}: ${profile.error}`, 'error');
-                logger.error('Architect', `Profiling failed for ${file}`, profile.error);
-            } else {
-                profiles[file] = profile;
+        if (runArchitect) {
+            broadcast('Architect', '── Phase 1: Profiling Data ──', 'phase');
+            logger.log('Architect', 'Starting Data Profiling');
+            for (const file of files) {
+                broadcast('Architect', `Profiling ${file}...`, 'info');
+                const profile = await profileData(global, path.resolve(dataDir, file), workApp);
+                if (profile.error) {
+                    broadcast('Architect', `Failed to profile ${file}: ${profile.error}`, 'error');
+                    logger.error('Architect', `Profiling failed for ${file}`, profile.error);
+                } else {
+                    profiles[file] = profile;
+                }
             }
+            if (Object.keys(profiles).length === 0) throw new Error('No data could be profiled.');
+            if (io) io.emit('model-artifact', profiles);
         }
-
-        if (Object.keys(profiles).length === 0) {
-            throw new Error('No data could be profiled.');
-        }
-
-        // Emit model artifact to UI
-        if (io) io.emit('model-artifact', profiles);
 
         // ── Phase 2: Architect ────────────────────────────────────────────
-        broadcast('Architect', '── Phase 2: Architectural Reasoning ──', 'phase');
         let currentScript = '';
         let success = false;
-        const CACHE_FILE = '.cache_base_script.qvs';
-        const maxAttempts = 3;
-        let feedback = null;
 
-        for (let attempt = 1; attempt <= maxAttempts && !success; attempt++) {
-            broadcast('Architect', `Generating Script — Attempt ${attempt}/${maxAttempts}`, 'info');
-            logger.log('Architect', `Generating Script Attempt ${attempt}`);
+        if (runArchitect) {
+            broadcast('Architect', '── Phase 2: Architectural Reasoning ──', 'phase');
+            const CACHE_FILE = '.cache_base_script.qvs';
+            const maxAttempts = 3;
+            let feedback = null;
 
-            const heartbeat = setInterval(async () => {
-                try { await global.engineVersion(); } catch (e) { /* ignore */ }
-            }, 5000);
+            for (let attempt = 1; attempt <= maxAttempts && !success; attempt++) {
+                broadcast('Architect', `Generating Script — Attempt ${attempt}/${maxAttempts}`, 'info');
+                logger.log('Architect', `Generating Script Attempt ${attempt}`);
 
-            try {
-                currentScript = await generateScript({ profiles, feedback, previousScript: currentScript });
-            } catch (err) {
-                broadcast('Architect', `LLM error: ${err.message}`, 'error');
-                logger.error('Architect', 'AI Inference Error', err);
-                clearInterval(heartbeat);
-                continue;
-            } finally {
-                clearInterval(heartbeat);
+                const heartbeat = setInterval(async () => {
+                    try { await global.engineVersion(); } catch (e) { /* ignore */ }
+                }, 5000);
+
+                try {
+                    currentScript = await generateScript({ profiles, feedback, previousScript: currentScript });
+                } catch (err) {
+                    broadcast('Architect', `LLM error: ${err.message}`, 'error');
+                    logger.error('Architect', 'AI Inference Error', err);
+                    clearInterval(heartbeat);
+                    continue;
+                } finally {
+                    clearInterval(heartbeat);
+                }
+
+                const validation = await validateScript(global, currentScript, workApp);
+                if (validation.success && validation.synKeys === 0) {
+                    broadcast('Architect', `✅ Script validated (attempt ${attempt})`, 'success');
+                    logger.log('Architect', 'Script Verification Passed', { attempt });
+                    success = true;
+                    fs.writeFileSync(CACHE_FILE, currentScript);
+                    if (io) io.emit('script-update', { phase: 'architect', script: currentScript });
+                } else {
+                    broadcast('Architect', `Validation failed — SynKeys: ${validation.synKeys}`, 'warning');
+                    if (validation.errors && validation.errors.length > 0) {
+                        validation.errors.forEach(e => broadcast('Architect', `↳ ${e}`, 'error'));
+                    }
+                    logger.log('Architect', 'Validation Failed', { synKeys: validation.synKeys, errors: validation.errors });
+                    feedback = validation;
+                }
             }
-
-            const validation = await validateScript(global, currentScript, workApp);
-            if (validation.success && validation.synKeys === 0) {
-                broadcast('Architect', `✅ Script validated (attempt ${attempt})`, 'success');
-                logger.log('Architect', 'Script Verification Passed', { attempt });
+        } else if (runEnhancer) {
+            // Enhancer-only: fetch base script from live app
+            const live = await fetchLiveBaseScript(appName, global, broadcast);
+            if (live) {
+                currentScript = live.baseScript;
                 success = true;
-                fs.writeFileSync(CACHE_FILE, currentScript);
-                if (io) io.emit('script-update', { phase: 'architect', script: currentScript });
             } else {
-                broadcast('Architect', `Validation failed — SynKeys: ${validation.synKeys}`, 'warning');
-                logger.log('Architect', 'Validation Failed', { synKeys: validation.synKeys, errors: validation.errors });
-                feedback = validation;
+                // Fallback: run full pipeline
+                broadcast('System', 'Falling back to full pipeline run.', 'warning');
+                pipeline.push('architect');
+                throw new Error('Enhancer-only fallback requires restart with full pipeline.');
             }
         }
 
         // ── Phase 3: Enhancer ─────────────────────────────────────────────
-        if (success) {
+        if (success && runEnhancer) {
             broadcast('Enhancer', '── Phase 3: Enhancer Agent ──', 'phase');
             logger.log('Enhancer', 'Starting Enrichment Phase (Hybrid)');
 
@@ -145,6 +180,8 @@ async function runAgent({ dataDir, appName, io, broadcastAgentState }) {
                 broadcast('Enhancer', `Critical error: ${enhancerErr.message}`, 'error');
                 logger.error('Enhancer', 'Critical Runtime Error', enhancerErr);
             }
+        } else if (success && !runEnhancer) {
+            broadcast('System', 'Enhancer skipped (Architect-only mode).', 'info');
         }
 
         // ── Phase 4: Finalization ─────────────────────────────────────────
@@ -170,9 +207,13 @@ async function runAgent({ dataDir, appName, io, broadcastAgentState }) {
                 if (!e.message.includes('already exists')) throw e;
             }
             await persistentApp.setScript(currentScript);
-            const reloadResult = await persistentApp.doReload();
-            broadcast('System', `Reload: ${reloadResult ? '✅ Success' : '❌ Failed'}`, reloadResult ? 'success' : 'error');
-            logger.log('System', 'App Reload Finished', { success: reloadResult });
+            const reloadResult = await persistentApp.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
+            const reloadOk = reloadResult.qSuccess;
+            const reloadMsg = reloadOk
+                ? '✅ Success'
+                : `❌ Failed — ${reloadResult.qErrorDesc || 'no detail'} (code ${reloadResult.qErrorCode})`;
+            broadcast('System', `Reload: ${reloadMsg}`, reloadOk ? 'success' : 'error');
+            logger.log('System', 'App Reload Finished', { success: reloadOk });
 
             await persistentApp.doSave();
             broadcast('System', `App '${appName}' saved successfully.`, 'success');
@@ -183,9 +224,9 @@ async function runAgent({ dataDir, appName, io, broadcastAgentState }) {
         }
 
     } catch (err) {
-        broadcast('System', `Fatal Error: ${err.message}`, 'error');
+        const errMsg = err.message || JSON.stringify(err);
+        broadcast('System', `Fatal Error: ${errMsg}`, 'error');
         logger.error('System', 'Fatal Process Error', err);
-        throw err;
     } finally {
         if (session) {
             try { await closeSession(session); } catch (e) { /* ignore */ }

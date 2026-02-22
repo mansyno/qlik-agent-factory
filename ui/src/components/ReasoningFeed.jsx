@@ -18,10 +18,12 @@ const AGENT_COLORS = {
 }
 
 export default function ReasoningFeed({ logs, isRunning }) {
-    const bottomRef = useRef(null)
+    const containerRef = useRef(null)
 
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+        if (containerRef.current) {
+            containerRef.current.scrollTop = containerRef.current.scrollHeight
+        }
     }, [logs])
 
     return (
@@ -54,7 +56,7 @@ export default function ReasoningFeed({ logs, isRunning }) {
             </div>
 
             {/* Log entries */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0', fontFamily: 'JetBrains Mono, monospace' }}>
+            <div ref={containerRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 0', fontFamily: 'JetBrains Mono, monospace' }}>
                 {logs.length === 0 ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-muted)', fontSize: 13 }}>
                         Waiting for agent events...
@@ -78,7 +80,7 @@ export default function ReasoningFeed({ logs, isRunning }) {
                         </span>
                     </div>
                 ))}
-                <div ref={bottomRef} />
+
             </div>
         </div>
     )

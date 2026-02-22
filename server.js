@@ -29,20 +29,20 @@ app.post('/api/run', async (req, res) => {
     if (agentRunning) {
         return res.status(409).json({ error: 'Agent is already running.' });
     }
-    const { dataDir, appName } = req.body;
+    const { dataDir, appName, pipeline = ['architect', 'enhancer'] } = req.body;
     if (!dataDir || !appName) {
         return res.status(400).json({ error: 'dataDir and appName are required.' });
     }
 
     res.json({ status: 'started' });
     agentRunning = true;
-    io.emit('job-started', { dataDir, appName });
+    io.emit('job-started', { dataDir, appName, pipeline });
 
     try {
         const { runAgent } = require('./agent_runner');
-        await runAgent({ dataDir, appName, io, broadcastAgentState });
+        await runAgent({ dataDir, appName, pipeline, io, broadcastAgentState });
     } catch (err) {
-        broadcastAgentState('System', `Fatal error: ${err.message}`, 'error');
+        // agent_runner already broadcasts the error — no double-emit needed
     } finally {
         agentRunning = false;
         io.emit('job-complete');

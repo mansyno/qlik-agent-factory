@@ -1,16 +1,16 @@
 import { Database, Calendar, Key, Hash } from 'lucide-react'
 
-function getFieldIcon(tags) {
-    if (!tags) return <Hash size={11} />
-    if (tags.includes('$date') || tags.includes('$timestamp')) return <Calendar size={11} color="#f97316" />
-    if (tags.includes('$key') || tags.includes('$primarykey')) return <Key size={11} color="#2f81f7" />
+function getFieldIcon(name) {
+    const l = name.toLowerCase()
+    if (l.includes('date') || l.includes('time')) return <Calendar size={11} color="#f97316" />
+    if (l.startsWith('%key') || l.endsWith('_id') || l === 'id') return <Key size={11} color="#2f81f7" />
     return <Database size={11} color="#8b949e" />
 }
 
 function TableCard({ name, profile }) {
-    const fields = Object.entries(profile.fields || {})
-    const rowCount = profile.rowCount || 0
-    const dateFields = fields.filter(([, f]) => f.tags?.includes('$date') || f.tags?.includes('$timestamp'))
+    const fields = profile.fields || []
+    const dateFields = fields.filter(f => f.name.toLowerCase().includes('date') || f.name.toLowerCase().includes('time'))
+    const maxCard = fields.length > 0 ? Math.max(...fields.map(f => f.distinctCount || 0)) : 0
 
     return (
         <div style={{
@@ -41,23 +41,24 @@ function TableCard({ name, profile }) {
 
             {/* Stats */}
             <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
-                <Stat label="Rows" value={rowCount.toLocaleString()} />
                 <Stat label="Fields" value={fields.length} />
+                <Stat label="Max Cardinality" value={maxCard.toLocaleString()} />
                 {dateFields.length > 0 && <Stat label="Dates" value={dateFields.length} color="var(--color-warning)" />}
             </div>
 
-            {/* Top fields preview */}
+            {/* Fields preview */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {fields.slice(0, 8).map(([fname, fval]) => (
-                    <div key={fname} style={{
+                {fields.slice(0, 8).map(f => (
+                    <div key={f.name} style={{
                         display: 'flex', alignItems: 'center', gap: 4,
                         padding: '2px 7px', borderRadius: 4,
                         background: 'var(--color-surface2)',
                         fontSize: 11, color: 'var(--color-muted)',
                         fontFamily: 'JetBrains Mono, monospace',
                     }}>
-                        {getFieldIcon(fval?.tags)}
-                        {fname}
+                        {getFieldIcon(f.name)}
+                        {f.name}
+                        <span style={{ color: 'var(--color-border)', fontSize: 10 }}>{f.distinctCount}</span>
                     </div>
                 ))}
                 {fields.length > 8 && (
