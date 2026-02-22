@@ -78,7 +78,7 @@ Your job is to analyze the metadata of a Qlik Sense application and decide how t
   - **Tier 2 (The Forge):** Used ONLY for truly unique, one-off logic with absolutely NO equivalent in the Catalog. This is a LAST RESORT.
 - **Trend Analysis Requirement:** If you find a primary date field (e.g., [Date_ID], [OrderDate]), you MUST suggest the [as_of_table] tool.
 - **Pareto Requirement:** If you want to perform any 80/20 or Pareto segmentation, you MUST use the [pareto_linked] catalog tool. Do NOT forge a Pareto pattern.
-- **Market Basket Rule:** Check the metadata field 'hasMultiProductOrders'. If it is 'true', you MAY suggest the [market_basket] catalog tool. If it is 'false' or missing, you MUST NOT suggest [market_basket] — the data has only one product per order and the tool will produce an empty table.
+- **Market Basket Rule:** You MAY suggest the [market_basket] catalog tool if you identify transactional fact data with both an ID/Header field and a Line Item/Product field. The execution engine will dynamically verify if a 1-to-many relationship actually exists before applying it.
 
 ## **2. The Toolbox Manifest (Catalog - Tier 1)**
 Prioritize these for reliability. Match the 'id' exactly and provide ALL required parameters.

@@ -62,6 +62,33 @@ function executeForgeTool(toolDefinition) {
 }
 
 /**
+ * Dynamically checks if a 1-to-many relationship exists between two fields
+ * by querying the Qlik Engine. Used to validate Market Basket viability.
+ */
+async function checkOneToManyViability(sessionApp, idField, itemField) {
+    try {
+        const hypercubeDef = {
+            qInfo: { qType: "ViabilityCheck" },
+            qHyperCubeDef: {
+                qDimensions: [{ qDef: { qFieldDefs: [idField] } }],
+                qMeasures: [{ qDef: { qDef: `Count(Distinct [${itemField}])` } }],
+                qInitialDataFetch: [{ qTop: 0, qLeft: 0, qHeight: 50, qWidth: 2 }],
+                qSuppressZero: true,
+                qSuppressMissing: true
+            }
+        };
+        const hcObject = await sessionApp.createSessionObject(hypercubeDef);
+        const hcLayout = await hcObject.getLayout();
+        const rows = hcLayout.qHyperCube.qDataPages[0]?.qMatrix || [];
+        // If any group has > 1 distinct item, it's 1-to-many
+        return rows.some(row => row[1]?.qNum > 1);
+    } catch (e) {
+        logger.error('Composer', 'Failed viability check', e);
+        return false;
+    }
+}
+
+/**
  * Composes the final enrichment script based on the AI's plan.
  * - Tier 1 (Catalog): Validated in sandbox. If it fails, skip and log. No LLM self-heal.
  * - Tier 2 (Forge): Validated in sandbox. If it fails, one LLM self-heal attempt is made.
@@ -88,6 +115,24 @@ async function composeEnrichment(plan, baseScript, sessionGlobal, sessionApp) {
         let proposedSnippet = "";
 
         try {
+            // --- STEP 0: Pre-validation for specific tools ---
+            if (toolIdentifier === 'market_basket' && tool.parameters) {
+                const { idField, itemField } = tool.parameters;
+                logger.log('Composer', `Checking 1-to-many viability for [${idField}] -> [${itemField}]...`);
+                const isViable = await checkOneToManyViability(sessionApp, idField, itemField);
+                if (!isViable) {
+                    enhancementReport.push({
+                        tool: toolIdentifier,
+                        tier: 'catalog',
+                        status: 'Rejected',
+                        reason: `Data does not support market basket (Max 1 distinct '${itemField}' per '${idField}')`
+                    });
+                    logger.error('Composer', `Basket rejected: No 1-to-many relationship found.`);
+                    appliedEnrichments += `\n// --- CATALOG TOOL: ${toolIdentifier} (REJECTED) ---\n// Reason: No 1-to-many relationship found for ${idField}->${itemField}\n`;
+                    continue;
+                }
+            }
+
             // --- STEP 1: Generate the snippet ---
             if (tool.tier === 'catalog') {
                 proposedSnippet = executeCatalogTool(tool, catalog);
