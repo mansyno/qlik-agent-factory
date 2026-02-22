@@ -1,0 +1,39 @@
+{
+    "qInfo": {
+        "qType": "barchart"
+    },
+    "qHyperCubeDef": {
+        "qDimensions": [
+            {
+                "qLibraryId": "{{DIMENSION_1}}",
+                "qDef": {},
+                "qNullSuppression": true
+            }
+        ],
+        "qMeasures": [
+            {
+                "qLibraryId": "{{MEASURE_1}}",
+                "qDef": {}
+            }
+        ],
+        "qInterColumnSortOrder": [
+            1,
+            0
+        ],
+        "qInitialDataFetch": [
+            {
+                "qLeft": 0,
+                "qTop": 0,
+                "qWidth": 2,
+                "qHeight": 5000
+            }
+        ]
+    },
+    "title": "{{TITLE}}",
+    "showTitles": true,
+    "visualization": "barchart",
+    "orientation": "horizontal",
+    "color": {
+        "auto": true
+    }
+}

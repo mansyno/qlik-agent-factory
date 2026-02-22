@@ -1,0 +1,35 @@
+{
+    "qInfo": {
+        "qType": "table"
+    },
+    "qHyperCubeDef": {
+        "qDimensions": [
+            {
+                "qLibraryId": "{{DIMENSION_1}}",
+                "qDef": {},
+                "qNullSuppression": true
+            }
+        ],
+        "qMeasures": [
+            {
+                "qLibraryId": "{{MEASURE_1}}",
+                "qDef": {}
+            }
+        ],
+        "qInterColumnSortOrder": [
+            0,
+            1
+        ],
+        "qInitialDataFetch": [
+            {
+                "qLeft": 0,
+                "qTop": 0,
+                "qWidth": 10,
+                "qHeight": 1000
+            }
+        ]
+    },
+    "title": "{{TITLE}}",
+    "showTitles": true,
+    "visualization": "table"
+}

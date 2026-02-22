@@ -1,0 +1,28 @@
+{
+    "qInfo": {
+        "qType": "kpi"
+    },
+    "qHyperCubeDef": {
+        "qDimensions": [],
+        "qMeasures": [
+            {
+                "qLibraryId": "{{MEASURE_1}}",
+                "qDef": {}
+            }
+        ],
+        "qInterColumnSortOrder": [
+            0
+        ],
+        "qInitialDataFetch": [
+            {
+                "qLeft": 0,
+                "qTop": 0,
+                "qWidth": 1,
+                "qHeight": 1
+            }
+        ]
+    },
+    "title": "{{TITLE}}",
+    "showTitles": true,
+    "visualization": "kpi"
+}

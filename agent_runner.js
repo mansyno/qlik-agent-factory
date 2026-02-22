@@ -294,6 +294,39 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             await persistentApp.doSave();
             broadcast('System', `App '${appName}' saved successfully.`, 'success');
             logger.log('System', 'App Saved', { appName });
+
+            // --- PHASE 6: UI LAYOUT GENERATION (AGENT 4) ---
+            if (runLayout) {
+                broadcast('System', '── Phase 6: Layout & Semantic Injection ──', 'phase');
+                broadcast('System', 'Synthesizing Dashboard Blueprint (Sub-Agent A & B)...', 'system');
+                logger.log('Runner', 'Starting Layout Agent generation sequence.');
+
+                // Simplified summary of model for prompt
+                const tableList = await persistentApp.getTablesAndKeys({ qWindowSize: { qcx: 100, qcy: 100 }, qNullSize: { qcx: 0, qcy: 0 }, qCellHeight: 0, qSyntheticMode: false, qIncludeSysVars: false });
+
+                // Format table strings simply for LLM to reason out Facts/Dims
+                let modelExcerpt = "TABLES IN APP:\n";
+                if (tableList.qtr && tableList.qtr.length > 0) {
+                    for (const table of tableList.qtr) {
+                        modelExcerpt += `- ${table.qName} (Columns: ${tableList.qDataPages[0].qMatrix.filter(row => row[0].qText === table.qName).map(row => row[1].qText).join(', ')})\n`;
+                    }
+                }
+
+                const blueprint = await generateLayoutPlan(modelExcerpt);
+
+                if (blueprint) {
+                    broadcast('System', 'Building App Dashboard using JSON Vaccines (Sub-Agent C)...', 'system');
+                    const layoutSuccess = await composeLayout(persistentApp, blueprint);
+                    if (layoutSuccess) {
+                        broadcast('System', 'Executive Dashboard successfully mounted in .qvf.', 'success');
+                    } else {
+                        broadcast('System', 'Layout composition failed.', 'error');
+                    }
+                } else {
+                    broadcast('System', 'Layout brain failed to synthesize a blueprint.', 'error');
+                }
+            }
+
         } else {
             broadcast('Architect', '❌ Failed to generate valid script within attempt limit.', 'error');
             logger.error('Architect', 'Failed to generate script after max attempts');
