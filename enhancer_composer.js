@@ -39,6 +39,13 @@ function executeCatalogTool(toolDefinition, catalog) {
         script = script.replace(regex, value);
     }
 
+    // Detect any unreplaced {{placeholder}} — means LLM omitted required parameters
+    const missing = [...script.matchAll(/{{(\w+)}}/g)].map(m => m[1]);
+    if (missing.length > 0) {
+        logger.error('Composer', `Catalog tool '${toolId}' has unreplaced parameters: ${missing.join(', ')}`);
+        return null; // Signal failure with a clear reason via the caller's report
+    }
+
     logger.enhancement('Catalog Tool Executed', `Injected ${toolId}`);
     return script;
 }
