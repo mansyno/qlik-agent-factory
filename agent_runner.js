@@ -11,6 +11,21 @@ const { generateScript } = require('./brain');
 
 const ENHANCER_MARKER = '// *** ENHANCER AGENT OUTPUT (Hybrid Model) ***';
 
+// Pause/stop gate — call between operations. Returns true to continue, false to abort.
+async function checkControl(ctrl, broadcast) {
+    if (!ctrl) return true;
+    if (ctrl.paused && !ctrl.stopRequested) {
+        broadcast('System', '⏸ Job paused — press Resume to continue.', 'warning');
+        await new Promise(resolve => { ctrl.resumeCallback = resolve; });
+        if (!ctrl.stopRequested) broadcast('System', '▶ Job resumed.', 'success');
+    }
+    if (ctrl.stopRequested) {
+        broadcast('System', '⏹ Job stopped by user.', 'warning');
+        return false;
+    }
+    return true;
+}
+
 async function fetchLiveBaseScript(appName, global, broadcast) {
     try {
         broadcast('System', `Enhancer-only mode: reading live script from '${appName}'...`, 'info');
@@ -27,7 +42,8 @@ async function fetchLiveBaseScript(appName, global, broadcast) {
     }
 }
 
-async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer'], io, broadcastAgentState }) {
+async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer'], io, broadcastAgentState, agentControl }) {
+    const ctrl = agentControl || null;
     const broadcast = broadcastAgentState || ((agent, msg, type) => console.log(`[${agent}] ${msg}`));
 
     const logger = require('./.agent/utils/logger.js');
@@ -85,6 +101,8 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             if (Object.keys(profiles).length === 0) throw new Error('No data could be profiled.');
             if (io) io.emit('model-artifact', profiles);
         }
+        // ── Phase 1 complete — check before Architect ─────────────────────
+        if (!(await checkControl(ctrl, broadcast))) return;
 
         // ── Phase 2: Architect ────────────────────────────────────────────
         let currentScript = '';
@@ -130,6 +148,9 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                     logger.log('Architect', 'Validation Failed', { synKeys: validation.synKeys, errors: validation.errors });
                     feedback = validation;
                 }
+                // check control between attempts
+                if (success) break;
+                if (!(await checkControl(ctrl, broadcast))) return;
             }
         } else if (runEnhancer) {
             // Enhancer-only: fetch base script from live app
@@ -144,6 +165,8 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                 throw new Error('Enhancer-only fallback requires restart with full pipeline.');
             }
         }
+        // ── Phase 2 complete — check before Enhancer ──────────────────────
+        if (!(await checkControl(ctrl, broadcast))) return;
 
         // ── Phase 3: Enhancer ─────────────────────────────────────────────
         if (success && runEnhancer) {

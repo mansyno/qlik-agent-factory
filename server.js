@@ -15,6 +15,13 @@ app.use(cors());
 app.use(express.json());
 
 let agentRunning = false;
+const agentControl = { stopRequested: false, paused: false, resumeCallback: null };
+
+function resetControl() {
+    agentControl.stopRequested = false;
+    agentControl.paused = false;
+    agentControl.resumeCallback = null;
+}
 
 // ─── Broadcast Helper ────────────────────────────────────────────────────────
 // Always logs to terminal AND emits to all connected UI clients.
@@ -36,18 +43,50 @@ app.post('/api/run', async (req, res) => {
 
     res.json({ status: 'started' });
     agentRunning = true;
+    resetControl();
     io.emit('job-started', { dataDir, appName, pipeline });
 
     try {
         const { runAgent } = require('./agent_runner');
-        await runAgent({ dataDir, appName, pipeline, io, broadcastAgentState });
+        await runAgent({ dataDir, appName, pipeline, io, broadcastAgentState, agentControl });
     } catch (err) {
         // agent_runner already broadcasts the error — no double-emit needed
     } finally {
         agentRunning = false;
+        agentControl.paused = false;
         io.emit('job-complete');
     }
 });
+
+// ─── API: Stop Job ────────────────────────────────────────────────────────
+app.post('/api/stop', (req, res) => {
+    if (!agentRunning) return res.status(409).json({ error: 'No job running.' });
+    agentControl.stopRequested = true;
+    if (agentControl.resumeCallback) agentControl.resumeCallback(); // unblock pause so stop check runs
+    io.emit('job-stopping');
+    res.json({ status: 'stop requested' });
+});
+
+// ─── API: Pause Job ───────────────────────────────────────────────────────
+app.post('/api/pause', (req, res) => {
+    if (!agentRunning) return res.status(409).json({ error: 'No job running.' });
+    agentControl.paused = true;
+    io.emit('job-paused');
+    res.json({ status: 'paused' });
+});
+
+// ─── API: Resume Job ──────────────────────────────────────────────────────
+app.post('/api/resume', (req, res) => {
+    if (!agentRunning) return res.status(409).json({ error: 'No job running.' });
+    agentControl.paused = false;
+    if (agentControl.resumeCallback) {
+        agentControl.resumeCallback();
+        agentControl.resumeCallback = null;
+    }
+    io.emit('job-resumed');
+    res.json({ status: 'resumed' });
+});
+
 
 // ─── WebSocket Connection ─────────────────────────────────────────────────
 io.on('connection', (socket) => {
