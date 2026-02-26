@@ -2,34 +2,51 @@
     "qInfo": {
         "qType": "table"
     },
+    "qExtendsId": "",
+    "qMetaDef": {
+        "title": "{{TITLE}}"
+    },
     "qHyperCubeDef": {
         "qDimensions": [
             {
                 "qLibraryId": "{{DIMENSION_1}}",
-                "qDef": {},
                 "qNullSuppression": true
             }
         ],
         "qMeasures": [
             {
-                "qLibraryId": "{{MEASURE_1}}",
-                "qDef": {}
+                "qLibraryId": "{{MEASURE_1}}"
             }
         ],
-        "qInterColumnSortOrder": [
-            0,
-            1
-        ],
+        "qSuppressZero": false,
+        "qSuppressMissing": false,
         "qInitialDataFetch": [
             {
                 "qLeft": 0,
                 "qTop": 0,
-                "qWidth": 10,
-                "qHeight": 1000
+                "qWidth": 2,
+                "qHeight": 50
             }
         ]
     },
-    "title": "{{TITLE}}",
     "showTitles": true,
+    "title": "{{TITLE}}",
+    "subtitle": "",
+    "footnote": "",
+    "disableNavMenu": false,
+    "showDetails": true,
+    "showDetailsExpression": false,
+    "totals": {
+        "show": true,
+        "position": "noTotals",
+        "label": "Totals"
+    },
+    "scrolling": {
+        "preserveScrollPosition": false
+    },
+    "multiline": {
+        "wrapTextInHeaders": true,
+        "wrapTextInCells": true
+    },
     "visualization": "table"
 }

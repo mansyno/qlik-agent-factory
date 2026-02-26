@@ -13,27 +13,60 @@ function loadTemplate(templateId) {
     }
 }
 
-async function createMasterItem(sessionApp, type, id, title, expression) {
-    logger.log('LayoutComposer', `Creating Master ${type} '${id}' -> ${expression}`);
-    const qInfo = { qId: id, qType: type };
+async function findMasterItem(sessionApp, type, id) {
+    const listDef = {
+        qInfo: { qType: type === 'measure' ? 'MeasureList' : 'DimensionList' },
+        [type === 'measure' ? 'qMeasureListDef' : 'qDimensionListDef']: {
+            qType: type,
+            qData: { description: '/qMetaDef/description' }
+        }
+    };
+    const sessionObj = await sessionApp.createSessionObject(listDef);
+    const layout = await sessionObj.getLayout();
+    const items = type === 'measure' ? layout.qMeasureList.qItems : layout.qDimensionList.qItems;
+    await sessionApp.destroySessionObject(layout.qInfo.qId);
 
-    let props = {};
+    for (const item of items) {
+        const desc = (item.qData && item.qData.description) || (item.qMeta && item.qMeta.description);
+        if (desc === `Agent generated ${type}: ${id}`) {
+            return item.qInfo.qId;
+        }
+    }
+    return null;
+}
+
+async function createMasterItem(sessionApp, type, id, title, expression) {
+    const existingId = await findMasterItem(sessionApp, type, id);
+    if (existingId) {
+        logger.log('LayoutComposer', `Master ${type} '${id}' already exists as ${existingId}. Reusing.`);
+        return existingId;
+    }
+
+    logger.log('LayoutComposer', `Creating Master ${type} '${id}' -> ${expression}`);
+    const qInfo = { qType: type }; // Let Qlik generate the UUID
+
     if (type === 'measure') {
-        props = {
+        const props = {
             qInfo,
             qMeasure: { qLabel: title, qDef: expression },
             qMetaDef: { title, description: `Agent generated measure: ${id}` }
         };
         const handle = await sessionApp.createMeasure(props);
-        return handle;
+        const layout = await handle.getLayout();
+        return layout.qInfo.qId;
     } else if (type === 'dimension') {
-        props = {
+        const props = {
             qInfo,
-            qDim: { qLabel: title, qFieldDefs: [expression] },
+            qDim: {
+                qGrouping: "N",
+                qFieldDefs: [expression],
+                qFieldLabels: [title]
+            },
             qMetaDef: { title, description: `Agent generated dimension: ${id}` }
         };
         const handle = await sessionApp.createDimension(props);
-        return handle;
+        const layout = await handle.getLayout();
+        return layout.qInfo.qId;
     }
 }
 
@@ -51,7 +84,19 @@ async function injectAndCreateObject(sessionApp, sheetObj, widgetDef) {
     const objHandle = await sessionApp.createObject(jsonProps);
     const objLayout = await objHandle.getLayout();
 
-    logger.layout('LayoutComposer', `Created ${widgetDef.templateId} chart: ${objLayout.qInfo.qId}`);
+    if (objLayout.qHyperCube) {
+        const hc = objLayout.qHyperCube;
+        logger.log('LayoutComposer', `Chart "${widgetDef.title}" Engine Diagnostics: qcx=${hc.qSize?.qcx}, qcy=${hc.qSize?.qcy}, dataPagesLength=${hc.qDataPages?.length || 0}`);
+        if (hc.qDimensionInfo && hc.qDimensionInfo[0]) {
+            logger.log('LayoutComposer', `   Dim Fallback: ${hc.qDimensionInfo[0].qFallbackTitle}`);
+        }
+        if (hc.qMeasureInfo && hc.qMeasureInfo[0]) {
+            logger.log('LayoutComposer', `   Msr Fallback: ${hc.qMeasureInfo[0].qFallbackTitle}`);
+        }
+    }
+
+    logger.log('LayoutComposer', `Created ${widgetDef.templateId} chart: ${objLayout.qInfo.qId}`);
+
     return {
         id: objLayout.qInfo.qId,
         grid: widgetDef.grid
@@ -65,13 +110,34 @@ async function composeLayout(sessionApp, layoutPlan) {
     }
 
     try {
-        // Step 1: Create Master Items
+        // Step 1: Create Master Items and capture their true Engine IDs
         logger.log('LayoutComposer', '--- Phase 1: Creating Master Items ---');
+        const idMap = {};
+
         for (const dim of layoutPlan.masterItems?.dimensions || []) {
-            await createMasterItem(sessionApp, 'dimension', dim.id, dim.title, dim.expression);
+            const realId = await createMasterItem(sessionApp, 'dimension', dim.id, dim.title, dim.expression);
+            idMap[dim.id] = realId;
         }
         for (const msr of layoutPlan.masterItems?.measures || []) {
-            await createMasterItem(sessionApp, 'measure', msr.id, msr.title, msr.expression);
+            const realId = await createMasterItem(sessionApp, 'measure', msr.id, msr.title, msr.expression);
+            idMap[msr.id] = realId;
+        }
+
+        // Setup fallbacks in case the LLM unlinks a chart or hallucinated an array
+        const fallbackDimId = layoutPlan.masterItems?.dimensions?.[0]?.id || null;
+        const fallbackMsrId = layoutPlan.masterItems?.measures?.[0]?.id || null;
+
+        // Apply true IDs to blueprint
+        for (const widget of layoutPlan.blueprint) {
+            let dimId = widget.masterDimensionId || (widget.dimensions && widget.dimensions[0]) || fallbackDimId;
+            let msrId = widget.masterMeasureId || (widget.measures && widget.measures[0]) || fallbackMsrId;
+
+            if (dimId && idMap[dimId]) {
+                widget.masterDimensionId = idMap[dimId];
+            }
+            if (msrId && idMap[msrId]) {
+                widget.masterMeasureId = idMap[msrId];
+            }
         }
 
         // Step 2: Create Base Sheet
@@ -79,12 +145,18 @@ async function composeLayout(sessionApp, layoutPlan) {
         const sheetProps = {
             qInfo: { qType: 'sheet' },
             qMetaDef: { title: 'Executive Dashboard (Agent Generated)', description: 'Auto-generated by Agent 4' },
-            cells: []
+            columns: 24,
+            rows: 24,
+            gridResolution: 'small',
+            cells: [],
+            qChildListDef: {
+                qData: { title: '/title' }
+            }
         };
         const sheetObj = await sessionApp.createObject(sheetProps);
         const sheetLayout = await sheetObj.getLayout();
         const sheetId = sheetLayout.qInfo.qId;
-        logger.layout('LayoutComposer', `Base sheet created with ID: ${sheetId}`);
+        logger.log('LayoutComposer', `Base sheet created with ID: ${sheetId}`);
 
         // Step 3: Inject & Create Charts
         logger.log('LayoutComposer', '--- Phase 3: Building & Mounting Charts ---');
@@ -99,7 +171,13 @@ async function composeLayout(sessionApp, layoutPlan) {
                     col: chartData.grid.x,
                     row: chartData.grid.y,
                     colspan: chartData.grid.width,
-                    rowspan: chartData.grid.height
+                    rowspan: chartData.grid.height,
+                    bounds: {
+                        y: (chartData.grid.y * 100) / 24,
+                        x: (chartData.grid.x * 100) / 24,
+                        width: (chartData.grid.width * 100) / 24,
+                        height: (chartData.grid.height * 100) / 24
+                    }
                 });
             }
         }
@@ -108,10 +186,11 @@ async function composeLayout(sessionApp, layoutPlan) {
         const finalSheetProps = await sheetObj.getProperties();
         finalSheetProps.cells = createdCells;
         await sheetObj.setProperties(finalSheetProps);
-        logger.layout('LayoutComposer', `Successfully mounted ${createdCells.length} objects to Dashboard.`);
+        logger.log('LayoutComposer', `Successfully mounted ${createdCells.length} objects to Dashboard.`);
 
         return true;
     } catch (e) {
+        console.error("DEBUG LayoutComposer Error:", e);
         logger.error('LayoutComposer', 'Critical failure during Layout Assembly', e);
         return false;
     }

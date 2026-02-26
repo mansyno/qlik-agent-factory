@@ -8,6 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const { openSession, openSessionForApp, closeSession, profileData, validateScript } = require('./qlik_tools');
 const { generateScript } = require('./brain');
+const { generateLayoutPlan } = require('./layout_brain');
+const { composeLayout } = require('./layout_composer');
 
 const ENHANCER_MARKER = '// *** ENHANCER AGENT OUTPUT (Hybrid Model) ***';
 const CACHE_FILE = '.cache_base_script.qvs';
@@ -82,14 +84,15 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
     // Determine pipeline flags early — needed before session opens
     const runArchitect = pipeline.includes('architect');
     const runEnhancer = pipeline.includes('enhancer');
+    const runLayout = pipeline.includes('layout');
 
-    // ── Enhancer-only: read base script BEFORE opening the working session ────
+    // ── Enhancer/Layout-only: read base script BEFORE opening the working session ────
     // This avoids "App already open" — the read session is opened and closed
     // first, then the working session opens with no conflict.
     let preloadedBaseScript = null;
-    if (!runArchitect && runEnhancer) {
+    if (!runArchitect && (runEnhancer || runLayout)) {
         preloadedBaseScript = await fetchLiveBaseScript(appName, broadcast);
-        if (!preloadedBaseScript) return; // error already broadcast
+        if (!preloadedBaseScript && runEnhancer) return; // fatal for enhancer, layout can ignore
     }
 
     try {
@@ -179,12 +182,15 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                 if (success) break;
                 if (!(await checkControl(ctrl, broadcast))) return;
             }
-        } else if (runEnhancer) {
+        } else if (runEnhancer || runLayout) {
             // preloadedBaseScript was fetched before the working session opened
             // (see top of runAgent). Re-calling fetchLiveBaseScript here would
             // conflict with the already-open working session — so we reuse it.
             if (preloadedBaseScript) {
                 currentScript = preloadedBaseScript;
+                success = true;
+            } else if (runLayout && !runEnhancer) {
+                // Layout only mode doesn't strictly need the base script to exist
                 success = true;
             } else {
                 return; // fetchLiveBaseScript already broadcast the error
@@ -262,8 +268,12 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
         }
 
         // ── Phase 4: Finalization ─────────────────────────────────────────────
-        broadcast('System', '── Phase 4: Finalization ──', 'phase');
-        if (success) {
+
+        let persistentApp = null;
+        const { openSession: openS, createPersistentApp } = require('./qlik_tools');
+
+        if (success && (runArchitect || runEnhancer)) {
+            broadcast('System', '── Phase 4: Finalization ──', 'phase');
             fs.writeFileSync('final_script.qvs', currentScript);
             broadcast('System', 'Final script saved to final_script.qvs', 'success');
             logger.log('System', 'Final Script Saved', { path: 'final_script.qvs' });
@@ -271,12 +281,11 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             broadcast('System', '── Phase 5: Promoting to Persistent App ──', 'phase');
             if (session) { await closeSession(session); session = null; }
 
-            const { openSession: openS, createPersistentApp } = require('./qlik_tools');
             const conn2 = await openS();
             session = conn2.session;
             const promoGlobal = conn2.global;
 
-            const persistentApp = await createPersistentApp(promoGlobal, appName);
+            persistentApp = await createPersistentApp(promoGlobal, appName);
             try {
                 await persistentApp.createConnection({ qName: 'SourceData', qConnectionString: path.resolve(dataDir), qType: 'folder' });
             } catch (e) {
@@ -294,40 +303,57 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             await persistentApp.doSave();
             broadcast('System', `App '${appName}' saved successfully.`, 'success');
             logger.log('System', 'App Saved', { appName });
+        }
 
-            // --- PHASE 6: UI LAYOUT GENERATION (AGENT 4) ---
-            if (runLayout) {
-                broadcast('System', '── Phase 6: Layout & Semantic Injection ──', 'phase');
-                broadcast('System', 'Synthesizing Dashboard Blueprint (Sub-Agent A & B)...', 'system');
-                logger.log('Runner', 'Starting Layout Agent generation sequence.');
+        // --- PHASE 6: UI LAYOUT GENERATION (AGENT 4) ---
+        if (runLayout && success) {
+            broadcast('System', '── Phase 6: Layout & Semantic Injection ──', 'phase');
 
-                // Simplified summary of model for prompt
-                const tableList = await persistentApp.getTablesAndKeys({ qWindowSize: { qcx: 100, qcy: 100 }, qNullSize: { qcx: 0, qcy: 0 }, qCellHeight: 0, qSyntheticMode: false, qIncludeSysVars: false });
+            // If we skipped Phase 4/5 (Layout Only mode), we need to open the existing app
+            if (!persistentApp) {
+                broadcast('System', `Opening existing app '${appName}'...`, 'info');
+                if (session) { await closeSession(session); session = null; }
+                const conn3 = await openS();
+                session = conn3.session;
 
-                // Format table strings simply for LLM to reason out Facts/Dims
-                let modelExcerpt = "TABLES IN APP:\n";
-                if (tableList.qtr && tableList.qtr.length > 0) {
-                    for (const table of tableList.qtr) {
-                        modelExcerpt += `- ${table.qName} (Columns: ${tableList.qDataPages[0].qMatrix.filter(row => row[0].qText === table.qName).map(row => row[1].qText).join(', ')})\n`;
-                    }
+                const docList = await conn3.global.getDocList();
+                const targetDoc = docList.find(d => d.qDocName === appName || d.qTitle === appName);
+                if (!targetDoc) {
+                    throw new Error(`Cannot run Layout Agent: App '${appName}' does not exist.`);
                 }
+                persistentApp = await conn3.global.openDoc(targetDoc.qDocId);
+            }
 
-                const blueprint = await generateLayoutPlan(modelExcerpt);
+            broadcast('System', 'Synthesizing Dashboard Blueprint (Sub-Agent A & B)...', 'system');
+            logger.log('Runner', 'Starting Layout Agent generation sequence.');
 
-                if (blueprint) {
-                    broadcast('System', 'Building App Dashboard using JSON Vaccines (Sub-Agent C)...', 'system');
-                    const layoutSuccess = await composeLayout(persistentApp, blueprint);
-                    if (layoutSuccess) {
-                        broadcast('System', 'Executive Dashboard successfully mounted in .qvf.', 'success');
-                    } else {
-                        broadcast('System', 'Layout composition failed.', 'error');
-                    }
-                } else {
-                    broadcast('System', 'Layout brain failed to synthesize a blueprint.', 'error');
+            // Simplified summary of model for prompt
+            const tableList = await persistentApp.getTablesAndKeys({ qWindowSize: { qcx: 100, qcy: 100 }, qNullSize: { qcx: 0, qcy: 0 }, qCellHeight: 0, qSyntheticMode: false, qIncludeSysVars: false });
+
+            // Format table strings simply for LLM to reason out Facts/Dims
+            let modelExcerpt = "TABLES IN APP:\n";
+            if (tableList.qtr && tableList.qtr.length > 0) {
+                for (const table of tableList.qtr) {
+                    const columns = (table.qFields || []).map(f => f.qName).join(', ');
+                    modelExcerpt += `- ${table.qName} (Columns: ${columns || 'None'})\n`;
                 }
             }
 
-        } else {
+            const blueprint = await generateLayoutPlan(modelExcerpt);
+
+            if (blueprint) {
+                broadcast('System', 'Building App Dashboard using JSON Vaccines (Sub-Agent C)...', 'system');
+                const layoutSuccess = await composeLayout(persistentApp, blueprint);
+                if (layoutSuccess) {
+                    await persistentApp.doSave();
+                    broadcast('System', 'Executive Dashboard successfully mounted and saved in .qvf.', 'success');
+                } else {
+                    broadcast('System', 'Layout composition failed.', 'error');
+                }
+            } else {
+                broadcast('System', 'Layout brain failed to synthesize a blueprint.', 'error');
+            }
+        } else if (!success) {
             broadcast('Architect', '❌ Failed to generate valid script within attempt limit.', 'error');
             logger.error('Architect', 'Failed to generate script after max attempts');
         }

@@ -6,8 +6,7 @@
         "qDimensions": [],
         "qMeasures": [
             {
-                "qLibraryId": "{{MEASURE_1}}",
-                "qDef": {}
+                "qLibraryId": "{{MEASURE_1}}"
             }
         ],
         "qInterColumnSortOrder": [

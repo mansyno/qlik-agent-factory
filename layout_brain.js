@@ -1,5 +1,5 @@
-const { generateContent } = require('./.agent/utils/llm');
-const logger = require('./.agent/utils/logger');
+const { generateContent } = require('./brain'); // Re-using brain.js since it handles LLM setup
+const logger = require('./.agent/utils/logger.js');
 const fs = require('fs');
 const path = require('path');
 
@@ -61,18 +61,19 @@ YOUR FINAL DATA MODEL TO ANALYZE:
  * Runs the Layout planner (Agent 4) logic to determine UI and Master Items.
  */
 async function generateLayoutPlan(dataModelExcerpt) {
-    logger.log('LayoutBrain', 'Synthesizing Semantic & UI Blueprint...');
-    const fullPrompt = LAYOUT_AGENT_PROMPT + '\n' + dataModelExcerpt;
+  logger.log('LayoutBrain', 'Synthesizing Semantic & UI Blueprint...');
+  const fullPrompt = LAYOUT_AGENT_PROMPT + '\n' + dataModelExcerpt;
 
-    try {
-        const resultString = await generateContent(fullPrompt);
-        // Stripping backticks if LLM mistakenly added them
-        const cleaned = resultString.replace(/^```json\S*/mg, '').replace(/```\S*/g, '').trim();
-        return JSON.parse(cleaned);
-    } catch (error) {
-        logger.error('LayoutBrain', 'Failed to generate layout blueprint from LLM', error);
-        return null;
-    }
+  try {
+    const resultString = await generateContent(fullPrompt);
+    // Stripping backticks if LLM mistakenly added them
+    const cleaned = resultString.replace(/^```json\S*/mg, '').replace(/```\S*/g, '').trim();
+    return JSON.parse(cleaned);
+  } catch (error) {
+    console.error("DEBUG LayoutBrain LLM Error:", error);
+    logger.error('LayoutBrain', 'Failed to generate layout blueprint from LLM', error);
+    return null;
+  }
 }
 
 module.exports = { generateLayoutPlan };

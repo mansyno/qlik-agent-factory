@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Play, FolderOpen, Tag, AlertTriangle } from 'lucide-react'
 
 const MODES = [
-    { id: 'full', label: 'Full Run', pipeline: ['architect', 'enhancer'], warn: true },
+    { id: 'full', label: 'Full Run', pipeline: ['architect', 'enhancer', 'layout'], warn: true },
     { id: 'architect', label: 'Architect Only', pipeline: ['architect'], warn: true },
     { id: 'enhancer', label: 'Enhancer Only', pipeline: ['enhancer'], warn: false },
+    { id: 'layout', label: 'Layout Only', pipeline: ['layout'], warn: false },
 ]
 
 export default function ControlPanel({ onRun, isRunning }) {
@@ -49,7 +50,7 @@ export default function ControlPanel({ onRun, isRunning }) {
             {/* Pipeline Mode Selector */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
                 {MODES.map(m => (
-                    <button key={m.id} onClick={() => setModeId(m.id)} disabled={isRunning} style={{
+                    <button type="button" key={m.id} onClick={() => setModeId(m.id)} disabled={isRunning} style={{
                         padding: '6px 14px',
                         borderRadius: 6,
                         border: `1px solid ${modeId === m.id ? 'var(--color-accent)' : 'var(--color-border)'}`,

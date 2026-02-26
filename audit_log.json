@@ -1,111 +1,149 @@
 [
   {
-    "timestamp": "2026-02-22T11:45:15.578Z",
+    "timestamp": "2026-02-25T00:22:34.022Z",
     "category": "System",
     "message": "Logger Initialized",
     "details": null
   },
   {
-    "timestamp": "2026-02-22T11:45:15.578Z",
+    "timestamp": "2026-02-25T00:22:34.022Z",
     "category": "System",
     "message": "Job Started",
     "details": {
       "dataDir": "./northwind",
-      "targetAppName": "northwind2"
+      "targetAppName": "northwind_dan"
     }
   },
   {
-    "timestamp": "2026-02-22T11:45:15.801Z",
+    "timestamp": "2026-02-25T00:22:34.029Z",
     "category": "System",
     "message": "Connected to Qlik Engine",
     "details": null
   },
   {
-    "timestamp": "2026-02-22T11:45:15.924Z",
+    "timestamp": "2026-02-25T00:22:34.148Z",
+    "category": "Architect",
+    "message": "Starting Data Profiling",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:22:36.197Z",
+    "category": "Architect",
+    "message": "Generating Script Attempt 1",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:23:18.993Z",
+    "category": "Architect",
+    "message": "Script Verification Passed",
+    "details": {
+      "attempt": 1
+    }
+  },
+  {
+    "timestamp": "2026-02-25T00:23:18.994Z",
     "category": "Enhancer",
     "message": "Starting Enrichment Phase (Hybrid)",
     "details": null
   },
   {
-    "timestamp": "2026-02-22T11:45:15.929Z",
+    "timestamp": "2026-02-25T00:23:18.999Z",
     "category": "EnhancerBrain",
     "message": "Generating Enrichment Plan with model: gemini-3-flash-preview",
     "details": null
   },
   {
-    "timestamp": "2026-02-22T11:45:44.567Z",
-    "category": "EnhancerBrain",
-    "message": "503 Service Unavailable. Waiting 15s before retry 2/3...",
-    "details": null
-  },
-  {
-    "timestamp": "2026-02-22T11:46:44.685Z",
+    "timestamp": "2026-02-25T00:28:23.969Z",
     "category": "EnhancerBrain",
     "message": "Enrichment Plan Formulation Complete",
     "details": null
   },
   {
-    "timestamp": "2026-02-22T11:46:44.685Z",
+    "timestamp": "2026-02-25T00:28:23.969Z",
     "category": "Enhancement",
     "message": "Brain Reasoning",
-    "details": "The enrichment plan focuses on establishing a robust temporal and performance analysis framework. A Master Calendar and As-Of Table are implemented using 'orderDate' to enable rolling-period trend analysis (e.g., Rolling 12 Months). A Pareto 80/20 segmentation is applied to Products based on order quantities to identify high-velocity inventory items. Market Basket analysis was intentionally omitted as the metadata indicates no multi-product order patterns, which would result in an empty co-occurrence matrix."
+    "details": "The application contains a robust transactional schema with a clear canonical date (orderDate) and a link table structure. To enhance analytical capabilities, I am implementing a Master Calendar for time intelligence, an As-Of Table for rolling trend analysis, a Pareto segmentation for customers based on order volume, and a Market Basket co-occurrence table to identify product affinities."
   },
   {
-    "timestamp": "2026-02-22T11:46:44.685Z",
+    "timestamp": "2026-02-25T00:28:23.970Z",
     "category": "Enhancement",
     "message": "Catalog Tool Executed",
     "details": "Injected master_calendar"
   },
   {
-    "timestamp": "2026-02-22T11:46:44.685Z",
+    "timestamp": "2026-02-25T00:28:23.970Z",
     "category": "Composer",
     "message": "Validating [CATALOG] tool: master_calendar...",
     "details": null
   },
   {
-    "timestamp": "2026-02-22T11:46:44.993Z",
+    "timestamp": "2026-02-25T00:28:24.290Z",
     "category": "Enhancement",
     "message": "Tool Applied",
     "details": "master_calendar committed successfully."
   },
   {
-    "timestamp": "2026-02-22T11:46:44.994Z",
+    "timestamp": "2026-02-25T00:28:24.290Z",
     "category": "Enhancement",
     "message": "Catalog Tool Executed",
     "details": "Injected as_of_table"
   },
   {
-    "timestamp": "2026-02-22T11:46:44.994Z",
+    "timestamp": "2026-02-25T00:28:24.290Z",
     "category": "Composer",
     "message": "Validating [CATALOG] tool: as_of_table...",
     "details": null
   },
   {
-    "timestamp": "2026-02-22T11:46:45.277Z",
+    "timestamp": "2026-02-25T00:28:24.581Z",
     "category": "Enhancement",
     "message": "Tool Applied",
     "details": "as_of_table committed successfully."
   },
   {
-    "timestamp": "2026-02-22T11:46:45.277Z",
+    "timestamp": "2026-02-25T00:28:24.581Z",
     "category": "Enhancement",
     "message": "Catalog Tool Executed",
     "details": "Injected pareto_linked"
   },
   {
-    "timestamp": "2026-02-22T11:46:45.277Z",
+    "timestamp": "2026-02-25T00:28:24.581Z",
     "category": "Composer",
     "message": "Validating [CATALOG] tool: pareto_linked...",
     "details": null
   },
   {
-    "timestamp": "2026-02-22T11:46:45.567Z",
+    "timestamp": "2026-02-25T00:28:24.905Z",
     "category": "Enhancement",
     "message": "Tool Applied",
     "details": "pareto_linked committed successfully."
   },
   {
-    "timestamp": "2026-02-22T11:46:45.568Z",
+    "timestamp": "2026-02-25T00:28:24.905Z",
+    "category": "Composer",
+    "message": "Checking 1-to-many viability for [%Key_Orders] -> [%Key_Product]...",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:24.912Z",
+    "category": "Enhancement",
+    "message": "Catalog Tool Executed",
+    "details": "Injected market_basket"
+  },
+  {
+    "timestamp": "2026-02-25T00:28:24.912Z",
+    "category": "Composer",
+    "message": "Validating [CATALOG] tool: market_basket...",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:25.217Z",
+    "category": "Error",
+    "message": "[Composer] Catalog tool 'market_basket' failed sandbox. Skipping.",
+    "details": "Reload failed (Runtime): Reload failed — no error description returned by engine."
+  },
+  {
+    "timestamp": "2026-02-25T00:28:25.218Z",
     "category": "Enhancement",
     "message": "Enhancement Report",
     "details": [
@@ -126,17 +164,23 @@
         "tier": "catalog",
         "status": "Applied",
         "reason": "Passed validation"
+      },
+      {
+        "tool": "market_basket",
+        "tier": "catalog",
+        "status": "Rejected",
+        "reason": "Reload failed (Runtime): Reload failed — no error description returned by engine."
       }
     ]
   },
   {
-    "timestamp": "2026-02-22T11:46:45.867Z",
+    "timestamp": "2026-02-25T00:28:25.696Z",
     "category": "Enhancement",
     "message": "Validation Success",
     "details": "Hybrid script passed checks."
   },
   {
-    "timestamp": "2026-02-22T11:46:45.868Z",
+    "timestamp": "2026-02-25T00:28:25.697Z",
     "category": "System",
     "message": "Final Script Saved",
     "details": {
@@ -144,7 +188,7 @@
     }
   },
   {
-    "timestamp": "2026-02-22T11:46:46.306Z",
+    "timestamp": "2026-02-25T00:28:26.193Z",
     "category": "System",
     "message": "App Reload Finished",
     "details": {
@@ -152,15 +196,285 @@
     }
   },
   {
-    "timestamp": "2026-02-22T11:46:46.358Z",
+    "timestamp": "2026-02-25T00:28:26.293Z",
     "category": "System",
     "message": "App Saved",
     "details": {
-      "appName": "northwind2"
+      "appName": "northwind_dan"
     }
   },
   {
-    "timestamp": "2026-02-22T11:46:46.361Z",
+    "timestamp": "2026-02-25T00:28:26.293Z",
+    "category": "Runner",
+    "message": "Starting Layout Agent generation sequence.",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:26.300Z",
+    "category": "LayoutBrain",
+    "message": "Synthesizing Semantic & UI Blueprint...",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.000Z",
+    "category": "LayoutComposer",
+    "message": "--- Phase 1: Creating Master Items ---",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.003Z",
+    "category": "LayoutComposer",
+    "message": "Creating Master dimension 'Dim_Category' -> categoryName",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.010Z",
+    "category": "LayoutComposer",
+    "message": "Creating Master dimension 'Dim_Country' -> Customer Country",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.015Z",
+    "category": "LayoutComposer",
+    "message": "Creating Master dimension 'Dim_Product' -> productName",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.024Z",
+    "category": "LayoutComposer",
+    "message": "Creating Master dimension 'Dim_MonthYear' -> MonthYear",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.032Z",
+    "category": "LayoutComposer",
+    "message": "Creating Master dimension 'Dim_Employee' -> Employee Last Name",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.038Z",
+    "category": "LayoutComposer",
+    "message": "Creating Master measure 'Sum_Sales' -> Sum([Order Detail Unit Price] * quantity * (1 - discount))",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.046Z",
+    "category": "LayoutComposer",
+    "message": "Creating Master measure 'Count_Orders' -> Count(DISTINCT %Key_Orders)",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.057Z",
+    "category": "LayoutComposer",
+    "message": "Creating Master measure 'Sum_Quantity' -> Sum(quantity)",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.062Z",
+    "category": "LayoutComposer",
+    "message": "Creating Master measure 'Avg_Discount' -> Avg(discount)",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.070Z",
+    "category": "LayoutComposer",
+    "message": "Creating Master measure 'Sum_Freight' -> Sum(freight)",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.072Z",
+    "category": "LayoutComposer",
+    "message": "--- Phase 2: Creating Executive Dashboard Sheet ---",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.075Z",
+    "category": "LayoutComposer",
+    "message": "Base sheet created with ID: bd5a0443-d7c8-4e53-a9b9-e0c4db29f79c",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.075Z",
+    "category": "LayoutComposer",
+    "message": "--- Phase 3: Building & Mounting Charts ---",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.084Z",
+    "category": "LayoutComposer",
+    "message": "Chart \"Total Revenue\" Engine Diagnostics: qcx=1, qcy=1, dataPagesLength=1",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.084Z",
+    "category": "LayoutComposer",
+    "message": "   Msr Fallback: Total Sales",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.084Z",
+    "category": "LayoutComposer",
+    "message": "Created kpi chart: aa238b51-e594-4ee3-baf0-5e06b4c4d513",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.089Z",
+    "category": "LayoutComposer",
+    "message": "Chart \"Order Volume\" Engine Diagnostics: qcx=1, qcy=1, dataPagesLength=1",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.089Z",
+    "category": "LayoutComposer",
+    "message": "   Msr Fallback: Total Orders",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.089Z",
+    "category": "LayoutComposer",
+    "message": "Created kpi chart: d85ed71d-7113-4af5-a9f5-fe42d9b0e207",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.095Z",
+    "category": "LayoutComposer",
+    "message": "Chart \"Units Sold\" Engine Diagnostics: qcx=1, qcy=1, dataPagesLength=1",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.095Z",
+    "category": "LayoutComposer",
+    "message": "   Msr Fallback: Total Quantity",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.095Z",
+    "category": "LayoutComposer",
+    "message": "Created kpi chart: e6c2490d-1406-4c6c-a9bc-e94311a677b3",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.101Z",
+    "category": "LayoutComposer",
+    "message": "Chart \"Shipping Costs\" Engine Diagnostics: qcx=1, qcy=1, dataPagesLength=1",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.101Z",
+    "category": "LayoutComposer",
+    "message": "   Msr Fallback: Total Freight",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.101Z",
+    "category": "LayoutComposer",
+    "message": "Created kpi chart: 04a4ee29-52d2-4340-b283-b655cf51a448",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.109Z",
+    "category": "LayoutComposer",
+    "message": "Chart \"Sales Trend by Month\" Engine Diagnostics: qcx=2, qcy=23, dataPagesLength=1",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.109Z",
+    "category": "LayoutComposer",
+    "message": "   Dim Fallback: Month-Year",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.109Z",
+    "category": "LayoutComposer",
+    "message": "   Msr Fallback: Total Sales",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.109Z",
+    "category": "LayoutComposer",
+    "message": "Created linechart chart: f89daf47-5315-49b8-8f70-5d8512c3e857",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.119Z",
+    "category": "LayoutComposer",
+    "message": "Chart \"Sales by Category\" Engine Diagnostics: qcx=2, qcy=8, dataPagesLength=1",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.119Z",
+    "category": "LayoutComposer",
+    "message": "   Dim Fallback: Category",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.119Z",
+    "category": "LayoutComposer",
+    "message": "   Msr Fallback: Total Sales",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.119Z",
+    "category": "LayoutComposer",
+    "message": "Created barchart chart: c25960b9-1a2d-45d8-9f82-2101fc9ea41d",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.126Z",
+    "category": "LayoutComposer",
+    "message": "Chart \"Sales by Country\" Engine Diagnostics: qcx=2, qcy=21, dataPagesLength=1",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.126Z",
+    "category": "LayoutComposer",
+    "message": "   Dim Fallback: Customer Country",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.126Z",
+    "category": "LayoutComposer",
+    "message": "   Msr Fallback: Total Sales",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.126Z",
+    "category": "LayoutComposer",
+    "message": "Created barchart chart: 5cda5c00-6d6e-47e1-b51e-f53cd1bc1f02",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.134Z",
+    "category": "LayoutComposer",
+    "message": "Chart \"Product Performance Detail\" Engine Diagnostics: qcx=2, qcy=77, dataPagesLength=1",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.134Z",
+    "category": "LayoutComposer",
+    "message": "   Dim Fallback: Product",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.134Z",
+    "category": "LayoutComposer",
+    "message": "   Msr Fallback: Total Sales",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.134Z",
+    "category": "LayoutComposer",
+    "message": "Created table chart: dc9b1ba5-b484-49aa-9480-9cbe591a9c2d",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.137Z",
+    "category": "LayoutComposer",
+    "message": "Successfully mounted 8 objects to Dashboard.",
+    "details": null
+  },
+  {
+    "timestamp": "2026-02-25T00:28:40.215Z",
     "category": "System",
     "message": "Process Terminated",
     "details": null

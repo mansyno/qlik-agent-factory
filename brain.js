@@ -56,6 +56,24 @@ async function callWithRetry(fn, callerName = 'ArchitectBrain', maxRetries = 3) 
     }
 }
 
+/**
+ * Generic LLM call exported for use by other agent modules.
+ */
+async function generateContent(prompt, systemInstruction = null) {
+    if (!API_KEY) throw new Error("GEMINI_API_KEY not configured.");
+    await throttle('LLM_General');
+
+    return await callWithRetry(async (modelName) => {
+        const modelInfo = { model: modelName };
+        if (systemInstruction) modelInfo.systemInstruction = systemInstruction;
+
+        const model = genAI.getGenerativeModel(modelInfo);
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+    }, 'LLM_General');
+}
+
 async function generateScript({ profiles, feedback, previousScript }) {
     if (!API_KEY) {
         throw new Error("GEMINI_API_KEY not configured.");
@@ -136,4 +154,4 @@ ${JSON.stringify(profiles, null, 2)}
     }, 'ArchitectBrain');
 }
 
-module.exports = { generateScript };
+module.exports = { generateScript, generateContent };

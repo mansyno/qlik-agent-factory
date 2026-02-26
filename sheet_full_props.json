@@ -1,0 +1,28 @@
+{
+  "qInfo": {
+    "qId": "EQnEbMk",
+    "qType": "sheet"
+  },
+  "qMetaDef": {
+    "title": "My new sheet",
+    "description": ""
+  },
+  "creationDate": "2026-02-23T17:55:12.771Z",
+  "rank": 0,
+  "thumbnail": {
+    "qStaticContentUrlDef": {}
+  },
+  "columns": 24,
+  "rows": 12,
+  "cells": [],
+  "customRowBase": 12,
+  "gridResolution": "small",
+  "layoutOptions": {
+    "mobileLayout": "LIST"
+  },
+  "qChildListDef": {
+    "qData": {
+      "title": "/title"
+    }
+  }
+}
