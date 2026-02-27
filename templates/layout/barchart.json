@@ -9,12 +9,31 @@
         "qDimensions": [
             {
                 "qLibraryId": "{{DIMENSION_1}}",
-                "qNullSuppression": true
+                "qNullSuppression": true,
+                "qDef": {
+                    "cId": "{{DIMENSION_1_CID}}",
+                    "autoSort": true,
+                    "qSortCriterias": [
+                        {
+                            "qSortByNumeric": 1,
+                            "qSortByAscii": 1,
+                            "qSortByLoadOrder": 1
+                        }
+                    ]
+                }
             }
         ],
         "qMeasures": [
             {
-                "qLibraryId": "{{MEASURE_1}}"
+                "qLibraryId": "{{MEASURE_1}}",
+                "qDef": {
+                    "cId": "{{MEASURE_1_CID}}",
+                    "autoSort": true
+                },
+                "qSortBy": {
+                    "qSortByNumeric": -1,
+                    "qSortByLoadOrder": 1
+                }
             }
         ],
         "qSuppressZero": false,
@@ -26,7 +45,12 @@
                 "qWidth": 2,
                 "qHeight": 50
             }
-        ]
+        ],
+        "qInterColumnSortOrder": [
+            0,
+            1
+        ],
+        "qColumnOrder": []
     },
     "showTitles": true,
     "title": "{{TITLE}}",
@@ -38,6 +62,11 @@
     "showDisclaimer": true,
     "barGrouping": {
         "grouping": "grouped"
+    },
+    "dataPoint": {
+        "showLabels": false,
+        "showSegmentLabels": false,
+        "showTotalLabels": true
     },
     "orientation": "vertical",
     "color": {

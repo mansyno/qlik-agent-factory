@@ -10,16 +10,49 @@
         "qDimensions": [
             {
                 "qLibraryId": "{{DIMENSION_1}}",
-                "qNullSuppression": true
+                "qNullSuppression": true,
+                "qDef": {
+                    "cId": "{{DIMENSION_1_CID}}",
+                    "autoSort": true,
+                    "qSortCriterias": [
+                        {
+                            "qSortByNumeric": 1,
+                            "qSortByAscii": 1,
+                            "qSortByLoadOrder": 1
+                        }
+                    ],
+                    "textAlign": {
+                        "auto": true,
+                        "align": "left"
+                    },
+                    "representation": {
+                        "type": "text"
+                    }
+                }
             }
         ],
         "qMeasures": [
             {
-                "qLibraryId": "{{MEASURE_1}}"
+                "qLibraryId": "{{MEASURE_1}}",
+                "qDef": {
+                    "cId": "{{MEASURE_1_CID}}",
+                    "autoSort": true,
+                    "textAlign": {
+                        "auto": true,
+                        "align": "left"
+                    },
+                    "representation": {
+                        "type": "text"
+                    }
+                },
+                "qSortBy": {
+                    "qSortByNumeric": -1,
+                    "qSortByLoadOrder": 1
+                }
             }
         ],
         "qSuppressZero": false,
-        "qSuppressMissing": false,
+        "qSuppressMissing": true,
         "qInitialDataFetch": [
             {
                 "qLeft": 0,
@@ -27,8 +60,32 @@
                 "qWidth": 2,
                 "qHeight": 50
             }
+        ],
+        "qInterColumnSortOrder": [
+            0,
+            1
+        ],
+        "qColumnOrder": [
+            0,
+            1
+        ],
+        "columnOrder": [
+            0,
+            1
+        ],
+        "columnWidths": [
+            -1,
+            -1
         ]
     },
+    "columnOrder": [
+        0,
+        1
+    ],
+    "columnWidths": [
+        -1,
+        -1
+    ],
     "showTitles": true,
     "title": "{{TITLE}}",
     "subtitle": "",
@@ -36,13 +93,18 @@
     "disableNavMenu": false,
     "showDetails": true,
     "showDetailsExpression": false,
+    "search": {
+        "sorting": "auto"
+    },
     "totals": {
         "show": true,
         "position": "noTotals",
         "label": "Totals"
     },
     "scrolling": {
-        "preserveScrollPosition": false
+        "horizontal": true,
+        "keepFirstColumnInView": false,
+        "keepFirstColumnInViewTouch": false
     },
     "multiline": {
         "wrapTextInHeaders": true,

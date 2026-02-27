@@ -76,9 +76,11 @@ async function injectAndCreateObject(sessionApp, sheetObj, widgetDef) {
 
     // String Replacement Strategy (JSON Vaccine)
     let injected = rawTemplate
-        .replace(/{{MEASURE_1}}/g, widgetDef.masterMeasureId || '')
-        .replace(/{{DIMENSION_1}}/g, widgetDef.masterDimensionId || '')
-        .replace(/{{TITLE}}/g, widgetDef.title || 'Untitled');
+        .replace(/\{\{MEASURE_1\}\}/g, widgetDef.masterMeasureId || '')
+        .replace(/\{\{MEASURE_1_CID\}\}/g, widgetDef.masterMeasureCid || '')
+        .replace(/\{\{DIMENSION_1\}\}/g, widgetDef.masterDimensionId || '')
+        .replace(/\{\{DIMENSION_1_CID\}\}/g, widgetDef.masterDimensionCid || '')
+        .replace(/\{\{TITLE\}\}/g, widgetDef.title || 'Untitled');
 
     const jsonProps = JSON.parse(injected);
     const objHandle = await sessionApp.createObject(jsonProps);
@@ -113,30 +115,38 @@ async function composeLayout(sessionApp, layoutPlan) {
         // Step 1: Create Master Items and capture their true Engine IDs
         logger.log('LayoutComposer', '--- Phase 1: Creating Master Items ---');
         const idMap = {};
+        const cidMap = {};
+
+        // Helper function scoped if needed or assuming it exists
+        const generateCid = () => Math.random().toString(36).substring(2, 8);
 
         for (const dim of layoutPlan.masterItems?.dimensions || []) {
             const realId = await createMasterItem(sessionApp, 'dimension', dim.id, dim.title, dim.expression);
             idMap[dim.id] = realId;
+            cidMap[dim.id] = generateCid(); // Generate a CID for each master dimension 
         }
         for (const msr of layoutPlan.masterItems?.measures || []) {
             const realId = await createMasterItem(sessionApp, 'measure', msr.id, msr.title, msr.expression);
             idMap[msr.id] = realId;
+            cidMap[msr.id] = generateCid(); // Generate a CID for each master item
         }
 
         // Setup fallbacks in case the LLM unlinks a chart or hallucinated an array
         const fallbackDimId = layoutPlan.masterItems?.dimensions?.[0]?.id || null;
         const fallbackMsrId = layoutPlan.masterItems?.measures?.[0]?.id || null;
 
-        // Apply true IDs to blueprint
+        // Apply true IDs and CIDs to blueprint
         for (const widget of layoutPlan.blueprint) {
             let dimId = widget.masterDimensionId || (widget.dimensions && widget.dimensions[0]) || fallbackDimId;
             let msrId = widget.masterMeasureId || (widget.measures && widget.measures[0]) || fallbackMsrId;
 
             if (dimId && idMap[dimId]) {
                 widget.masterDimensionId = idMap[dimId];
+                widget.masterDimensionCid = cidMap[dimId];
             }
             if (msrId && idMap[msrId]) {
                 widget.masterMeasureId = idMap[msrId];
+                widget.masterMeasureCid = cidMap[msrId];
             }
         }
 

@@ -27,7 +27,12 @@
                 "qWidth": 2,
                 "qHeight": 50
             }
-        ]
+        ],
+        "qInterColumnSortOrder": [
+            0,
+            1
+        ],
+        "qColumnOrder": []
     },
     "showTitles": true,
     "title": "{{TITLE}}",
