@@ -83,24 +83,15 @@ async function injectAndCreateObject(sessionApp, sheetObj, widgetDef) {
         .replace(/\{\{TITLE\}\}/g, widgetDef.title || 'Untitled');
 
     const jsonProps = JSON.parse(injected);
-    const objHandle = await sessionApp.createObject(jsonProps);
-    const objLayout = await objHandle.getLayout();
+    // DO NOT interact with Engine API yet! Just generate a random ID and return the raw properties.
+    const uniqueId = 'AgentObj_' + Math.random().toString(36).substring(2, 8);
+    jsonProps.qInfo.qId = uniqueId;
 
-    if (objLayout.qHyperCube) {
-        const hc = objLayout.qHyperCube;
-        logger.log('LayoutComposer', `Chart "${widgetDef.title}" Engine Diagnostics: qcx=${hc.qSize?.qcx}, qcy=${hc.qSize?.qcy}, dataPagesLength=${hc.qDataPages?.length || 0}`);
-        if (hc.qDimensionInfo && hc.qDimensionInfo[0]) {
-            logger.log('LayoutComposer', `   Dim Fallback: ${hc.qDimensionInfo[0].qFallbackTitle}`);
-        }
-        if (hc.qMeasureInfo && hc.qMeasureInfo[0]) {
-            logger.log('LayoutComposer', `   Msr Fallback: ${hc.qMeasureInfo[0].qFallbackTitle}`);
-        }
-    }
-
-    logger.log('LayoutComposer', `Created ${widgetDef.templateId} chart: ${objLayout.qInfo.qId}`);
+    logger.log('LayoutComposer', `Prepared ${widgetDef.templateId} chart properties: ${uniqueId}`);
 
     return {
-        id: objLayout.qInfo.qId,
+        id: uniqueId,
+        properties: jsonProps,
         grid: widgetDef.grid
     };
 }
@@ -168,13 +159,21 @@ async function composeLayout(sessionApp, layoutPlan) {
         const sheetId = sheetLayout.qInfo.qId;
         logger.log('LayoutComposer', `Base sheet created with ID: ${sheetId}`);
 
-        // Step 3: Inject & Create Charts
+        // Step 3: Inject & Prepare Chart Properties
         logger.log('LayoutComposer', '--- Phase 3: Building & Mounting Charts ---');
         const createdCells = [];
+        const qChildren = []; // <--- The massive Engine API fix
+
         for (const widget of layoutPlan.blueprint) {
             const chartData = await injectAndCreateObject(sessionApp, sheetObj, widget);
             if (chartData) {
-                // Map the LLM's virtual coordinate grid to Qlik's internal object schema
+                // Add the raw properties to the Sheet's physical children hierarchy
+                qChildren.push({
+                    qProperty: chartData.properties,
+                    qChildren: []
+                });
+
+                // Map the LLM's virtual coordinate grid to Qlik's internal visual schema
                 createdCells.push({
                     name: chartData.id,
                     type: widget.templateId,
@@ -192,11 +191,18 @@ async function composeLayout(sessionApp, layoutPlan) {
             }
         }
 
-        // Step 4: Mount Charts to Sheet
+        // Step 4: Mount Charts to Sheet via Full Property Tree
         const finalSheetProps = await sheetObj.getProperties();
         finalSheetProps.cells = createdCells;
-        await sheetObj.setProperties(finalSheetProps);
-        logger.log('LayoutComposer', `Successfully mounted ${createdCells.length} objects to Dashboard.`);
+
+        // This is exactly how the Drag-and-Drop React UI performs physical mounts
+        const fullTree = {
+            qProperty: finalSheetProps,
+            qChildren: qChildren
+        };
+
+        await sheetObj.setFullPropertyTree(fullTree);
+        logger.log('LayoutComposer', `Successfully mounted ${qChildren.length} native child objects to Dashboard.`);
 
         return true;
     } catch (e) {

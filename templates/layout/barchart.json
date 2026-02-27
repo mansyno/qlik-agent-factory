@@ -38,14 +38,6 @@
         ],
         "qSuppressZero": false,
         "qSuppressMissing": false,
-        "qInitialDataFetch": [
-            {
-                "qLeft": 0,
-                "qTop": 0,
-                "qWidth": 2,
-                "qHeight": 50
-            }
-        ],
         "qInterColumnSortOrder": [
             0,
             1
@@ -105,5 +97,6 @@
             }
         }
     },
-    "visualization": "barchart"
+    "visualization": "barchart",
+    "version": "1.0.0"
 }

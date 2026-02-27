@@ -53,14 +53,6 @@
         ],
         "qSuppressZero": false,
         "qSuppressMissing": true,
-        "qInitialDataFetch": [
-            {
-                "qLeft": 0,
-                "qTop": 0,
-                "qWidth": 2,
-                "qHeight": 50
-            }
-        ],
         "qInterColumnSortOrder": [
             0,
             1
@@ -110,5 +102,6 @@
         "wrapTextInHeaders": true,
         "wrapTextInCells": true
     },
-    "visualization": "table"
+    "visualization": "table",
+    "version": "1.0.0"
 }
