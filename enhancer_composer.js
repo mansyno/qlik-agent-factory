@@ -71,7 +71,8 @@ async function checkOneToManyViability(sessionApp, idField, itemField) {
             qInfo: { qType: "ViabilityCheck" },
             qHyperCubeDef: {
                 qDimensions: [{ qDef: { qFieldDefs: [idField] } }],
-                qMeasures: [{ qDef: { qDef: `Count(Distinct [${itemField}])` } }],
+                // FIX: Added {1} Set Analysis to ensure Qlik evaluates the entire table regardless of current associative state
+                qMeasures: [{ qDef: { qDef: `Count({1} Distinct [${itemField}])` } }],
                 qInitialDataFetch: [{ qTop: 0, qLeft: 0, qHeight: 50, qWidth: 2 }],
                 qSuppressZero: true,
                 qSuppressMissing: true

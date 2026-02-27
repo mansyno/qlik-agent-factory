@@ -7,7 +7,8 @@
 const fs = require('fs');
 const path = require('path');
 const { openSession, openSessionForApp, closeSession, profileData, validateScript } = require('./qlik_tools');
-const { generateScript } = require('./brain');
+const { classifyTablesAndFields, normalizeFields, buildAssociationGraph, resolveModelStructure, resolveTemporalAndJoins } = require('./brain');
+const { generateQvsScript } = require('./architect_generator');
 const { generateLayoutPlan } = require('./layout_brain');
 const { composeLayout } = require('./layout_composer');
 
@@ -141,46 +142,99 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
         let success = false;
 
         if (runArchitect) {
-            broadcast('Architect', '── Phase 2: Architectural Reasoning ──', 'phase');
-            const maxAttempts = 3;
-            let feedback = null;
+            broadcast('Architect', '── Phase 2: Architectural Reasoning (V2) ──', 'phase');
 
-            for (let attempt = 1; attempt <= maxAttempts && !success; attempt++) {
-                broadcast('Architect', `Generating Script — Attempt ${attempt}/${maxAttempts}`, 'info');
-                logger.log('Architect', `Generating Script Attempt ${attempt}`);
+            // Map the generic profiles object into an array for the V2 classification
+            const fullProfile = Object.entries(profiles).map(([file, p]) => ({
+                tableName: file.replace('.csv', ''),
+                rowCount: "Unknown",
+                fields: p.fields
+            }));
 
-                const heartbeat = setInterval(async () => {
-                    try { await qlikGlobal.engineVersion(); } catch (_) { /* ignore */ }
-                }, 5000);
+            // Step 1: Classify Tables
+            broadcast('Architect', `Step 1: Classifying ${fullProfile.length} tables...`, 'info');
+            const classifications = await classifyTablesAndFields(fullProfile);
+
+            if (!(await checkControl(ctrl, broadcast))) return;
+
+            let maxRetries = 3;
+            let currentRetry = 0;
+            let compilationErrorContext = null;
+
+            let normalizedData, graph, structuralBlueprint, finalDirectives;
+
+            while (currentRetry < maxRetries && !success) {
+                broadcast('Architect', `Pipeline Cycle — Attempt ${currentRetry + 1}/${maxRetries}`, 'info');
 
                 try {
-                    currentScript = await generateScript({ profiles, feedback, previousScript: currentScript });
+                    // Step 2: Normalize Fields
+                    broadcast('Architect', 'Step 2: Normalizing Fields...', 'info');
+                    normalizedData = await normalizeFields(fullProfile, classifications, compilationErrorContext);
+                    if (!(await checkControl(ctrl, broadcast))) return;
+
+                    // Step 3: Association Graph
+                    broadcast('Architect', 'Step 3: Building Conceptual Graph...', 'info');
+                    graph = await buildAssociationGraph(normalizedData);
+                    if (graph.circularReferenceDetected) {
+                        broadcast('Architect', '⚠️ LLM detected a conceptual Circular Reference.', 'warning');
+                    }
+                    if (!(await checkControl(ctrl, broadcast))) return;
+
+                    // Step 4 & 5: Structural Blueprint
+                    broadcast('Architect', 'Steps 4-5: Resolving Model Structure...', 'info');
+                    structuralBlueprint = await resolveModelStructure(fullProfile, classifications, normalizedData, graph);
+                    if (!(await checkControl(ctrl, broadcast))) return;
+
+                    // Step 6 & 7: Temporal & Joins
+                    broadcast('Architect', 'Steps 6-7: Resolving Temporal and Join Strategies...', 'info');
+                    finalDirectives = await resolveTemporalAndJoins(structuralBlueprint, fullProfile);
+                    if (!(await checkControl(ctrl, broadcast))) return;
+
+                    // Step 8: Compilation
+                    broadcast('Architect', 'Step 8: Compiling via Qlik Engine...', 'info');
+                    currentScript = generateQvsScript(finalDirectives, normalizedData, dataDir);
+
+                    const validation = await validateScript(qlikGlobal, currentScript, workApp);
+                    if (validation.success && validation.synKeys === 0) {
+                        broadcast('Architect', `✅ Script validated (attempt ${currentRetry + 1})`, 'success');
+                        logger.log('Architect', 'Script Verification Passed', { attempt: currentRetry + 1 });
+                        success = true;
+
+                        // FIX: Generate the FINAL production script without the 'FIRST 1' fast-load limit
+                        // This allows the Enhancer and UI to see the full dataset length instead of just 1 row
+                        currentScript = generateQvsScript(finalDirectives, normalizedData, dataDir, false);
+
+                        fs.writeFileSync(CACHE_FILE, currentScript);
+                        if (io) io.emit('script-update', { phase: 'architect', script: currentScript });
+                    } else {
+                        broadcast('Architect', `Validation failed — SynKeys: ${validation.synKeys}`, 'warning');
+                        if (validation.errors && validation.errors.length > 0) {
+                            validation.errors.forEach(e => broadcast('Architect', `↳ ${e}`, 'error'));
+                        }
+                        compilationErrorContext = `Qlik Engine Compilation Failed:\n${validation.errors.join('\\n')}\n` +
+                            `Synthetic Keys Found: ${validation.synKeys}\n` +
+                            `Circular References: ${validation.circularReferences}\n` +
+                            `Fix the field normalization to prevent these associations.`;
+                        logger.log('Architect', 'Validation Failed', { synKeys: validation.synKeys, errors: validation.errors });
+                        currentRetry++;
+                        if (currentRetry < maxRetries) {
+                            broadcast('Architect', `Recalculating fields to repair Synthetic Keys...`, 'warning');
+                        }
+                    }
+
                 } catch (err) {
                     broadcast('Architect', `LLM error: ${err.message}`, 'error');
                     logger.error('Architect', 'AI Inference Error', err);
-                    clearInterval(heartbeat);
-                    continue;
-                } finally {
-                    clearInterval(heartbeat);
+                    currentRetry++;
                 }
 
-                const validation = await validateScript(qlikGlobal, currentScript, workApp);
-                if (validation.success && validation.synKeys === 0) {
-                    broadcast('Architect', `✅ Script validated (attempt ${attempt})`, 'success');
-                    logger.log('Architect', 'Script Verification Passed', { attempt });
-                    success = true;
-                    fs.writeFileSync(CACHE_FILE, currentScript);
-                    if (io) io.emit('script-update', { phase: 'architect', script: currentScript });
-                } else {
-                    broadcast('Architect', `Validation failed — SynKeys: ${validation.synKeys}`, 'warning');
-                    if (validation.errors && validation.errors.length > 0) {
-                        validation.errors.forEach(e => broadcast('Architect', `↳ ${e}`, 'error'));
-                    }
-                    logger.log('Architect', 'Validation Failed', { synKeys: validation.synKeys, errors: validation.errors });
-                    feedback = validation;
-                }
-                if (success) break;
-                if (!(await checkControl(ctrl, broadcast))) return;
+                if (!success && !(await checkControl(ctrl, broadcast))) return;
+            }
+
+            if (!success) {
+                const msg = `Failed to generate a valid data model after ${maxRetries} attempts.`;
+                broadcast('Architect', msg, 'error');
+                throw new Error(msg);
             }
         } else if (runEnhancer || runLayout) {
             // preloadedBaseScript was fetched before the working session opened

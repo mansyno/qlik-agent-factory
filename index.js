@@ -72,9 +72,8 @@ async function main() {
         // or effectively reuse the context.
         const workApp = await global.createSessionApp();
 
-        // Create the shared connection
+        // Create the shared connection (we ensure it exists once for the directory)
         const { createConnection } = require('./qlik_tools');
-
         await workApp.createConnection({
             qName: 'SourceData',
             qConnectionString: path.resolve(dataDir),
@@ -82,107 +81,55 @@ async function main() {
         });
         console.log(`Created connection 'SourceData' pointing to ${path.resolve(dataDir)}`);
 
-        // 1. Profiling
-        console.log("\n--- Phase 1: Profiling Data ---");
-        logger.log('Architect', 'Starting Data Profiling');
-        const profiles = {};
-        for (const file of files) {
-            const filePath = path.resolve(dataDir, file);
-            console.log(`Profiling ${file}...`);
-            // Pass workApp to profileData
-            const profile = await profileData(global, filePath, workApp);
-            if (profile.error) {
-                console.error(`Failed to profile ${file}: ${profile.error}`);
-                logger.error('Architect', `Profiling failed for ${file}`, profile.error);
-            } else {
-                profiles[file] = profile;
-            }
-        }
-
-        if (Object.keys(profiles).length === 0) {
-            console.error("No data could be profiled. Exiting.");
-            process.exit(1);
-        }
-
-        let currentScript = "";
-        let success = false;
-
         // --- CACHE BYPASS LOGIC ---
         const skipArchitectArg = args.find(a => a === '--skip-architect');
         const CACHE_FILE = '.cache_base_script.qvs';
+
+        // We need a persistent session reference for the Enhancer
+        let enhancerGlobal = global;
+        let enhancerApp = workApp;
 
         if (skipArchitectArg && fs.existsSync(CACHE_FILE)) {
             console.log("=== BYPASSING ARCHITECT ===");
             console.log(`Loading cached base script from ${CACHE_FILE}...`);
             logger.log('System', 'Bypassed Architect Phase using cached script.');
             currentScript = fs.readFileSync(CACHE_FILE, 'utf8');
+
+            // We must actually execute this script so the Enhancer can inspect the metadata
+            console.log("Executing Cached Script to populate Engine Metadata...");
+            await workApp.setScript(currentScript);
+            await workApp.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
+
             success = true; // Pretend phase 2 succeeded
+
+            // Re-bind the initial session for the Enhancer since we didn't run the pipeline
+            enhancerGlobal = global;
+            enhancerApp = workApp;
         } else {
-            // 2. Inference Loop
-            console.log("\n--- Phase 2: Architectural Reasoning ---");
-            let attempt = 0;
-            let maxAttempts = 3;
-            let feedback = null;
+            // --- CLOSE INIT SESSION TO PREVENT CONFLICTS ---
+            // We only do this if running the full pipeline, because pipeline_runner creates its own session.
+            if (session) {
+                console.log("Closing init session to free resources for the Pipeline Runner...");
+                await closeSession(session);
+                session = null;
+            }
 
-            while (attempt < maxAttempts && !success) {
-                attempt++;
-                console.log(`\nAttempt ${attempt}/${maxAttempts}: Generating Script...`);
-                logger.log('Architect', `Generating Script Attempt ${attempt}`);
+            // --- V2 ARCHITECT PIPELINE ---
+            console.log("\n--- Phase 1 & 2: V2 Data Architect Pipeline ---");
+            const { runPipeline } = require('./pipeline_runner');
 
-                // Start heartbeat to keep Qlik connection alive during AI generation
-                const heartbeat = setInterval(async () => {
-                    try {
-                        await global.engineVersion();
-                    } catch (e) { /* ignore */ }
-                }, 5000);
+            // Execute the pipeline which orchestrates Steps 0 -> 8
+            const pipelineResult = await runPipeline(path.resolve(dataDir));
 
-                try {
-                    currentScript = await generateScript({
-                        profiles,
-                        feedback,
-                        previousScript: currentScript // Pass previous script for context if retrying
-                    });
-                } catch (err) {
-                    console.error("Error during inference loop:", err.message);
-                    logger.error('Architect', 'AI Inference Error', err);
+            if (pipelineResult.success) {
+                success = true;
+                currentScript = pipelineResult.finalScript;
 
-                    // Check for Rate Limit (429)
-                    if (err.message.includes('429') || err.message.includes('Quota exceeded')) {
-                        console.log("Rate limit hit. Waiting 60 seconds before retrying...");
-                        await new Promise(resolve => setTimeout(resolve, 60000));
-                    }
-
-                    clearInterval(heartbeat);
-                    continue; // Retry loop
-                } finally {
-                    clearInterval(heartbeat);
-                }
-
-                console.log("Generated Script Preview:");
-                console.log(currentScript.substring(0, 200) + "...\n");
-
-                console.log("Validating Script...");
-                const validation = await validateScript(global, currentScript, workApp);
-
-                if (validation.success && validation.synKeys === 0) {
-                    console.log("Validation Successful! No Syntax Errors, No Synthetic Keys.");
-                    logger.log('Architect', 'Script Verification Passed', { attempt });
-                    success = true;
-                    // Cache the successful base script
-                    fs.writeFileSync(CACHE_FILE, currentScript);
-                    console.log(`Saved base script to cache: ${CACHE_FILE}`);
-                } else {
-                    console.warn("Validation Failed or Synthetic Keys found.");
-                    console.warn(`Success: ${validation.success}, SynKeys: ${validation.synKeys}`);
-                    if (validation.errors.length > 0) console.warn(`Errors: ${validation.errors.join(', ')}`);
-
-                    logger.log('Architect', 'Validation Failed', {
-                        synKeys: validation.synKeys,
-                        errors: validation.errors
-                    });
-
-                    feedback = validation;
-                }
+                // Cache the successful base script
+                fs.writeFileSync(CACHE_FILE, currentScript);
+                console.log(`Saved base script to cache: ${CACHE_FILE}`);
+            } else {
+                console.error("Pipeline Validation Failed:", pipelineResult.error || "Unknown Error");
             }
         } // End Cache Bypass block
 

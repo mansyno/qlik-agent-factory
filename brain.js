@@ -11,7 +11,7 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 
 const MODELS = {
     primary: "gemini-3-flash-preview",
-    fallback: "gemini-2.0-flash"
+    fallback: "gemini-3-flash-preview"
 };
 
 let activeModel = MODELS.primary;
@@ -154,4 +154,399 @@ ${JSON.stringify(profiles, null, 2)}
     }, 'ArchitectBrain');
 }
 
-module.exports = { generateScript, generateContent };
+/**
+ * Step 1: Classify Tables by Role and Grain
+ * Evaluates the Step 0 Statistical Profile to determine Candidate Keys, Grain, and Role.
+ */
+async function classifyTablesAndFields(profileData) {
+    if (!API_KEY) throw new Error("GEMINI_API_KEY not configured.");
+    await throttle('ArchitectBrain');
+
+    const schema = {
+        type: "array",
+        description: "List of analyzed tables with their classifications.",
+        items: {
+            type: "object",
+            properties: {
+                tableName: {
+                    type: "string",
+                    description: "The name of the table being analyzed."
+                },
+                role: {
+                    type: "string",
+                    description: "The business role of the table. Must be strictly 'Fact', 'Dimension', or 'Link'."
+                },
+                candidateKeys: {
+                    type: "array",
+                    description: "List of fields that could act as primary or associative keys based on high distinctness.",
+                    items: { type: "string" }
+                },
+                grain: {
+                    type: "string",
+                    description: "The grain of the table. Must be strictly 'Header', 'Detail', or 'Reference'."
+                },
+                reasoning: {
+                    type: "string",
+                    description: "A brief, 1-sentence explanation of why this classification was chosen based on the statistics."
+                }
+            },
+            required: ["tableName", "role", "candidateKeys", "grain", "reasoning"]
+        }
+    };
+
+    const prompt = `
+You are an expert Qlik Data Modeling Architect.
+You must analyze the provided statistical metadata for a set of raw database tables.
+
+Your task is to classify EACH table without writing any Qлик code.
+For each table, determine:
+1. **Candidate Keys**: Which fields are Primary Keys or Foreign Keys? Look for fields with 0% Nulls and Cardinality (distinctCount) close to the table's total rowCount.
+2. **Role**: Is this a 'Fact' (additive measures, multiple foreign keys), a 'Dimension' (descriptive string attributes, mostly 1 primary key), or 'Link' (purely associative keys)?
+3. **Grain**: Is this a 'Header' table (1 row per transaction), a 'Detail' table (multiple rows per transaction), or 'Reference'?
+
+Strict Rules:
+- Return the exact JSON array structure specified.
+- Do NOT include markdown code fences (\`\`\`json). Just return the raw JSON array string.
+- Base your logic entirely on the data profile (row counts vs distinct counts vs null percentages).
+
+DATA PROFILE:
+${JSON.stringify(profileData, null, 2)}
+    `;
+
+    return await callWithRetry(async (modelName) => {
+        const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            }
+        });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return JSON.parse(response.text());
+    }, 'ArchitectBrain');
+}
+
+/**
+ * Step 2: Normalize Field Names
+ * Evaluates the Step 0 Profile and Step 1 Classifications to enforce strict naming
+ * conventions and explicitly resolve identical cross-table field names (Hard Stop).
+ */
+async function normalizeFields(profileData, classifications) {
+    if (!API_KEY) throw new Error("GEMINI_API_KEY not configured.");
+    await throttle('ArchitectBrain');
+
+    const schema = {
+        type: "array",
+        description: "List of normalized tables and their field mappings.",
+        items: {
+            type: "object",
+            properties: {
+                tableName: {
+                    type: "string",
+                    description: "The name of the table being normalized."
+                },
+                originalFields: {
+                    type: "array",
+                    description: "List of original physical field names as found in the data.",
+                    items: { type: "string" }
+                },
+                normalizedFields: {
+                    type: "array",
+                    description: "Mapping of original to new normalized names.",
+                    items: {
+                        type: "object",
+                        properties: {
+                            originalName: { type: "string" },
+                            normalizedName: { type: "string" }
+                        },
+                        required: ["originalName", "normalizedName"]
+                    }
+                },
+                compositeKeys: {
+                    type: "array",
+                    description: "Any synthetic/composite keys that must be created to resolve field collisions.",
+                    items: {
+                        type: "object",
+                        properties: {
+                            newKeyName: { type: "string" },
+                            hashedFields: { type: "array", items: { type: "string" } },
+                            reasoning: { type: "string" }
+                        },
+                        required: ["newKeyName", "hashedFields", "reasoning"]
+                    }
+                }
+            },
+            required: ["tableName", "originalFields", "normalizedFields"]
+        }
+    };
+
+    const prompt = `
+You are an expert Qlik Data Modeling Architect.
+Your task is to normalize field names across the provided tables to prepare for Association (Step 3).
+
+CRITICAL "HARD STOP" RULE:
+No two tables may share 2 or more identically-named normalized fields. If they do, Qlik will generate a memory-crashing Synthetic Key.
+If you detect that two tables share 2+ identical key fields, you MUST:
+1. Suggest a single new Composite Key under the 'compositeKeys' array for those tables.
+2. The 'hashedFields' array must list the component fields.
+3. Rename or distinctify the individual original fields so they no longer formally associate.
+
+NORMALIZATION GOALS:
+1. Standardize Primary/Foreign Keys (e.g. 'Customer_ID' -> 'CustomerKey').
+2. Rename generic fields contextually (e.g. 'Date' -> 'OrderDate', 'Name' -> 'CustomerName') to prevent accidental associations.
+3. Ensure the exact intended Header/Detail grain relationships are structurally sound based on the classifications provided.
+
+DATA PROFILE (Step 0):
+${JSON.stringify(profileData, null, 2)}
+
+TABLE CLASSIFICATIONS (Step 1):
+${JSON.stringify(classifications, null, 2)}
+    `;
+
+    return await callWithRetry(async (modelName) => {
+        const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            }
+        });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return JSON.parse(response.text());
+    }, 'ArchitectBrain');
+}
+
+/**
+ * Step 3: Build Conceptual Association Graph
+ * Evaluates the normalized field names to identify structural edges (associations).
+ * Specifically detects and flags Circular Reference loops (Hard Stop).
+ */
+async function buildAssociationGraph(normalizedData) {
+    if (!API_KEY) throw new Error("GEMINI_API_KEY not configured.");
+    await throttle('ArchitectBrain');
+
+    const schema = {
+        type: "object",
+        description: "The conceptual association graph and validation report.",
+        properties: {
+            edges: {
+                type: "array",
+                description: "List of all connections formed by identical normalized field names.",
+                items: {
+                    type: "object",
+                    properties: {
+                        fromTable: { type: "string" },
+                        toTable: { type: "string" },
+                        sharedKey: { type: "string" }
+                    },
+                    required: ["fromTable", "toTable", "sharedKey"]
+                }
+            },
+            circularReferenceDetected: {
+                type: "boolean",
+                description: "True if the LLM detects a cycle in the edges (e.g., A -> B -> C -> A)."
+            },
+            resolutionPlan: {
+                type: "string",
+                description: "If a circular reference is detected, provide the reasoning and specify which connection should be broken/renamed to resolve it. Null otherwise."
+            }
+        },
+        required: ["edges", "circularReferenceDetected"]
+    };
+
+    const prompt = `
+You are an expert Qlik Data Modeling Architect.
+Your task is to review the provided Normalized Tables mapping and build the "Conceptual Association Graph".
+
+RULES FOR QLIK ASSOCIATIONS:
+In Qlik, associations (edges) are formed natively and strictly whenever two or more tables share a field with the EXACT SAME NAME.
+
+TASK:
+1. Examine the 'normalizedName' values for all fields across all provided tables.
+2. Identify every instance where Table A and Table B share an identical 'normalizedName'. 
+3. Record each connection in the 'edges' array ({ fromTable, toTable, sharedKey }).
+4. CRITICAL "HARD STOP": Analyze the resulting graph for Circular References (loops).
+   - A cycle exists if you can start at Table A, traverse through associations to other tables, and end up back at Table A.
+   - If a cycle is detected, set 'circularReferenceDetected' to true and provide a 'resolutionPlan' explaining briefly which key should be distinctified/renamed to break the loop.
+
+NORMALIZED TABLES DATA (Step 2):
+${JSON.stringify(normalizedData, null, 2)}
+    `;
+
+    return await callWithRetry(async (modelName) => {
+        const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            }
+        });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return JSON.parse(response.text());
+    }, 'ArchitectBrain');
+}
+
+/**
+ * Steps 4 & 5 (Phase A): Resolve Model Structure
+ * Determines Header/Detail separation and Central Link Table requirements.
+ */
+async function resolveModelStructure(profileData, classifications, normalizedData, graph) {
+    if (!API_KEY) throw new Error("GEMINI_API_KEY not configured.");
+    await throttle('ArchitectBrain');
+
+    const schema = {
+        type: "object",
+        description: "The macro-architectural blueprint defining tables and link tables.",
+        properties: {
+            factTables: {
+                type: "array",
+                description: "List of tables acting as Facts (Headers or Details).",
+                items: {
+                    type: "object",
+                    properties: {
+                        tableName: { type: "string" },
+                        grain: { type: "string" },
+                        keys: { type: "array", items: { type: "string" } }
+                    },
+                    required: ["tableName", "grain", "keys"]
+                }
+            },
+            dimensionTables: {
+                type: "array",
+                description: "List of tables acting as Reference/Dimensions.",
+                items: {
+                    type: "object",
+                    properties: {
+                        tableName: { type: "string" },
+                        keys: { type: "array", items: { type: "string" } }
+                    },
+                    required: ["tableName", "keys"]
+                }
+            },
+            linkTableRequired: {
+                type: "boolean",
+                description: "True if 2+ Fact tables share 2+ conformed dimension keys."
+            },
+            linkTableBlueprint: {
+                type: "object",
+                description: "Details for the Central Link Table if requested. Null otherwise.",
+                properties: {
+                    tableName: { type: "string", description: "Must be 'LinkTable'" },
+                    sharedKeys: { type: "array", items: { type: "string" }, description: "Keys to move into the Link Table." },
+                    compositeKeysToGenerate: { type: "array", items: { type: "string" }, description: "New composite keys needed to link facts to the link table." }
+                }
+            }
+        },
+        required: ["factTables", "dimensionTables", "linkTableRequired"]
+    };
+
+    const prompt = `
+You are an expert Qlik Data Modeling Architect.
+We are converting normalized data tables into a final Qlik Schema Blueprint.
+
+PHASE A GOALS (MACRO-ARCHITECTURE):
+1. Review the Classifications to definitively separate 'Fact' tables from 'Dimension' tables.
+2. Ensure Header and Detail Facts remain separate entities (Do not merge them).
+3. Evaluate the Association Graph edges. If 2 or more Distinct Fact tables share 2 or more common Dimension Keys (e.g. both Sales and Quotas share CustomerKey AND DateKey), you MUST declare linkTableRequired: true.
+4. If a Link Table is required, populate the linkTableBlueprint detailing which keys move to the center.
+
+DATA PROFILE (Step 0):
+${JSON.stringify(profileData, null, 2)}
+
+CLASSIFICATIONS (Step 1):
+${JSON.stringify(classifications, null, 2)}
+
+NORMALIZED FIELDS (Step 2):
+${JSON.stringify(normalizedData, null, 2)}
+
+ASSOCIATION GRAPH (Step 3):
+${JSON.stringify(graph, null, 2)}
+    `;
+
+    return await callWithRetry(async (modelName) => {
+        const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            }
+        });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return JSON.parse(response.text());
+    }, 'ArchitectBrain');
+}
+
+/**
+ * Steps 6 & 7 (Phase B): Resolve Temporal & Joins
+ * Determines Date Bridges and specific Load/Join instructions based on Phase A's blueprint.
+ */
+async function resolveTemporalAndJoins(structuralBlueprint, profileData) {
+    if (!API_KEY) throw new Error("GEMINI_API_KEY not configured.");
+    await throttle('ArchitectBrain');
+
+    const schema = {
+        type: "array",
+        description: "List of absolute script generation directives for the final code generator.",
+        items: {
+            type: "object",
+            properties: {
+                tableName: { type: "string" },
+                action: {
+                    type: "string",
+                    description: "Strictly 'LOAD', 'JOIN', or 'KEEP'."
+                },
+                requiresDateBridge: {
+                    type: "boolean",
+                    description: "True if 2+ date fields exist in the same Fact table."
+                },
+                dateFieldsToBridge: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "List of date fields to bridge. Empty if requiresDateBridge is false."
+                },
+                notes: {
+                    type: "string",
+                    description: "Brief reasoning for the action and bridge choices."
+                }
+            },
+            required: ["tableName", "action", "requiresDateBridge", "dateFieldsToBridge", "notes"]
+        }
+    };
+
+    const prompt = `
+You are an expert Qlik Data Modeling Architect.
+You must take the Macro-Architectural Blueprint (Phase A) and the Profile Data, and output final Script Directives (Phase B) for the code generator.
+
+PHASE B GOALS (MICRO-ARCHITECTURE):
+1. Evaluate every Fact table in the Blueprint against the Profile Data.
+2. If a Fact table contains 2 or more distinct Date fields (e.g., OrderDate and ShippedDate), you MUST set requiresDateBridge: true and list them in dateFieldsToBridge.
+3. CRITICAL MULTI-GRANULARITY RULE: If you have a Header Fact and a Detail Fact (e.g. Orders and OrderDetails), and dates exist in BOTH tables (or just multiple dates in one), you MUST consolidate ALL dates into a single Canonical Date Bridge attached to the HIGHEST level grain (the Header). Do NOT attach a date bridge to the Detail table if a Header exists.
+4. Determine the load 'action'. The default is ALWAYS 'LOAD' (Associative model). 
+5. Rarely use 'JOIN' only if mapping a strict 1:1 dimension extension that will not multiply rows.
+
+STRUCTURAL BLUEPRINT (Phase A Output):
+${JSON.stringify(structuralBlueprint, null, 2)}
+
+DATA PROFILE (Step 0):
+${JSON.stringify(profileData, null, 2)}
+    `;
+
+    return await callWithRetry(async (modelName) => {
+        const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            }
+        });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return JSON.parse(response.text());
+    }, 'ArchitectBrain');
+}
+
+module.exports = { generateScript, generateContent, classifyTablesAndFields, normalizeFields, buildAssociationGraph, resolveModelStructure, resolveTemporalAndJoins };

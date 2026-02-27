@@ -130,52 +130,74 @@ async function profileData(global, targetPath, app = null) {
     }
 }
 
-async function validateScript(global, scriptContent, app = null) {
-    let sessionApp = app;
+async function validateScript(global, scriptText, appOrDataPath) {
+    let app;
+    let createdIsolatedApp = false;
+
+    // Determine if we need to create our own sandbox app
+    if (typeof appOrDataPath === 'string') {
+        app = await global.createSessionApp();
+        createdIsolatedApp = true;
+
+        // Ensure the SourceData connection exists for this new isolated sandbox
+        try {
+            await app.createConnection({
+                qName: 'SourceData',
+                qConnectionString: appOrDataPath.replace(/\\\\/g, '/'),
+                qType: 'folder'
+            });
+        } catch (e) {
+            // connection might already exist in some global contexts
+        }
+    } else {
+        // Fallback: an App object was provided directly
+        app = appOrDataPath;
+    }
+
     try {
-        if (!sessionApp) {
-            sessionApp = await global.createSessionApp();
-        }
-        await sessionApp.setScript(scriptContent);
+        await app.setScript(scriptText);
 
-        const syntaxCheck = await sessionApp.checkScriptSyntax();
-        if (syntaxCheck.length > 0) {
+        // Use doReloadEx to aggressively trap syntax compilation errors
+        const reloadRes = await app.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
+
+        if (!reloadRes.qSuccess) {
+            let log = "No log fetched";
+            try {
+                log = await app.getScriptLog();
+            } catch (e) { }
             return {
                 success: false,
                 synKeys: 0,
-                errors: syntaxCheck.map(e => `Line ${e.qLineInTab}: ${JSON.stringify(e)}`)
+                circularReferences: false,
+                errors: [
+                    "Reload failed (Runtime): " + (log ? log.slice(-1000) : "Fatal Engine Error")
+                ]
             };
         }
 
-        const reloadResult = await sessionApp.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
+        const tables = await app.getTablesAndKeys({ qWindowSize: { qcx: 0, qcy: 0 }, qNullSize: { qcx: 0, qcy: 0 } });
+        const synKeys = tables.qtr.filter(t => t.qName.startsWith('$Syn')).length;
 
-        if (!reloadResult.qSuccess) {
-            const errDesc = reloadResult.qErrorDesc
-                ? `${reloadResult.qErrorDesc} (code ${reloadResult.qErrorCode})`
-                : 'Reload failed — no error description returned by engine.';
-            return {
-                success: false,
-                synKeys: 0,
-                errors: [`Reload failed (Runtime): ${errDesc}`]
-            };
-        }
-
-        const tables = await sessionApp.getTablesAndKeys({}, {}, 0, true, false);
-        const synTables = tables.qtr.filter(t => t.qName.startsWith('$Syn'));
-        const synKeys = synTables.length;
-
+        const success = (synKeys === 0);
         return {
-            success: true,
+            success: success,
             synKeys: synKeys,
-            errors: []
+            circularReferences: false, // The Qlik Engine Engine log inspection for loops can be added here
+            errors: success ? [] : [`Failed validation: Engine created ${synKeys} Synthetic Keys.`]
         };
-
     } catch (err) {
         return {
             success: false,
             synKeys: 0,
+            circularReferences: false,
             errors: [err.message]
         };
+    } finally {
+        if (createdIsolatedApp) {
+            try {
+                await global.session.destroy(); // Destroy connection to kill the session app cleanly
+            } catch (e) { }
+        }
     }
 }
 
