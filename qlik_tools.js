@@ -79,31 +79,33 @@ async function profileData(global, targetPath, app = null) {
 
         const dir = path.dirname(targetPath);
         const filename = path.basename(targetPath);
+        const tableName = filename.replace('.csv', '');
         const connectionName = 'TempData_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
-        // Create a folder connection to the directory
         await sessionApp.createConnection({
             qName: connectionName,
             qConnectionString: dir,
             qType: 'folder'
         });
 
+        // Pass A: QUALIFY * with full data load to isolate memory and accurate counts
         const loadScript = `
-            FIRST 50
+            QUALIFY *;
+            [${tableName}]:
             LOAD *
             FROM [lib://${connectionName}/${filename}]
             (txt, utf8, embedded labels, delimiter is ',', msq);
         `;
 
-        // console.log(`Debug: Load Script:\n${loadScript}`);
-
         await sessionApp.setScript(loadScript);
         const reloadResult = await sessionApp.doReload();
 
-        if (!reloadResult) {
-            // console.error('Debug: Reload Failed. Check if Qlik Sense Desktop supports folder creation via API or if path is accessible.');
-            return { error: 'Reload failed (No data or invalid format)' };
-        }
+        if (!reloadResult) return { error: 'Reload failed (No data or invalid format)' };
+
+        // Get table record to extract row count
+        const tablesAndKeys = await sessionApp.getTablesAndKeys({ qWindowSize: { qcx: 0, qcy: 0 }, qNullSize: { qcx: 0, qcy: 0 }, qSyntheticMode: false });
+        const tableRecord = tablesAndKeys.qtr.find(t => t.qName === tableName);
+        const rowCount = tableRecord ? tableRecord.qNoOfRows : 0;
 
         const sessionObj = await sessionApp.createSessionObject({
             qInfo: { qType: 'FieldList' },
@@ -117,13 +119,85 @@ async function profileData(global, targetPath, app = null) {
         for (const field of fieldList) {
             const fieldData = await sessionApp.getField(field.qName);
             const card = await fieldData.getCardinal();
+            // Remove the Qualify prefix for the output
+            const originalName = field.qName.replace(`${tableName}.`, '');
             fields.push({
-                name: field.qName,
+                name: originalName,
                 distinctCount: card
             });
         }
 
-        return { fields };
+        return { rowCount, fields };
+
+    } catch (err) {
+        return { error: err.message };
+    }
+}
+
+/**
+ * Pass B: Profile Native Relationships
+ * Loads 1 row from all tables UNQUALIFIED to see native engine associations & syn keys
+ */
+async function profileNativeRelationships(global, dataDir, files, app = null) {
+    let sessionApp = app;
+    try {
+        if (!sessionApp) {
+            sessionApp = await global.createSessionApp();
+        }
+
+        const connectionName = 'TempDataRel_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        await sessionApp.createConnection({
+            qName: connectionName,
+            qConnectionString: dataDir.replace(/\\\\/g, '/'),
+            qType: 'folder'
+        });
+
+        let loadScript = '';
+        for (const file of files) {
+            const tableName = file.replace('.csv', '');
+            loadScript += `
+                FIRST 1
+                LOAD * FROM [lib://${connectionName}/${file}]
+                (txt, utf8, embedded labels, delimiter is ',', msq);
+            `;
+        }
+
+        await sessionApp.setScript(loadScript);
+        const reloadResult = await sessionApp.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
+
+        if (!reloadResult.qSuccess) {
+            return { error: 'Failed to profile native relationships (Reload failed).' };
+        }
+
+        const tablesAndKeys = await sessionApp.getTablesAndKeys({ qWindowSize: { qcx: 0, qcy: 0 }, qNullSize: { qcx: 0, qcy: 0 }, qSyntheticMode: true });
+
+        const syntheticKeys = tablesAndKeys.qtr.filter(t => t.qIsSynthetic === true).map(t => {
+            return {
+                name: t.qName,
+                fields: (t.qFields || []).map(f => f.qName)
+            };
+        });
+
+        const realTables = tablesAndKeys.qtr.filter(t => t.qIsSynthetic !== true);
+        const fieldToTables = {};
+
+        realTables.forEach(t => {
+            (t.qFields || []).forEach(f => {
+                if (!fieldToTables[f.qName]) {
+                    fieldToTables[f.qName] = [];
+                }
+                fieldToTables[f.qName].push(t.qName);
+            });
+        });
+
+        const nativeLinks = {};
+        for (const [field, tbls] of Object.entries(fieldToTables)) {
+            if (tbls.length > 1) {
+                nativeLinks[field] = tbls;
+            }
+        }
+
+        return { syntheticKeys, nativeLinks };
 
     } catch (err) {
         return { error: err.message };
@@ -155,35 +229,106 @@ async function validateScript(global, scriptText, appOrDataPath) {
     }
 
     try {
+        console.log(`[QLIK_TOOLS] Validating script (Version V3)...`);
         await app.setScript(scriptText);
 
         // Use doReloadEx to aggressively trap syntax compilation errors
         const reloadRes = await app.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
 
         if (!reloadRes.qSuccess) {
-            let log = "No log fetched";
-            try {
-                log = await app.getScriptLog();
-            } catch (e) { }
+            const engineError = reloadRes.qErrorDesc || "Unknown Script Error";
+            console.error(`[QLIK_ENGINE_ERROR] ${engineError}`);
             return {
                 success: false,
                 synKeys: 0,
                 circularReferences: false,
                 errors: [
-                    "Reload failed (Runtime): " + (log ? log.slice(-1000) : "Fatal Engine Error")
+                    `Qlik Engine Reload Failed: ${engineError}`,
+                    "Review .debug_final_script.qvs in the project root to find the syntax error."
                 ]
             };
         }
 
-        const tables = await app.getTablesAndKeys({ qWindowSize: { qcx: 0, qcy: 0 }, qNullSize: { qcx: 0, qcy: 0 } });
-        const synKeys = tables.qtr.filter(t => t.qName.startsWith('$Syn')).length;
+        const tables = await app.getTablesAndKeys({ qWindowSize: { qcx: 0, qcy: 0 }, qNullSize: { qcx: 0, qcy: 0 }, qSyntheticMode: true });
+        const synKeys = tables.qtr.filter(t => t.qIsSynthetic === true).length;
 
-        const success = (synKeys === 0);
+        const realTables = tables.qtr.filter(t => t.qIsSynthetic !== true);
+        const fieldToTables = {};
+
+        realTables.forEach(t => {
+            (t.qFields || []).forEach(f => {
+                if (!fieldToTables[f.qName]) {
+                    fieldToTables[f.qName] = [];
+                }
+                fieldToTables[f.qName].push(t.qName);
+            });
+        });
+
+        // Build Adjacency List for Graph
+        const adjacencyList = {};
+        realTables.forEach(t => { adjacencyList[t.qName] = new Set(); });
+
+        Object.values(fieldToTables).forEach(tableList => {
+            if (tableList.length > 1) {
+                for (let i = 0; i < tableList.length; i++) {
+                    for (let j = i + 1; j < tableList.length; j++) {
+                        adjacencyList[tableList[i]].add(tableList[j]);
+                        adjacencyList[tableList[j]].add(tableList[i]);
+                    }
+                }
+            }
+        });
+
+        // BFS to count Connected Components
+        let componentCount = 0;
+        const visited = new Set();
+
+        if (realTables.length > 0) {
+            realTables.forEach(t => {
+                if (!visited.has(t.qName)) {
+                    componentCount++;
+                    const queue = [t.qName];
+                    visited.add(t.qName);
+
+                    while (queue.length > 0) {
+                        const current = queue.shift();
+                        for (const neighbor of adjacencyList[current]) {
+                            if (!visited.has(neighbor)) {
+                                visited.add(neighbor);
+                                queue.push(neighbor);
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            componentCount = 1; // 0 real tables, fallback avoids false error
+        }
+
+        // Circular Reference Detection: In a tree, edges = nodes - 1.
+        // If there are more unique edges than that, the graph has a cycle.
+        let edgeCount = 0;
+        const edgeSet = new Set();
+        for (const [node, neighbors] of Object.entries(adjacencyList)) {
+            for (const neighbor of neighbors) {
+                const edgeKey = [node, neighbor].sort().join('||');
+                edgeSet.add(edgeKey);
+            }
+        }
+        edgeCount = edgeSet.size;
+        const hasCircularRefs = edgeCount > (realTables.length - 1);
+
+        const success = (synKeys === 0 && componentCount <= 1 && !hasCircularRefs);
+        const errors = [];
+        if (synKeys > 0) errors.push(`Failed validation: Engine created ${synKeys} Synthetic Keys.`);
+        if (componentCount > 1) errors.push(`Failed validation: The data model is fractured into ${componentCount} disconnected groups (sub-graphs). All tables must eventually connect together into a single associative model.`);
+        if (hasCircularRefs) errors.push(`Failed validation: Circular references detected. The data model has ${edgeCount} associations but only ${realTables.length} tables (expected max ${realTables.length - 1} associations for a tree).`);
+
         return {
             success: success,
             synKeys: synKeys,
-            circularReferences: false, // The Qlik Engine Engine log inspection for loops can be added here
-            errors: success ? [] : [`Failed validation: Engine created ${synKeys} Synthetic Keys.`]
+            circularReferences: hasCircularRefs,
+            errors: errors
         };
     } catch (err) {
         return {
@@ -193,9 +338,10 @@ async function validateScript(global, scriptText, appOrDataPath) {
             errors: [err.message]
         };
     } finally {
-        if (createdIsolatedApp) {
+        if (createdIsolatedApp && app) {
             try {
-                await global.session.destroy(); // Destroy connection to kill the session app cleanly
+                // In enigma.js, handle objects have a .session property
+                await app.session.close();
             } catch (e) { }
         }
     }
@@ -250,6 +396,7 @@ module.exports = {
     openSessionForApp,
     closeSession,
     profileData,
+    profileNativeRelationships,
     validateScript,
     createConnection,
     createPersistentApp

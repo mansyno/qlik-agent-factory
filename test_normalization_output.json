@@ -1,0 +1,499 @@
+[
+  {
+    "tableName": "categories",
+    "originalFields": [
+      "categoryID",
+      "categoryName",
+      "description",
+      "picture"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "categoryID",
+        "normalizedName": "CategoryKey"
+      },
+      {
+        "originalName": "categoryName",
+        "normalizedName": "CategoryName"
+      },
+      {
+        "originalName": "description",
+        "normalizedName": "CategoryDescription"
+      },
+      {
+        "originalName": "picture",
+        "normalizedName": "CategoryPicture"
+      }
+    ]
+  },
+  {
+    "tableName": "customers",
+    "originalFields": [
+      "customerID",
+      "companyName",
+      "contactName",
+      "contactTitle",
+      "address",
+      "city",
+      "region",
+      "postalCode",
+      "country",
+      "phone",
+      "fax"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "customerID",
+        "normalizedName": "CustomerKey"
+      },
+      {
+        "originalName": "companyName",
+        "normalizedName": "CustomerCompanyName"
+      },
+      {
+        "originalName": "contactName",
+        "normalizedName": "CustomerContactName"
+      },
+      {
+        "originalName": "contactTitle",
+        "normalizedName": "CustomerContactTitle"
+      },
+      {
+        "originalName": "address",
+        "normalizedName": "CustomerAddress"
+      },
+      {
+        "originalName": "city",
+        "normalizedName": "CustomerCity"
+      },
+      {
+        "originalName": "region",
+        "normalizedName": "CustomerRegion"
+      },
+      {
+        "originalName": "postalCode",
+        "normalizedName": "CustomerPostalCode"
+      },
+      {
+        "originalName": "country",
+        "normalizedName": "CustomerCountry"
+      },
+      {
+        "originalName": "phone",
+        "normalizedName": "CustomerPhone"
+      },
+      {
+        "originalName": "fax",
+        "normalizedName": "CustomerFax"
+      }
+    ]
+  },
+  {
+    "tableName": "employees",
+    "originalFields": [
+      "employeeID",
+      "lastName",
+      "firstName",
+      "title",
+      "titleOfCourtesy",
+      "birthDate",
+      "hireDate",
+      "address",
+      "city",
+      "region",
+      "postalCode",
+      "country",
+      "homePhone",
+      "extension",
+      "photo",
+      "notes",
+      "reportsTo",
+      "photoPath"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "employeeID",
+        "normalizedName": "EmployeeKey"
+      },
+      {
+        "originalName": "lastName",
+        "normalizedName": "EmployeeLastName"
+      },
+      {
+        "originalName": "firstName",
+        "normalizedName": "EmployeeFirstName"
+      },
+      {
+        "originalName": "title",
+        "normalizedName": "EmployeeTitle"
+      },
+      {
+        "originalName": "titleOfCourtesy",
+        "normalizedName": "EmployeeTitleOfCourtesy"
+      },
+      {
+        "originalName": "birthDate",
+        "normalizedName": "EmployeeBirthDate"
+      },
+      {
+        "originalName": "hireDate",
+        "normalizedName": "EmployeeHireDate"
+      },
+      {
+        "originalName": "address",
+        "normalizedName": "EmployeeAddress"
+      },
+      {
+        "originalName": "city",
+        "normalizedName": "EmployeeCity"
+      },
+      {
+        "originalName": "region",
+        "normalizedName": "EmployeeRegion"
+      },
+      {
+        "originalName": "postalCode",
+        "normalizedName": "EmployeePostalCode"
+      },
+      {
+        "originalName": "country",
+        "normalizedName": "EmployeeCountry"
+      },
+      {
+        "originalName": "homePhone",
+        "normalizedName": "EmployeeHomePhone"
+      },
+      {
+        "originalName": "extension",
+        "normalizedName": "EmployeeExtension"
+      },
+      {
+        "originalName": "photo",
+        "normalizedName": "EmployeePhoto"
+      },
+      {
+        "originalName": "notes",
+        "normalizedName": "EmployeeNotes"
+      },
+      {
+        "originalName": "reportsTo",
+        "normalizedName": "ReportsToEmployeeKey"
+      },
+      {
+        "originalName": "photoPath",
+        "normalizedName": "EmployeePhotoPath"
+      }
+    ]
+  },
+  {
+    "tableName": "employee_territories",
+    "originalFields": [
+      "employeeID",
+      "territoryID"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "employeeID",
+        "normalizedName": "EmployeeKey"
+      },
+      {
+        "originalName": "territoryID",
+        "normalizedName": "TerritoryKey"
+      }
+    ]
+  },
+  {
+    "tableName": "orders",
+    "originalFields": [
+      "orderID",
+      "customerID",
+      "employeeID",
+      "orderDate",
+      "requiredDate",
+      "shippedDate",
+      "shipVia",
+      "freight",
+      "shipName",
+      "shipAddress",
+      "shipCity",
+      "shipRegion",
+      "shipPostalCode",
+      "shipCountry"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "orderID",
+        "normalizedName": "OrderKey"
+      },
+      {
+        "originalName": "customerID",
+        "normalizedName": "CustomerKey"
+      },
+      {
+        "originalName": "employeeID",
+        "normalizedName": "EmployeeKey"
+      },
+      {
+        "originalName": "orderDate",
+        "normalizedName": "OrderDate"
+      },
+      {
+        "originalName": "requiredDate",
+        "normalizedName": "RequiredDate"
+      },
+      {
+        "originalName": "shippedDate",
+        "normalizedName": "ShippedDate"
+      },
+      {
+        "originalName": "shipVia",
+        "normalizedName": "ShipperKey"
+      },
+      {
+        "originalName": "freight",
+        "normalizedName": "Freight"
+      },
+      {
+        "originalName": "shipName",
+        "normalizedName": "ShipName"
+      },
+      {
+        "originalName": "shipAddress",
+        "normalizedName": "ShipAddress"
+      },
+      {
+        "originalName": "shipCity",
+        "normalizedName": "ShipCity"
+      },
+      {
+        "originalName": "shipRegion",
+        "normalizedName": "ShipRegion"
+      },
+      {
+        "originalName": "shipPostalCode",
+        "normalizedName": "ShipPostalCode"
+      },
+      {
+        "originalName": "shipCountry",
+        "normalizedName": "ShipCountry"
+      }
+    ]
+  },
+  {
+    "tableName": "order_details",
+    "originalFields": [
+      "orderID",
+      "productID",
+      "unitPrice",
+      "quantity",
+      "discount"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "orderID",
+        "normalizedName": "OrderKey"
+      },
+      {
+        "originalName": "productID",
+        "normalizedName": "ProductKey"
+      },
+      {
+        "originalName": "unitPrice",
+        "normalizedName": "OrderLineUnitPrice"
+      },
+      {
+        "originalName": "quantity",
+        "normalizedName": "OrderLineQuantity"
+      },
+      {
+        "originalName": "discount",
+        "normalizedName": "OrderLineDiscount"
+      }
+    ]
+  },
+  {
+    "tableName": "products",
+    "originalFields": [
+      "productID",
+      "productName",
+      "supplierID",
+      "categoryID",
+      "quantityPerUnit",
+      "unitPrice",
+      "unitsInStock",
+      "unitsOnOrder",
+      "reorderLevel",
+      "discontinued"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "productID",
+        "normalizedName": "ProductKey"
+      },
+      {
+        "originalName": "productName",
+        "normalizedName": "ProductName"
+      },
+      {
+        "originalName": "supplierID",
+        "normalizedName": "SupplierKey"
+      },
+      {
+        "originalName": "categoryID",
+        "normalizedName": "CategoryKey"
+      },
+      {
+        "originalName": "quantityPerUnit",
+        "normalizedName": "QuantityPerUnit"
+      },
+      {
+        "originalName": "unitPrice",
+        "normalizedName": "ProductStandardUnitPrice"
+      },
+      {
+        "originalName": "unitsInStock",
+        "normalizedName": "UnitsInStock"
+      },
+      {
+        "originalName": "unitsOnOrder",
+        "normalizedName": "UnitsOnOrder"
+      },
+      {
+        "originalName": "reorderLevel",
+        "normalizedName": "ReorderLevel"
+      },
+      {
+        "originalName": "discontinued",
+        "normalizedName": "Discontinued"
+      }
+    ]
+  },
+  {
+    "tableName": "regions",
+    "originalFields": [
+      "regionID",
+      "regionDescription"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "regionID",
+        "normalizedName": "RegionKey"
+      },
+      {
+        "originalName": "regionDescription",
+        "normalizedName": "RegionDescription"
+      }
+    ]
+  },
+  {
+    "tableName": "shippers",
+    "originalFields": [
+      "shipperID",
+      "companyName",
+      "phone"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "shipperID",
+        "normalizedName": "ShipperKey"
+      },
+      {
+        "originalName": "companyName",
+        "normalizedName": "ShipperCompanyName"
+      },
+      {
+        "originalName": "phone",
+        "normalizedName": "ShipperPhone"
+      }
+    ]
+  },
+  {
+    "tableName": "suppliers",
+    "originalFields": [
+      "supplierID",
+      "companyName",
+      "contactName",
+      "contactTitle",
+      "address",
+      "city",
+      "region",
+      "postalCode",
+      "country",
+      "phone",
+      "fax",
+      "homePage"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "supplierID",
+        "normalizedName": "SupplierKey"
+      },
+      {
+        "originalName": "companyName",
+        "normalizedName": "SupplierCompanyName"
+      },
+      {
+        "originalName": "contactName",
+        "normalizedName": "SupplierContactName"
+      },
+      {
+        "originalName": "contactTitle",
+        "normalizedName": "SupplierContactTitle"
+      },
+      {
+        "originalName": "address",
+        "normalizedName": "SupplierAddress"
+      },
+      {
+        "originalName": "city",
+        "normalizedName": "SupplierCity"
+      },
+      {
+        "originalName": "region",
+        "normalizedName": "SupplierRegion"
+      },
+      {
+        "originalName": "postalCode",
+        "normalizedName": "SupplierPostalCode"
+      },
+      {
+        "originalName": "country",
+        "normalizedName": "SupplierCountry"
+      },
+      {
+        "originalName": "phone",
+        "normalizedName": "SupplierPhone"
+      },
+      {
+        "originalName": "fax",
+        "normalizedName": "SupplierFax"
+      },
+      {
+        "originalName": "homePage",
+        "normalizedName": "SupplierHomePage"
+      }
+    ]
+  },
+  {
+    "tableName": "territories",
+    "originalFields": [
+      "territoryID",
+      "territoryDescription",
+      "regionID"
+    ],
+    "normalizedFields": [
+      {
+        "originalName": "territoryID",
+        "normalizedName": "TerritoryKey"
+      },
+      {
+        "originalName": "territoryDescription",
+        "normalizedName": "TerritoryDescription"
+      },
+      {
+        "originalName": "regionID",
+        "normalizedName": "RegionKey"
+      }
+    ]
+  }
+]

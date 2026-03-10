@@ -1,0 +1,82 @@
+[
+  {
+    "tableName": "Cities",
+    "role": "Dimension",
+    "candidateKeys": [
+      "City ID",
+      "Region ID"
+    ],
+    "grain": "Reference",
+    "reasoning": "Provides geographical attributes linked to customers and regions; City ID is the primary key."
+  },
+  {
+    "tableName": "CustomerOrders",
+    "role": "Fact",
+    "candidateKeys": [
+      "Order Number",
+      "Customer ID",
+      "Part ID"
+    ],
+    "grain": "Detail",
+    "reasoning": "High-volume transactional table containing additive measures like quantity and price, with multiple foreign keys to master data."
+  },
+  {
+    "tableName": "Customers",
+    "role": "Dimension",
+    "candidateKeys": [
+      "Customer ID",
+      "City ID"
+    ],
+    "grain": "Header",
+    "reasoning": "Master data for clients; Customer ID is unique, linking to both order facts and city attributes."
+  },
+  {
+    "tableName": "Lorries",
+    "role": "Dimension",
+    "candidateKeys": [
+      "Lorry ID",
+      "Type"
+    ],
+    "grain": "Header",
+    "reasoning": "Asset dimension table containing unique transport units and their categorical type."
+  },
+  {
+    "tableName": "LorriesCost",
+    "role": "Reference",
+    "candidateKeys": [
+      "Lorry_Type"
+    ],
+    "grain": "Reference",
+    "reasoning": "Low-cardinality reference table providing cost values for specific vehicle categories."
+  },
+  {
+    "tableName": "Part",
+    "role": "Dimension",
+    "candidateKeys": [
+      "Part ID"
+    ],
+    "grain": "Header",
+    "reasoning": "Master catalog for parts containing descriptive attributes like brand and category; Part ID is the primary key."
+  },
+  {
+    "tableName": "Regions",
+    "role": "Reference",
+    "candidateKeys": [
+      "RegionNum"
+    ],
+    "grain": "Reference",
+    "reasoning": "Small reference table defining the top-level geographical hierarchy."
+  },
+  {
+    "tableName": "TransDocument",
+    "role": "Fact",
+    "candidateKeys": [
+      "Document Number",
+      "Lorry ID",
+      "Part Num",
+      "Customer Num"
+    ],
+    "grain": "Detail",
+    "reasoning": "Very high-volume logistical transaction table with multiple foreign keys to assets, products, and customers."
+  }
+]

@@ -11,7 +11,7 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 
 const MODELS = {
     primary: "gemini-3-flash-preview",
-    fallback: "gemini-3-flash-preview"
+    fallback: "gemini-3-flash-lite"
 };
 
 let activeModel = MODELS.primary;
@@ -163,53 +163,49 @@ async function classifyTablesAndFields(profileData) {
     await throttle('ArchitectBrain');
 
     const schema = {
-        type: "array",
-        description: "List of analyzed tables with their classifications.",
-        items: {
-            type: "object",
-            properties: {
-                tableName: {
-                    type: "string",
-                    description: "The name of the table being analyzed."
-                },
-                role: {
-                    type: "string",
-                    description: "The business role of the table. Must be strictly 'Fact', 'Dimension', or 'Link'."
-                },
-                candidateKeys: {
-                    type: "array",
-                    description: "List of fields that could act as primary or associative keys based on high distinctness.",
-                    items: { type: "string" }
-                },
-                grain: {
-                    type: "string",
-                    description: "The grain of the table. Must be strictly 'Header', 'Detail', or 'Reference'."
-                },
-                reasoning: {
-                    type: "string",
-                    description: "A brief, 1-sentence explanation of why this classification was chosen based on the statistics."
-                }
+        type: "object",
+        description: "The classification result or an explicit error if the data is incomprehensible.",
+        properties: {
+            error: {
+                type: "string",
+                description: "ESCAPE HATCH: If the data is completely ambiguous or incomprehensible, return a concise message starting with 'This is not clear, cannot continue.' and explain why. If the data is fine, leave this null."
             },
-            required: ["tableName", "role", "candidateKeys", "grain", "reasoning"]
+            classifications: {
+                type: "array",
+                description: "List of analyzed tables with their classifications. Provide this ONLY if error is null.",
+                items: {
+                    type: "object",
+                    properties: {
+                        tableName: { type: "string" },
+                        role: { type: "string", description: "Must be 'Fact', 'Dimension', or 'Reference'." },
+                        candidateKeys: { type: "array", items: { type: "string" }, description: "Primary/Foreign keys identified." },
+                        grain: { type: "string", description: "Must be 'Header', 'Detail', or 'Reference'." },
+                        reasoning: { type: "string" }
+                    },
+                    required: ["tableName", "role", "candidateKeys", "grain", "reasoning"]
+                }
+            }
         }
     };
 
     const prompt = `
 You are an expert Qlik Data Modeling Architect.
-You must analyze the provided statistical metadata for a set of raw database tables.
+You must analyze the provided statistical metadata AND native engine relationships for a set of raw database tables.
 
 Your task is to classify EACH table without writing any Qлик code.
 For each table, determine:
-1. **Candidate Keys**: Which fields are Primary Keys or Foreign Keys? Look for fields with 0% Nulls and Cardinality (distinctCount) close to the table's total rowCount.
-2. **Role**: Is this a 'Fact' (additive measures, multiple foreign keys), a 'Dimension' (descriptive string attributes, mostly 1 primary key), or 'Link' (purely associative keys)?
+1. **Candidate Keys**: Which fields are Primary Keys or Foreign Keys? 
+   - **CRITICAL HINT**: Consult the "relationships.nativeLinks" section below. Any field listed there is ALREADY associated by the Qlik Engine across multiple tables. You MUST include these fields as candidateKeys for the respective tables.
+   - Look for fields with 0% Nulls and Cardinality close to the rowCount for Primary Keys.
+2. **Role**: Is this a 'Fact' (additive measures, multiple foreign keys), a 'Dimension' (descriptive string attributes, mostly 1 primary key), or 'Reference'?
 3. **Grain**: Is this a 'Header' table (1 row per transaction), a 'Detail' table (multiple rows per transaction), or 'Reference'?
 
 Strict Rules:
-- Return the exact JSON array structure specified.
-- Do NOT include markdown code fences (\`\`\`json). Just return the raw JSON array string.
-- Base your logic entirely on the data profile (row counts vs distinct counts vs null percentages).
+- ESCAPE HATCH: If you cannot understand the data or it is hopelessly ambiguous, you MUST fail gracefully by populating the 'error' field with "This is not clear, cannot continue." and a brief explanation.
+- Return the exact JSON object structure specified.
+- prioritize the "nativeLinks" provided by the engine; they are ground truth for associations.
 
-DATA PROFILE:
+DATA PROFILE & ENGINE HINTS (Native Relationships):
 ${JSON.stringify(profileData, null, 2)}
     `;
 
@@ -232,7 +228,7 @@ ${JSON.stringify(profileData, null, 2)}
  * Evaluates the Step 0 Profile and Step 1 Classifications to enforce strict naming
  * conventions and explicitly resolve identical cross-table field names (Hard Stop).
  */
-async function normalizeFields(profileData, classifications) {
+async function normalizeFields(profileData, classifications, compilationErrorContext = null) {
     if (!API_KEY) throw new Error("GEMINI_API_KEY not configured.");
     await throttle('ArchitectBrain');
 
@@ -285,12 +281,16 @@ async function normalizeFields(profileData, classifications) {
 You are an expert Qlik Data Modeling Architect.
 Your task is to normalize field names across the provided tables to prepare for Association (Step 3).
 
-CRITICAL "HARD STOP" RULE:
-No two tables may share 2 or more identically-named normalized fields. If they do, Qlik will generate a memory-crashing Synthetic Key.
-If you detect that two tables share 2+ identical key fields, you MUST:
-1. Suggest a single new Composite Key under the 'compositeKeys' array for those tables.
-2. The 'hashedFields' array must list the component fields.
-3. Rename or distinctify the individual original fields so they no longer formally associate.
+CRITICAL "HARD STOP" RULES:
+1. No two tables may share 2 or more identically-named normalized fields. If they do, Qlik will generate a memory-crashing Synthetic Key.
+   If you detect that two tables share 2+ identical key fields, you MUST:
+   a. Suggest a single new Composite Key under the 'compositeKeys' array for those tables.
+   b. The 'hashedFields' array must list the component fields.
+   c. Rename or distinctify the individual original fields so they no longer formally associate.
+
+2. ISLAND PREVENTION (CRITICAL):
+   Foreign Keys in Fact tables MUST be normalized to match the EXACT SAME 'normalizedName' as the Primary Key in the corresponding Dimension table.
+   Do NOT prefix Foreign Keys with the Fact table name (e.g. do NOT use 'Order_CustomerKey', use 'CustomerKey'). This allows the Associative Engine to link them natively.
 
 NORMALIZATION GOALS:
 1. Standardize Primary/Foreign Keys (e.g. 'Customer_ID' -> 'CustomerKey').
@@ -302,6 +302,8 @@ ${JSON.stringify(profileData, null, 2)}
 
 TABLE CLASSIFICATIONS (Step 1):
 ${JSON.stringify(classifications, null, 2)}
+
+${compilationErrorContext ? `PREVIOUS QLIK COMPILATION FAILED:\n${compilationErrorContext}\nCRITICAL INSTRUCTION: Analyze the tables mentioned in the error above. Ensure they DO NOT share 2 or more keys. Rename intersecting fields to prevent the loop or synthetic key.` : ''}
     `;
 
     return await callWithRetry(async (modelName) => {
@@ -450,7 +452,7 @@ We are converting normalized data tables into a final Qlik Schema Blueprint.
 PHASE A GOALS (MACRO-ARCHITECTURE):
 1. Review the Classifications to definitively separate 'Fact' tables from 'Dimension' tables.
 2. Ensure Header and Detail Facts remain separate entities (Do not merge them).
-3. Evaluate the Association Graph edges. If 2 or more Distinct Fact tables share 2 or more common Dimension Keys (e.g. both Sales and Quotas share CustomerKey AND DateKey), you MUST declare linkTableRequired: true.
+3. Evaluate the relationships between Fact tables. If 2 or more Fact tables share exactly ONE dimension key, keep them separate; the Associative Engine will link them naturally. If they share TWO OR MORE conformed dimension keys (e.g., both share CustomerKey AND DateKey), you MUST resolve the loop by either creating a centralized [LinkTable] containing those shared keys OR by Concatenating the facts if they share >80% granularity.
 4. If a Link Table is required, populate the linkTableBlueprint detailing which keys move to the center.
 
 DATA PROFILE (Step 0):

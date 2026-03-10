@@ -1,0 +1,83 @@
+[
+  {
+    "tableName": "orders",
+    "action": "LOAD",
+    "requiresDateBridge": true,
+    "dateFieldsToBridge": [
+      "orderDate",
+      "requiredDate",
+      "shippedDate"
+    ],
+    "notes": "Fact table containing multiple dates (orderDate, requiredDate, shippedDate) which necessitates a Date Bridge for a single Calendar view."
+  },
+  {
+    "tableName": "order_details",
+    "action": "LOAD",
+    "requiresDateBridge": false,
+    "dateFieldsToBridge": [],
+    "notes": "Detail fact table; links to Order Header. Does not contain independent date fields for bridging."
+  },
+  {
+    "tableName": "categories",
+    "action": "LOAD",
+    "requiresDateBridge": false,
+    "dateFieldsToBridge": [],
+    "notes": "Standard dimension table load."
+  },
+  {
+    "tableName": "customers",
+    "action": "LOAD",
+    "requiresDateBridge": false,
+    "dateFieldsToBridge": [],
+    "notes": "Standard dimension table load."
+  },
+  {
+    "tableName": "employees",
+    "action": "LOAD",
+    "requiresDateBridge": false,
+    "dateFieldsToBridge": [],
+    "notes": "Dimension table. Contains BirthDate and HireDate, but as a dimension, these are treated as attributes rather than facts requiring bridging."
+  },
+  {
+    "tableName": "employee_territories",
+    "action": "LOAD",
+    "requiresDateBridge": false,
+    "dateFieldsToBridge": [],
+    "notes": "Dimension table representing the many-to-many relationship between employees and territories."
+  },
+  {
+    "tableName": "products",
+    "action": "LOAD",
+    "requiresDateBridge": false,
+    "dateFieldsToBridge": [],
+    "notes": "Standard dimension table load."
+  },
+  {
+    "tableName": "regions",
+    "action": "LOAD",
+    "requiresDateBridge": false,
+    "dateFieldsToBridge": [],
+    "notes": "Standard dimension table load."
+  },
+  {
+    "tableName": "shippers",
+    "action": "LOAD",
+    "requiresDateBridge": false,
+    "dateFieldsToBridge": [],
+    "notes": "Standard dimension table load."
+  },
+  {
+    "tableName": "suppliers",
+    "action": "LOAD",
+    "requiresDateBridge": false,
+    "dateFieldsToBridge": [],
+    "notes": "Standard dimension table load."
+  },
+  {
+    "tableName": "territories",
+    "action": "LOAD",
+    "requiresDateBridge": false,
+    "dateFieldsToBridge": [],
+    "notes": "Standard dimension table load."
+  }
+]

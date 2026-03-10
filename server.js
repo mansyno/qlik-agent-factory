@@ -47,6 +47,13 @@ app.post('/api/run', async (req, res) => {
     io.emit('job-started', { dataDir, appName, pipeline });
 
     try {
+        // Cache-bust agent modules so edits are picked up without server restart
+        Object.keys(require.cache).forEach(key => {
+            if (key.includes('agent_runner') || key.includes('brain') || key.includes('deterministic_modeler') || key.includes('architect_generator')) {
+                delete require.cache[key];
+            }
+        });
+
         const { runAgent } = require('./agent_runner');
         await runAgent({ dataDir, appName, pipeline, io, broadcastAgentState, agentControl });
     } catch (err) {

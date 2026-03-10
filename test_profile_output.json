@@ -1,0 +1,742 @@
+{
+  "tables": [
+    {
+      "tableName": "categories",
+      "rowCount": 8,
+      "fields": [
+        {
+          "name": "categoryID",
+          "physicalName": "categories.categoryID",
+          "distinctCount": 8,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "8"
+        },
+        {
+          "name": "categoryName",
+          "physicalName": "categories.categoryName",
+          "distinctCount": 8,
+          "nullPercentage": 0,
+          "min": "Beverages",
+          "max": "Seafood"
+        },
+        {
+          "name": "description",
+          "physicalName": "categories.description",
+          "distinctCount": 8,
+          "nullPercentage": 0,
+          "min": "Breads crackers pasta and cereal",
+          "max": "Sweet and savory sauces relishes spreads and seasonings"
+        },
+        {
+          "name": "picture",
+          "physicalName": "categories.picture",
+          "distinctCount": 1,
+          "nullPercentage": 0,
+          "min": "0x151C2F00020000000D000E0014002100FFFFFFFF4269746D617020496D616765005061696E742E5069637475726500010500000200000007000000504272757368000000000000000000A0290000424D98290000000000005600000028000000AC00000078000000010004000000000000000000880B0000880B0000080000",
+          "max": "0x151C2F00020000000D000E0014002100FFFFFFFF4269746D617020496D616765005061696E742E5069637475726500010500000200000007000000504272757368000000000000000000A0290000424D98290000000000005600000028000000AC00000078000000010004000000000000000000880B0000880B0000080000"
+        }
+      ]
+    },
+    {
+      "tableName": "customers",
+      "rowCount": 91,
+      "fields": [
+        {
+          "name": "customerID",
+          "physicalName": "customers.customerID",
+          "distinctCount": 91,
+          "nullPercentage": 0,
+          "min": "ALFKI",
+          "max": "WOLZA"
+        },
+        {
+          "name": "companyName",
+          "physicalName": "customers.companyName",
+          "distinctCount": 91,
+          "nullPercentage": 0,
+          "min": "Alfreds Futterkiste",
+          "max": "Wolski  Zajazd"
+        },
+        {
+          "name": "contactName",
+          "physicalName": "customers.contactName",
+          "distinctCount": 91,
+          "nullPercentage": 0,
+          "min": "Alejandra Camino",
+          "max": "Zbyszek Piestrzeniewicz"
+        },
+        {
+          "name": "contactTitle",
+          "physicalName": "customers.contactTitle",
+          "distinctCount": 12,
+          "nullPercentage": 0,
+          "min": "Accounting Manager",
+          "max": "Sales Representative"
+        },
+        {
+          "name": "address",
+          "physicalName": "customers.address",
+          "distinctCount": 91,
+          "nullPercentage": 0,
+          "min": "1 rue Alsace-Lorraine",
+          "max": "Åkergatan 24"
+        },
+        {
+          "name": "city",
+          "physicalName": "customers.city",
+          "distinctCount": 70,
+          "nullPercentage": 0,
+          "min": "12Rio de Janeiro",
+          "max": "Århus"
+        },
+        {
+          "name": "region",
+          "physicalName": "customers.region",
+          "distinctCount": 19,
+          "nullPercentage": 0,
+          "min": "AK",
+          "max": "WY"
+        },
+        {
+          "name": "postalCode",
+          "physicalName": "customers.postalCode",
+          "distinctCount": 86,
+          "nullPercentage": 0,
+          "min": "1010",
+          "max": "WX3 6FW"
+        },
+        {
+          "name": "country",
+          "physicalName": "customers.country",
+          "distinctCount": 21,
+          "nullPercentage": 0,
+          "min": "Argentina",
+          "max": "Venezuela"
+        },
+        {
+          "name": "phone",
+          "physicalName": "customers.phone",
+          "distinctCount": 91,
+          "nullPercentage": 0,
+          "min": "2967 542",
+          "max": "981-443655"
+        },
+        {
+          "name": "fax",
+          "physicalName": "customers.fax",
+          "distinctCount": 70,
+          "nullPercentage": 0,
+          "min": "2967 3333",
+          "max": "NULL"
+        }
+      ]
+    },
+    {
+      "tableName": "employees",
+      "rowCount": 9,
+      "fields": [
+        {
+          "name": "employeeID",
+          "physicalName": "employees.employeeID",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "9"
+        },
+        {
+          "name": "lastName",
+          "physicalName": "employees.lastName",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "Buchanan",
+          "max": "Suyama"
+        },
+        {
+          "name": "firstName",
+          "physicalName": "employees.firstName",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "Andrew",
+          "max": "Steven"
+        },
+        {
+          "name": "title",
+          "physicalName": "employees.title",
+          "distinctCount": 4,
+          "nullPercentage": 0,
+          "min": "Inside Sales Coordinator",
+          "max": "Vice President Sales"
+        },
+        {
+          "name": "titleOfCourtesy",
+          "physicalName": "employees.titleOfCourtesy",
+          "distinctCount": 4,
+          "nullPercentage": 0,
+          "min": "Dr.",
+          "max": "Ms."
+        },
+        {
+          "name": "birthDate",
+          "physicalName": "employees.birthDate",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "1937-09-19 00:00:00.000",
+          "max": "1966-01-27 00:00:00.000"
+        },
+        {
+          "name": "hireDate",
+          "physicalName": "employees.hireDate",
+          "distinctCount": 8,
+          "nullPercentage": 0,
+          "min": "1992-04-01 00:00:00.000",
+          "max": "1994-11-15 00:00:00.000"
+        },
+        {
+          "name": "address",
+          "physicalName": "employees.address",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "14 Garrett Hill",
+          "max": "Edgeham Hollow Winchester Way"
+        },
+        {
+          "name": "city",
+          "physicalName": "employees.city",
+          "distinctCount": 5,
+          "nullPercentage": 0,
+          "min": "Kirkland",
+          "max": "Tacoma"
+        },
+        {
+          "name": "region",
+          "physicalName": "employees.region",
+          "distinctCount": 2,
+          "nullPercentage": 0,
+          "min": "NULL",
+          "max": "WA"
+        },
+        {
+          "name": "postalCode",
+          "physicalName": "employees.postalCode",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "98033",
+          "max": "WG2 7LT"
+        },
+        {
+          "name": "country",
+          "physicalName": "employees.country",
+          "distinctCount": 2,
+          "nullPercentage": 0,
+          "min": "UK",
+          "max": "USA"
+        },
+        {
+          "name": "homePhone",
+          "physicalName": "employees.homePhone",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "(206) 555-1189",
+          "max": "(71) 555-7773"
+        },
+        {
+          "name": "extension",
+          "physicalName": "employees.extension",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "428",
+          "max": "5467"
+        },
+        {
+          "name": "photo",
+          "physicalName": "employees.photo",
+          "distinctCount": 3,
+          "nullPercentage": 0,
+          "min": "0x151C2F00020000000D000E0014002100FFFFFFFF4269746D617020496D616765005061696E742E506963747572650001050000020000000700000050427275736800000000000000000020540000424D16540000000000007600000028000000C0000000DF0000000100040000000000A0530000CE0E0000D80E0000000000",
+          "max": "0x151C2F00020000000D000E0014002100FFFFFFFF4269746D617020496D616765005061696E742E506963747572650001050000020000000700000050427275736800000000000000000080540000424D80540000000000007600000028000000C0000000E0000000010004000000000000540000CE0E0000D80E0000000000"
+        },
+        {
+          "name": "notes",
+          "physicalName": "employees.notes",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "Andrew received his BTS commercial in 1974 and a Ph.D. in international marketing from the University of Dallas in 1981.  He is fluent in French and Italian and reads German.  He joined the company as a sales representative was promoted to sales manager",
+          "max": "Steven Buchanan graduated from St. Andrews University in Scotland with a BSC degree in 1976.  Upon joining the company as a sales representative in 1992 he spent 6 months in an orientation program at the Seattle office."
+        },
+        {
+          "name": "reportsTo",
+          "physicalName": "employees.reportsTo",
+          "distinctCount": 3,
+          "nullPercentage": 0,
+          "min": "2",
+          "max": "NULL"
+        },
+        {
+          "name": "photoPath",
+          "physicalName": "employees.photoPath",
+          "distinctCount": 5,
+          "nullPercentage": 0,
+          "min": "http://accweb/emmployees/buchanan.bmp",
+          "max": "http://accweb/emmployees/peacock.bmp"
+        }
+      ]
+    },
+    {
+      "tableName": "employee_territories",
+      "rowCount": 49,
+      "fields": [
+        {
+          "name": "employeeID",
+          "physicalName": "employee_territories.employeeID",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "9"
+        },
+        {
+          "name": "territoryID",
+          "physicalName": "employee_territories.territoryID",
+          "distinctCount": 49,
+          "nullPercentage": 0,
+          "min": "01581",
+          "max": "98104"
+        }
+      ]
+    },
+    {
+      "tableName": "orders",
+      "rowCount": 830,
+      "fields": [
+        {
+          "name": "orderID",
+          "physicalName": "orders.orderID",
+          "distinctCount": 830,
+          "nullPercentage": 0,
+          "min": "10248",
+          "max": "11077"
+        },
+        {
+          "name": "customerID",
+          "physicalName": "orders.customerID",
+          "distinctCount": 89,
+          "nullPercentage": 0,
+          "min": "ALFKI",
+          "max": "WOLZA"
+        },
+        {
+          "name": "employeeID",
+          "physicalName": "orders.employeeID",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "9"
+        },
+        {
+          "name": "orderDate",
+          "physicalName": "orders.orderDate",
+          "distinctCount": 480,
+          "nullPercentage": 0,
+          "min": "1996-07-04 00:00:00.000",
+          "max": "1998-05-06 00:00:00.000"
+        },
+        {
+          "name": "requiredDate",
+          "physicalName": "orders.requiredDate",
+          "distinctCount": 454,
+          "nullPercentage": 0,
+          "min": "1996-07-24 00:00:00.000",
+          "max": "1998-06-11 00:00:00.000"
+        },
+        {
+          "name": "shippedDate",
+          "physicalName": "orders.shippedDate",
+          "distinctCount": 388,
+          "nullPercentage": 0,
+          "min": "1996-07-10 00:00:00.000",
+          "max": "NULL"
+        },
+        {
+          "name": "shipVia",
+          "physicalName": "orders.shipVia",
+          "distinctCount": 3,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "3"
+        },
+        {
+          "name": "freight",
+          "physicalName": "orders.freight",
+          "distinctCount": 799,
+          "nullPercentage": 0,
+          "min": "0.02",
+          "max": "1007.64"
+        },
+        {
+          "name": "shipName",
+          "physicalName": "orders.shipName",
+          "distinctCount": 90,
+          "nullPercentage": 0,
+          "min": "Alfred's Futterkiste",
+          "max": "Wolski Zajazd"
+        },
+        {
+          "name": "shipAddress",
+          "physicalName": "orders.shipAddress",
+          "distinctCount": 89,
+          "nullPercentage": 0,
+          "min": "1 rue Alsace-Lorraine",
+          "max": "Åkergatan 24"
+        },
+        {
+          "name": "shipCity",
+          "physicalName": "orders.shipCity",
+          "distinctCount": 70,
+          "nullPercentage": 0,
+          "min": "Aachen",
+          "max": "Århus"
+        },
+        {
+          "name": "shipRegion",
+          "physicalName": "orders.shipRegion",
+          "distinctCount": 20,
+          "nullPercentage": 0,
+          "min": "AK",
+          "max": "WY"
+        },
+        {
+          "name": "shipPostalCode",
+          "physicalName": "orders.shipPostalCode",
+          "distinctCount": 84,
+          "nullPercentage": 0,
+          "min": "1010",
+          "max": "WX3 6FW"
+        },
+        {
+          "name": "shipCountry",
+          "physicalName": "orders.shipCountry",
+          "distinctCount": 21,
+          "nullPercentage": 0,
+          "min": "Argentina",
+          "max": "Venezuela"
+        }
+      ]
+    },
+    {
+      "tableName": "order_details",
+      "rowCount": 2155,
+      "fields": [
+        {
+          "name": "orderID",
+          "physicalName": "order_details.orderID",
+          "distinctCount": 830,
+          "nullPercentage": 0,
+          "min": "10248",
+          "max": "11077"
+        },
+        {
+          "name": "productID",
+          "physicalName": "order_details.productID",
+          "distinctCount": 77,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "77"
+        },
+        {
+          "name": "unitPrice",
+          "physicalName": "order_details.unitPrice",
+          "distinctCount": 116,
+          "nullPercentage": 0,
+          "min": "2.00",
+          "max": "263.50"
+        },
+        {
+          "name": "quantity",
+          "physicalName": "order_details.quantity",
+          "distinctCount": 55,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "130"
+        },
+        {
+          "name": "discount",
+          "physicalName": "order_details.discount",
+          "distinctCount": 11,
+          "nullPercentage": 0,
+          "min": "0",
+          "max": "0.25"
+        }
+      ]
+    },
+    {
+      "tableName": "products",
+      "rowCount": 77,
+      "fields": [
+        {
+          "name": "productID",
+          "physicalName": "products.productID",
+          "distinctCount": 77,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "77"
+        },
+        {
+          "name": "productName",
+          "physicalName": "products.productName",
+          "distinctCount": 77,
+          "nullPercentage": 0,
+          "min": "Alice Mutton",
+          "max": "Zaanse koeken"
+        },
+        {
+          "name": "supplierID",
+          "physicalName": "products.supplierID",
+          "distinctCount": 29,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "29"
+        },
+        {
+          "name": "categoryID",
+          "physicalName": "products.categoryID",
+          "distinctCount": 8,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "8"
+        },
+        {
+          "name": "quantityPerUnit",
+          "physicalName": "products.quantityPerUnit",
+          "distinctCount": 70,
+          "nullPercentage": 0,
+          "min": "1 kg pkg.",
+          "max": "750 cc per bottle"
+        },
+        {
+          "name": "unitPrice",
+          "physicalName": "products.unitPrice",
+          "distinctCount": 62,
+          "nullPercentage": 0,
+          "min": "2.50",
+          "max": "263.50"
+        },
+        {
+          "name": "unitsInStock",
+          "physicalName": "products.unitsInStock",
+          "distinctCount": 51,
+          "nullPercentage": 0,
+          "min": "0",
+          "max": "125"
+        },
+        {
+          "name": "unitsOnOrder",
+          "physicalName": "products.unitsOnOrder",
+          "distinctCount": 10,
+          "nullPercentage": 0,
+          "min": "0",
+          "max": "100"
+        },
+        {
+          "name": "reorderLevel",
+          "physicalName": "products.reorderLevel",
+          "distinctCount": 7,
+          "nullPercentage": 0,
+          "min": "0",
+          "max": "30"
+        },
+        {
+          "name": "discontinued",
+          "physicalName": "products.discontinued",
+          "distinctCount": 2,
+          "nullPercentage": 0,
+          "min": "0",
+          "max": "1"
+        }
+      ]
+    },
+    {
+      "tableName": "regions",
+      "rowCount": 4,
+      "fields": [
+        {
+          "name": "regionID",
+          "physicalName": "regions.regionID",
+          "distinctCount": 4,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "4"
+        },
+        {
+          "name": "regionDescription",
+          "physicalName": "regions.regionDescription",
+          "distinctCount": 4,
+          "nullPercentage": 0,
+          "min": "Eastern",
+          "max": "Western"
+        }
+      ]
+    },
+    {
+      "tableName": "shippers",
+      "rowCount": 3,
+      "fields": [
+        {
+          "name": "shipperID",
+          "physicalName": "shippers.shipperID",
+          "distinctCount": 3,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "3"
+        },
+        {
+          "name": "companyName",
+          "physicalName": "shippers.companyName",
+          "distinctCount": 3,
+          "nullPercentage": 0,
+          "min": "Federal Shipping",
+          "max": "United Package"
+        },
+        {
+          "name": "phone",
+          "physicalName": "shippers.phone",
+          "distinctCount": 3,
+          "nullPercentage": 0,
+          "min": "(503) 555-3199",
+          "max": "(503) 555-9931"
+        }
+      ]
+    },
+    {
+      "tableName": "suppliers",
+      "rowCount": 29,
+      "fields": [
+        {
+          "name": "supplierID",
+          "physicalName": "suppliers.supplierID",
+          "distinctCount": 29,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "29"
+        },
+        {
+          "name": "companyName",
+          "physicalName": "suppliers.companyName",
+          "distinctCount": 29,
+          "nullPercentage": 0,
+          "min": "Aux joyeux ecclésiastiques",
+          "max": "Zaanse Snoepfabriek"
+        },
+        {
+          "name": "contactName",
+          "physicalName": "suppliers.contactName",
+          "distinctCount": 29,
+          "nullPercentage": 0,
+          "min": "Anne Heikkonen",
+          "max": "Yoshi Nagase"
+        },
+        {
+          "name": "contactTitle",
+          "physicalName": "suppliers.contactTitle",
+          "distinctCount": 15,
+          "nullPercentage": 0,
+          "min": "Accounting Manager",
+          "max": "Wholesale Account Agent"
+        },
+        {
+          "name": "address",
+          "physicalName": "suppliers.address",
+          "distinctCount": 29,
+          "nullPercentage": 0,
+          "min": "148 rue Chasseur",
+          "max": "Viale Dante 75"
+        },
+        {
+          "name": "city",
+          "physicalName": "suppliers.city",
+          "distinctCount": 29,
+          "nullPercentage": 0,
+          "min": "Ann Arbor",
+          "max": "Zaandam"
+        },
+        {
+          "name": "region",
+          "physicalName": "suppliers.region",
+          "distinctCount": 9,
+          "nullPercentage": 0,
+          "min": "Asturias",
+          "max": "Victoria"
+        },
+        {
+          "name": "postalCode",
+          "physicalName": "suppliers.postalCode",
+          "distinctCount": 29,
+          "nullPercentage": 0,
+          "min": "100",
+          "max": "S-345 67"
+        },
+        {
+          "name": "country",
+          "physicalName": "suppliers.country",
+          "distinctCount": 16,
+          "nullPercentage": 0,
+          "min": "Australia",
+          "max": "USA"
+        },
+        {
+          "name": "phone",
+          "physicalName": "suppliers.phone",
+          "distinctCount": 29,
+          "nullPercentage": 0,
+          "min": "43844108",
+          "max": "85.57.00.07"
+        },
+        {
+          "name": "fax",
+          "physicalName": "suppliers.fax",
+          "distinctCount": 14,
+          "nullPercentage": 0,
+          "min": "43844115",
+          "max": "NULL"
+        },
+        {
+          "name": "homePage",
+          "physicalName": "suppliers.homePage",
+          "distinctCount": 6,
+          "nullPercentage": 0,
+          "min": "#CAJUN.HTM#",
+          "max": "Plutzer (on the World Wide Web)#http://www.microsoft.com/accessdev/sampleapps/plutzer.htm#"
+        }
+      ]
+    },
+    {
+      "tableName": "territories",
+      "rowCount": 53,
+      "fields": [
+        {
+          "name": "territoryID",
+          "physicalName": "territories.territoryID",
+          "distinctCount": 53,
+          "nullPercentage": 0,
+          "min": "01581",
+          "max": "98104"
+        },
+        {
+          "name": "territoryDescription",
+          "physicalName": "territories.territoryDescription",
+          "distinctCount": 52,
+          "nullPercentage": 0,
+          "min": "Atlanta",
+          "max": "Wilton"
+        },
+        {
+          "name": "regionID",
+          "physicalName": "territories.regionID",
+          "distinctCount": 4,
+          "nullPercentage": 0,
+          "min": "1",
+          "max": "4"
+        }
+      ]
+    }
+  ]
+}

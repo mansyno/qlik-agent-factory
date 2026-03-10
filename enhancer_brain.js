@@ -15,7 +15,7 @@ const genAI = new GoogleGenerativeAI(apiKey);
 
 const MODELS = {
   primary: 'gemini-3-flash-preview',
-  fallback: 'gemini-3-flash-preview'
+  fallback: 'gemini-3-flash-lite'
 };
 let activeModel = MODELS.primary;
 

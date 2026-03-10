@@ -3,8 +3,14 @@ const path = require('path');
 /**
  * Step 8: Deterministic QVS Script Generator
  * Converts JSON structural directives into physical Qlik Load Script syntax.
+ *
+ * @param {Array} directives - Phase B output (per-table load instructions)
+ * @param {Array} normalizedData - Step 2 output (field name mappings)
+ * @param {string} sourceDirectory - Path to CSV source files
+ * @param {object} structuralBlueprint - Phase A output (fact/dim/link table blueprint)
+ * @param {boolean} fastLoad - If true, loads only FIRST 1 row for validation
  */
-function generateQvsScript(directives, normalizedData, sourceDirectory, fastLoad = true) {
+function generateQvsScript(directives, normalizedData, sourceDirectory, structuralBlueprint = null, fastLoad = true) {
     let script = `
 ///$tab Main
 SET ThousandSep=',';
@@ -36,6 +42,30 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
         tableLookup[t.tableName] = t.normalizedFields;
     });
 
+    const isLinkTable = structuralBlueprint && structuralBlueprint.strategy === 'LINK_TABLE';
+    const isConcat = structuralBlueprint && structuralBlueprint.strategy === 'CONCATENATE';
+
+    // Build sets for Link Table shared keys
+    const sharedKeysSet = new Set();
+    const linkBlueprint = structuralBlueprint && structuralBlueprint.linkTableBlueprint;
+    if (isLinkTable && linkBlueprint && linkBlueprint.sharedKeys) {
+        linkBlueprint.sharedKeys.forEach(k => sharedKeysSet.add(k));
+    }
+
+    const factTableNames = new Set();
+    if (structuralBlueprint && structuralBlueprint.factTables) {
+        structuralBlueprint.factTables.forEach(ft => factTableNames.add(ft.tableName));
+    }
+
+    // For CONCATENATE strategy, we need the union of all fact fields to pad missing ones with Null()
+    const allFactFields = new Set();
+    if (isConcat) {
+        factTableNames.forEach(ft => {
+            const fields = tableLookup[ft] || [];
+            fields.forEach(f => allFactFields.add(f.normalizedName));
+        });
+    }
+
     const bridgeScripts = [];
 
     directives.forEach(directive => {
@@ -47,74 +77,175 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
             return;
         }
 
-        // 1. Build the LOAD statement mapping Original -> Normalized
+        const isFactTable = factTableNames.has(tableName);
+
         script += `\n// --- Table: ${tableName} ---\n`;
-        if (directive.notes) {
-            script += `// Notes: ${directive.notes}\n`;
+        if (directive.notes) script += `// Notes: ${directive.notes}\n`;
+        if (fastLoad) script += `FIRST 1\n`;
+
+        // If concatenating, label all facts as [Consolidated_Fact]
+        if (isConcat && isFactTable) {
+            script += `[Consolidated_Fact]:\nLOAD\n`;
+        } else {
+            script += `[${tableName}]:\nLOAD\n`;
         }
 
-        // Fast-load validation mechanism
-        if (fastLoad) {
-            script += `FIRST 1\n`;
+        const fieldLines = [];
+
+        // Universal Fact ID for Date Bridging (only needed in CONCATENATE mode)
+        // In LINK_TABLE mode, each fact already has a unique %Key_<TableName> composite key
+        if (isFactTable && isConcat) {
+            fieldLines.push(`    AutoNumber(RowNo() & '|' & '${tableName}') AS "%FactID"`);
         }
 
-        script += `[${tableName}]:\nLOAD\n`;
+        // Implicit Concatenation Logic
+        if (isConcat && isFactTable) {
+            // Add Source Table tracker
+            fieldLines.push(`    '${tableName}' AS "%SourceTable"`);
 
-        const fieldLines = normalizedFields.map(f => {
-            // If the original and normalized name are identical, just load it, else alias it
-            if (f.originalName === f.normalizedName) {
-                return `    "${f.originalName}"`;
-            } else {
-                return `    "${f.originalName}" AS "${f.normalizedName}"`;
-            }
-        });
+            // Check every field in the universal union
+            allFactFields.forEach(globalField => {
+                const localFieldObj = normalizedFields.find(f => f.normalizedName === globalField);
+                if (localFieldObj) {
+                    // Field exists in this table
+                    if (localFieldObj.originalName === localFieldObj.normalizedName) {
+                        fieldLines.push(`    "${localFieldObj.originalName}"`);
+                    } else {
+                        fieldLines.push(`    "${localFieldObj.originalName}" AS "${localFieldObj.normalizedName}"`);
+                    }
+                } else {
+                    // Implicit Concatenation requires identical fields. Pad with Null().
+                    fieldLines.push(`    Null() AS "${globalField}"`);
+                }
+            });
+        }
+        // Link Table Logic: Only bridge keys that are actually present in this fact
+        else if (isLinkTable && isFactTable) {
+            const tableSharedKeys = normalizedFields
+                .filter(nf => sharedKeysSet.has(nf.normalizedName))
+                .sort((a, b) => a.normalizedName.localeCompare(b.normalizedName));
+
+            const hashComponents = tableSharedKeys
+                .map(nf => `"${nf.originalName}"`)
+                .join(` & '|' & `);
+
+            fieldLines.push(`    AutoNumber(Hash128(${hashComponents})) AS "%Key_${tableName}"`);
+
+            normalizedFields.forEach(f => {
+                const isSharedKey = sharedKeysSet.has(f.normalizedName);
+                if (isSharedKey) {
+                    fieldLines.push(`    "${f.originalName}" AS "${tableName}_${f.normalizedName}"`);
+                } else if (f.originalName === f.normalizedName) {
+                    fieldLines.push(`    "${f.originalName}"`);
+                } else {
+                    fieldLines.push(`    "${f.originalName}" AS "${f.normalizedName}"`);
+                }
+            });
+        }
+        // Standard Dims / References
+        else {
+            normalizedFields.forEach(f => {
+                if (f.originalName === f.normalizedName) {
+                    fieldLines.push(`    "${f.originalName}"`);
+                } else {
+                    fieldLines.push(`    "${f.originalName}" AS "${f.normalizedName}"`);
+                }
+            });
+        }
 
         script += fieldLines.join(',\n') + '\n';
-
-        // Ensure source directory doesn't have a trailing slash for pure concatenation
-        const safeDir = sourceDirectory.replace(/\/$/, '').replace(/\\$/, '');
-
-        // Qlik Engine requires a predefined connection (lib://) to read from disk files.
-        // We assume the host application has created a connection named 'SourceData' pointing to the target folder.
         script += `FROM [lib://SourceData/${tableName}.csv]\n(txt, utf8, embedded labels, delimiter is ',', msq);\n`;
-
-        // 2. Handle Canonical Date Bridges
-        if (directive.requiresDateBridge && directive.dateFieldsToBridge && directive.dateFieldsToBridge.length > 0) {
-            // Look up the exact normalized name intended to be the 'CommonKey' (usually the primary key of this header fact)
-            // Heuristic: Find a field ending in 'Key' that matches the table base name, or take the first field ending in Key.
-            let commonKey = normalizedFields.find(f => f.normalizedName.toLowerCase().includes(tableName.toLowerCase().replace(/s$/, '') + 'key'))?.normalizedName;
-            if (!commonKey) commonKey = normalizedFields.find(f => f.normalizedName.toLowerCase().endsWith('key'))?.normalizedName;
-            if (!commonKey) commonKey = normalizedFields[0].normalizedName; // Fallback
-
-            let bridgeCode = `\n// --- Canonical Date Bridge for ${tableName} ---\n`;
-            bridgeCode += `[CanonicalDateBridge_${tableName}]:\n`;
-
-            directive.dateFieldsToBridge.forEach((dateField, index) => {
-                // Find normalized name for the date field
-                const normDateObj = normalizedFields.find(f => f.originalName === dateField || f.normalizedName === dateField);
-                const normDateStr = normDateObj ? normDateObj.normalizedName : dateField;
-
-                if (index > 0) bridgeCode += `CONCATENATE([CanonicalDateBridge_${tableName}])\n`;
-
-                // Note: Resident load does not use FIRST 1, it reads what was already loaded.
-                bridgeCode += `LOAD \n`;
-                // FIX: Instead of mapping to '%CanonicalKey', we MUST load the commonKey identical to the table, forcing a Qlik association
-                bridgeCode += `    "${commonKey}",\n`;
-                bridgeCode += `    '${dateField}' AS "DateType",\n`;
-
-                // We must read the NORMALIZED name from the Resident table, because we just aliased it in the LOAD above.
-                bridgeCode += `    "${normDateStr}" AS "CanonicalDate"\n`;
-                bridgeCode += `RESIDENT [${tableName}];\n`;
-            });
-
-            bridgeScripts.push(bridgeCode);
-        }
     });
 
-    // Append bridge scripts at the end
-    script += bridgeScripts.join('\n');
+    // --- Generate the Centralized Link Table ---
+    if (isLinkTable) {
+        script += `\n// --- Centralized Link Table ---\n`;
+        script += `// Bridges Fact tables through shared dimension keys to prevent Synthetic Keys.\n`;
+
+        const factTablesInBlueprint = Array.from(factTableNames);
+        let isFirstFact = true;
+
+        factTablesInBlueprint.forEach(factName => {
+            const tableNorms = tableLookup[factName];
+            if (!tableNorms) return;
+
+            if (!isFirstFact) script += `CONCATENATE([LinkTable])\n`;
+            if (isFirstFact) script += `[LinkTable]:\n`;
+
+            script += `LOAD\n`;
+            const linkFieldLines = [`    "%Key_${factName}"`];
+
+            sharedKeysSet.forEach(sharedKey => {
+                const hasField = tableNorms.find(f => f.normalizedName === sharedKey);
+                if (hasField) {
+                    linkFieldLines.push(`    "${factName}_${sharedKey}" AS "${sharedKey}"`);
+                }
+            });
+
+            script += linkFieldLines.join(',\n') + '\n';
+            script += `RESIDENT [${factName}];\n\n`;
+
+            isFirstFact = false;
+        });
+
+        // Drop the renamed shared keys from the local facts
+        factTablesInBlueprint.forEach(factName => {
+            sharedKeysSet.forEach(sharedKey => {
+                script += `DROP FIELD "${factName}_${sharedKey}" FROM [${factName}];\n`;
+            });
+        });
+    }
+
+    // --- Generate Canonical Date Bridge ---
+    if (structuralBlueprint && structuralBlueprint.dateBridgeRequired && structuralBlueprint.dates) {
+        script += `\n// --- Canonical Date Bridge ---\n`;
+
+        if (isLinkTable) {
+            // LINK TABLE MODE: Use existing %Key_<TableName> composite keys (no %FactID needed)
+            script += `// Uses the composite %Key per fact to avoid creating a second association path (circular ref).\n\n`;
+        } else {
+            // CONCATENATE MODE: Use the universal %FactID
+            script += `// Pivots all canonical dates off %FactID within Consolidated_Fact.\n\n`;
+        }
+
+        let isFirstDate = true;
+
+        structuralBlueprint.dates.forEach(dateObj => {
+            if (!isFirstDate) script += `CONCATENATE([CanonicalDateBridge])\n`;
+            if (isFirstDate) script += `[CanonicalDateBridge]:\n`;
+
+            script += `LOAD\n`;
+
+            if (isLinkTable) {
+                // Link Table mode: load the composite key from the individual fact table
+                script += `    "%Key_${dateObj.tableName}",\n`;
+                script += `    '${dateObj.fieldName.split('_').slice(1).join('_') || dateObj.fieldName}' AS "DateType",\n`;
+                script += `    "${dateObj.fieldName}" AS "%DateKey"\n`;
+                script += `RESIDENT [${dateObj.tableName}]\n`;
+                script += `WHERE NOT IsNull("${dateObj.fieldName}");\n\n`;
+            } else {
+                // Concatenate mode: load %FactID from Consolidated_Fact
+                script += `    "%FactID",\n`;
+                script += `    '${dateObj.fieldName.split('_').slice(1).join('_') || dateObj.fieldName}' AS "DateType",\n`;
+                script += `    "${dateObj.fieldName}" AS "%DateKey"\n`;
+                script += `RESIDENT [Consolidated_Fact]\n`;
+                script += `WHERE ("%SourceTable" = '${dateObj.tableName}') AND (NOT IsNull("${dateObj.fieldName}"));\n\n`;
+            }
+
+            isFirstDate = false;
+        });
+
+        // Drop the original date fields from the Facts to prevent Synthetic Keys
+        script += `// --- Drop Source Dates from Facts ---\n`;
+        structuralBlueprint.dates.forEach(dateObj => {
+            const dropTarget = isConcat ? 'Consolidated_Fact' : dateObj.tableName;
+            script += `DROP FIELD "${dateObj.fieldName}" FROM [${dropTarget}];\n`;
+        });
+        script += `\n`;
+    }
 
     return script;
 }
 
 module.exports = { generateQvsScript };
+

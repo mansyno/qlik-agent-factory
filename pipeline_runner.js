@@ -1,5 +1,6 @@
-const { profileData, openSession, closeSession } = require('./qlik_tools');
-const { classifyTablesAndFields, normalizeFields, buildAssociationGraph, resolveModelStructure, resolveTemporalAndJoins } = require('./brain');
+const { profileData, profileNativeRelationships, openSession, closeSession } = require('./qlik_tools');
+const { classifyTablesAndFields } = require('./brain');
+const { resolveArchitecture } = require('./deterministic_modeler');
 const { generateQvsScript } = require('./architect_generator');
 const { validateScript } = require('./qlik_tools');
 const path = require('path');
@@ -32,97 +33,66 @@ async function runPipeline(dataPath) {
         const files = fs.readdirSync(dataPath).filter(f => f.endsWith('.csv'));
         if (files.length === 0) throw new Error("No CSV files found in " + dataPath);
 
-        let fullProfile = [];
+        let profiles = {};
         for (const file of files) {
-            console.log(`  Profiling ${file}...`);
+            console.log(`  Profiling ${file} (Pass A)...`);
             const p = await profileData(globalObj, path.join(dataPath, file), workApp);
             if (p && !p.error) {
-                fullProfile.push({
-                    tableName: file.replace('.csv', ''),
-                    rowCount: "Unknown",
-                    fields: p.fields
-                });
+                profiles[file.replace('.csv', '')] = p;
             }
         }
+
+        console.log("  [PIPELINE] Profiling Native Relationships (Pass B)...");
+        const relationships = await profileNativeRelationships(globalObj, dataPath, files, workApp);
+
+        const fullProfile = {
+            tables: profiles,
+            relationships: relationships
+        };
 
         // Step 1: Classify Tables
         console.log("\n[PIPELINE] Step 1: Classifying Tables...");
-        const classifications = await classifyTablesAndFields(fullProfile);
+        const classificationResult = await classifyTablesAndFields(fullProfile);
 
-        // Loop Controls
-        let maxRetries = 3;
-        let currentRetry = 0;
-        let compilationErrorContext = null;
-
-        let normalizedData;
-        let graph;
-        let structuralBlueprint;
-        let finalDirectives;
-        let finalScript;
-
-        // --- TIERED FEEDBACK LOOP ---
-        // We encompass Steps 2 thru 8 in a retry loop.
-        while (currentRetry < maxRetries) {
-            try {
-                // Step 2: Normalize Fields
-                console.log(`\n[PIPELINE] Step 2: Normalizing Fields (Attempt ${currentRetry + 1}/${maxRetries})...`);
-                // Introduce compilation error context if we are looping back due to Synthetic Keys
-                normalizedData = await normalizeFields(fullProfile, classifications, compilationErrorContext);
-
-                // Step 3: Conceptual Association Graph
-                console.log("\n[PIPELINE] Step 3: Building Conceptual Graph...");
-                graph = await buildAssociationGraph(normalizedData);
-                if (graph.circularReferenceDetected) {
-                    console.warn("[PIPELINE] WARNING: LLM detected a conceptual Circular Reference.", graph.resolutionPlan);
-                    // If the LLM *predicts* a loop, we could theoretically loop back to Step 2 here,
-                    // but we will let the Qlik Engine make the final determination in Step 8.
-                }
-
-                // Step 4 & 5: Model Structure Blueprint
-                console.log("\n[PIPELINE] Steps 4-5: Resolving Model Structure...");
-                structuralBlueprint = await resolveModelStructure(fullProfile, classifications, normalizedData, graph);
-
-                // Step 6 & 7: Temporal & Join Blueprint
-                console.log("\n[PIPELINE] Steps 6-7: Resolving Temporal and Join Strategies...");
-                finalDirectives = await resolveTemporalAndJoins(structuralBlueprint, fullProfile);
-
-                // Step 8: Compilation Validation
-                console.log("\n[PIPELINE] Step 8: Compiling via Qlik Engine...");
-                finalScript = generateQvsScript(finalDirectives, normalizedData, dataPath);
-
-                // Use the shared `workApp` created at the start of the pipeline
-                const validation = await validateScript(globalObj, finalScript, workApp);
-
-                if (validation.success) {
-                    console.log("[PIPELINE] Validation SUCCESS: 0 Synthetic Keys, 0 Circular References.");
-                    return {
-                        success: true,
-                        finalScript: finalScript,
-                        directives: finalDirectives
-                    };
-                } else {
-                    console.error("[PIPELINE] Validation FAILED:", validation.errors);
-                    compilationErrorContext = `Qlik Engine Compilation Failed:\n${validation.errors.join('\\n')}\n` +
-                        `Synthetic Keys Found: ${validation.synKeys}\n` +
-                        `Circular References: ${validation.circularReferences}\n` +
-                        `Fix the field normalization to prevent these associations.`;
-
-                    currentRetry++;
-                    if (currentRetry >= maxRetries) {
-                        throw new Error("Max compilation retries exceeded.");
-                    }
-                    console.log(`[PIPELINE] Initiating feedback loop... Restarting at Step 2.`);
-                }
-
-            } catch (loopErr) {
-                console.error("[PIPELINE] Unhandled error in Loop:", loopErr.message);
-                throw loopErr;
-            }
+        if (classificationResult.error && classificationResult.error !== "null" && classificationResult.error !== null) {
+            console.error(`[PIPELINE] LLM Escape Hatch: ${classificationResult.error}`);
+            throw new Error(classificationResult.error);
         }
 
-    } catch (err) {
-        console.error("[PIPELINE] Fatal Error:", err);
-        return { success: false, error: err.message };
+        const classifications = classificationResult.classifications;
+
+        // Write classification to disk for debugging
+        fs.writeFileSync(path.join(__dirname, '.debug_classifications.json'), JSON.stringify(classifications, null, 2));
+
+        // Step 2 & 3: Deterministic Normalization and Structure Strategy
+        console.log("\n[PIPELINE] Step 2-3: Resolving Architecture Deterministically...");
+        const { normalizedData, structuralBlueprint, finalDirectives } = resolveArchitecture(fullProfile, classifications);
+
+        // Step 4: Compilation Validation (Fast pass)
+        console.log("\n[PIPELINE] Step 4: Compiling via Qlik Engine...");
+        const fastScript = generateQvsScript(finalDirectives, normalizedData, dataPath, structuralBlueprint, true);
+
+        // Use the shared `workApp` created at the start of the pipeline
+        const validation = await validateScript(globalObj, fastScript, workApp);
+
+        if (validation.success && validation.synKeys === 0) {
+            console.log("[PIPELINE] Validation SUCCESS: 0 Synthetic Keys, 0 Circular References.");
+
+            // Re-generate without the 1-row limit for production
+            const finalScript = generateQvsScript(finalDirectives, normalizedData, dataPath, structuralBlueprint, false);
+
+            return {
+                success: true,
+                finalScript: finalScript,
+                directives: finalDirectives
+            };
+        } else {
+            console.error("[PIPELINE] Validation FAILED:", validation.errors);
+            const errStr = `Qlik Engine Compilation Failed:\n${validation.errors.join('\n')}\n` +
+                `Synthetic Keys Found: ${validation.synKeys}\n` +
+                `Circular References: ${validation.circularReferences}`;
+            throw new Error(errStr);
+        }
     } finally {
         if (sessionData) await closeSession(sessionData.session);
     }

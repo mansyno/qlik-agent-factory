@@ -1,0 +1,88 @@
+{
+  "factTables": [
+    {
+      "tableName": "orders",
+      "grain": "Header",
+      "keys": [
+        "OrderKey",
+        "CustomerKey",
+        "EmployeeKey",
+        "ShipperKey"
+      ]
+    },
+    {
+      "tableName": "order_details",
+      "grain": "Detail",
+      "keys": [
+        "OrderKey",
+        "ProductKey"
+      ]
+    }
+  ],
+  "dimensionTables": [
+    {
+      "tableName": "categories",
+      "keys": [
+        "CategoryKey"
+      ]
+    },
+    {
+      "tableName": "customers",
+      "keys": [
+        "CustomerKey"
+      ]
+    },
+    {
+      "tableName": "employees",
+      "keys": [
+        "EmployeeKey"
+      ]
+    },
+    {
+      "tableName": "employee_territories",
+      "keys": [
+        "EmployeeKey",
+        "TerritoryKey"
+      ]
+    },
+    {
+      "tableName": "products",
+      "keys": [
+        "ProductKey",
+        "SupplierKey",
+        "CategoryKey"
+      ]
+    },
+    {
+      "tableName": "regions",
+      "keys": [
+        "RegionKey"
+      ]
+    },
+    {
+      "tableName": "shippers",
+      "keys": [
+        "ShipperKey"
+      ]
+    },
+    {
+      "tableName": "suppliers",
+      "keys": [
+        "SupplierKey"
+      ]
+    },
+    {
+      "tableName": "territories",
+      "keys": [
+        "TerritoryKey",
+        "RegionKey"
+      ]
+    }
+  ],
+  "linkTableRequired": false,
+  "linkTableBlueprint": {
+    "compositeKeysToGenerate": [],
+    "sharedKeys": [],
+    "tableName": "LinkTable"
+  }
+}

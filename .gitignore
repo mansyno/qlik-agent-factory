@@ -7,6 +7,7 @@ data2/
 DATA/
 northwind/
 adventureworks/
+lorries/
 .agent/
 *.qvs
 *.log
