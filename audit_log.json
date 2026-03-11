@@ -1,12 +1,12 @@
 [
   {
-    "timestamp": "2026-03-07T16:27:18.273Z",
+    "timestamp": "2026-03-11T17:19:45.920Z",
     "category": "System",
     "message": "Logger Initialized",
     "details": null
   },
   {
-    "timestamp": "2026-03-07T16:27:18.273Z",
+    "timestamp": "2026-03-11T17:19:45.920Z",
     "category": "System",
     "message": "Job Started",
     "details": {
@@ -15,37 +15,49 @@
     }
   },
   {
-    "timestamp": "2026-03-07T16:27:18.303Z",
+    "timestamp": "2026-03-11T17:19:45.949Z",
     "category": "System",
     "message": "Connected to Qlik Engine",
     "details": null
   },
   {
-    "timestamp": "2026-03-07T16:27:18.503Z",
+    "timestamp": "2026-03-11T17:19:46.074Z",
     "category": "Architect",
-    "message": "Starting Data Profiling",
+    "message": "Starting Deterministic Data Profiling",
     "details": null
   },
   {
-    "timestamp": "2026-03-07T16:27:38.382Z",
+    "timestamp": "2026-03-11T17:19:48.171Z",
     "category": "Architect",
-    "message": "Validation Failed",
+    "message": "Script Verification Passed",
+    "details": null
+  },
+  {
+    "timestamp": "2026-03-11T17:19:48.173Z",
+    "category": "System",
+    "message": "Final Script Saved",
     "details": {
-      "synKeys": 1,
-      "errors": [
-        "Failed validation: Engine created 1 Synthetic Keys.",
-        "Failed validation: The data model is fractured into 5 disconnected groups (sub-graphs). All tables must eventually connect together into a single associative model."
-      ]
+      "path": "final_script.qvs"
     }
   },
   {
-    "timestamp": "2026-03-07T16:27:38.383Z",
-    "category": "Error",
-    "message": "[System] Fatal Process Error",
-    "details": "Error: Qlik Engine Compilation Failed:\nFailed validation: Engine created 1 Synthetic Keys.\\nFailed validation: The data model is fractured into 5 disconnected groups (sub-graphs). All tables must eventually connect together into a single associative model.\nSynthetic Keys Found: 1\nCircular References: false"
+    "timestamp": "2026-03-11T17:19:51.511Z",
+    "category": "System",
+    "message": "App Reload Finished",
+    "details": {
+      "success": true
+    }
   },
   {
-    "timestamp": "2026-03-07T16:27:38.389Z",
+    "timestamp": "2026-03-11T17:19:51.985Z",
+    "category": "System",
+    "message": "App Saved",
+    "details": {
+      "appName": "lorries6"
+    }
+  },
+  {
+    "timestamp": "2026-03-11T17:19:51.987Z",
     "category": "System",
     "message": "Process Terminated",
     "details": null

@@ -1,82 +1,773 @@
 [
   {
     "tableName": "Cities",
-    "role": "Dimension",
+    "role": "DIMENSION",
+    "grain": {
+      "primaryKey": [
+        "City ID"
+      ],
+      "foreignKeys": [
+        "Region ID"
+      ],
+      "grainFields": [
+        "City ID",
+        "Region ID"
+      ],
+      "grainDescription": "City ID + Region ID"
+    },
+    "rowCount": 169,
     "candidateKeys": [
       "City ID",
       "Region ID"
     ],
-    "grain": "Reference",
-    "reasoning": "Provides geographical attributes linked to customers and regions; City ID is the primary key."
+    "fieldClassifications": {
+      "City ID": {
+        "type": "IDENTIFIER",
+        "name": "City ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 169,
+        "minLength": 4,
+        "maxLength": 6,
+        "minNumeric": 7900,
+        "maxNumeric": 687832,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 5.86,
+        "uniquenessRatio": 1
+      },
+      "City": {
+        "type": "ATTRIBUTE",
+        "name": "City",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 169,
+        "minLength": 3,
+        "maxLength": 17,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 8.72,
+        "uniquenessRatio": 1
+      },
+      "latitude": {
+        "type": "ATTRIBUTE",
+        "name": "latitude",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 166,
+        "minLength": 7,
+        "maxLength": 17,
+        "minNumeric": 29.560313,
+        "maxNumeric": 33.19214200000001,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 12.22,
+        "uniquenessRatio": 0.9822
+      },
+      "longitude": {
+        "type": "ATTRIBUTE",
+        "name": "longitude",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 166,
+        "minLength": 7,
+        "maxLength": 17,
+        "minNumeric": 34.57632700000001,
+        "maxNumeric": 35.70853400000001,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 11.74,
+        "uniquenessRatio": 0.9822
+      },
+      "Coordinate": {
+        "type": "ATTRIBUTE",
+        "name": "Coordinate",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 166,
+        "minLength": 19,
+        "maxLength": 21,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 20.75,
+        "uniquenessRatio": 0.9822
+      },
+      "Region ID": {
+        "type": "IDENTIFIER",
+        "name": "Region ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 8,
+        "minLength": 1,
+        "maxLength": 1,
+        "minNumeric": 0,
+        "maxNumeric": 7,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 1,
+        "uniquenessRatio": 0.0473
+      }
+    }
   },
   {
     "tableName": "CustomerOrders",
-    "role": "Fact",
+    "role": "FACT",
+    "grain": {
+      "primaryKey": [],
+      "foreignKeys": [
+        "Order Number",
+        "Customer ID",
+        "Part ID"
+      ],
+      "grainFields": [
+        "Order Number",
+        "Customer ID",
+        "Part ID"
+      ],
+      "grainDescription": "Order Number + Customer ID + Part ID"
+    },
+    "rowCount": 62525,
     "candidateKeys": [
       "Order Number",
       "Customer ID",
       "Part ID"
     ],
-    "grain": "Detail",
-    "reasoning": "High-volume transactional table containing additive measures like quantity and price, with multiple foreign keys to master data."
+    "fieldClassifications": {
+      "Order Number": {
+        "type": "IDENTIFIER",
+        "name": "Order Number",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 960,
+        "minLength": 11,
+        "maxLength": 11,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 11,
+        "uniquenessRatio": 0.0154
+      },
+      "Order Line": {
+        "type": "ATTRIBUTE",
+        "name": "Order Line",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 226,
+        "minLength": 1,
+        "maxLength": 3,
+        "minNumeric": 1,
+        "maxNumeric": 226,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 1.95,
+        "uniquenessRatio": 0.0036
+      },
+      "Date": {
+        "type": "DATE",
+        "name": "Date",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 413,
+        "minLength": 10,
+        "maxLength": 10,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 10,
+        "uniquenessRatio": 0.0066
+      },
+      "Customer ID": {
+        "type": "IDENTIFIER",
+        "name": "Customer ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 960,
+        "minLength": 1,
+        "maxLength": 4,
+        "minNumeric": 1,
+        "maxNumeric": 2948,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 3.78,
+        "uniquenessRatio": 0.0154
+      },
+      "Part ID": {
+        "type": "IDENTIFIER",
+        "name": "Part ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 379,
+        "minLength": 4,
+        "maxLength": 5,
+        "minNumeric": 4975,
+        "maxNumeric": 25897,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 4.63,
+        "uniquenessRatio": 0.0061
+      },
+      "Qnt": {
+        "type": "ATTRIBUTE",
+        "name": "Qnt",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 1701,
+        "minLength": 1,
+        "maxLength": 6,
+        "minNumeric": 1,
+        "maxNumeric": 196716,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 1.6,
+        "uniquenessRatio": 0.0272
+      },
+      "Price": {
+        "type": "MEASURE",
+        "name": "Price",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 379,
+        "minLength": 14,
+        "maxLength": 18,
+        "minNumeric": 20.013582101546273,
+        "maxNumeric": 39.99009329083025,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 17.41,
+        "uniquenessRatio": 0.0061
+      },
+      "Total Amount": {
+        "type": "MEASURE",
+        "name": "Total Amount",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 15972,
+        "minLength": 14,
+        "maxLength": 18,
+        "minNumeric": 20.013582101546273,
+        "maxNumeric": 7111217.056706242,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 17.36,
+        "uniquenessRatio": 0.2554
+      }
+    }
   },
   {
     "tableName": "Customers",
-    "role": "Dimension",
+    "role": "DIMENSION",
+    "grain": {
+      "primaryKey": [
+        "Customer ID"
+      ],
+      "foreignKeys": [
+        "City ID"
+      ],
+      "grainFields": [
+        "Customer ID",
+        "City ID"
+      ],
+      "grainDescription": "Customer ID + City ID"
+    },
+    "rowCount": 903,
     "candidateKeys": [
       "Customer ID",
       "City ID"
     ],
-    "grain": "Header",
-    "reasoning": "Master data for clients; Customer ID is unique, linking to both order facts and city attributes."
+    "fieldClassifications": {
+      "Customer ID": {
+        "type": "IDENTIFIER",
+        "name": "Customer ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 903,
+        "minLength": 1,
+        "maxLength": 4,
+        "minNumeric": 1,
+        "maxNumeric": 2948,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 3.78,
+        "uniquenessRatio": 1
+      },
+      "Customer Name": {
+        "type": "ATTRIBUTE",
+        "name": "Customer Name",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 902,
+        "minLength": 7,
+        "maxLength": 47,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 21,
+        "uniquenessRatio": 0.9989
+      },
+      "City ID": {
+        "type": "IDENTIFIER",
+        "name": "City ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 167,
+        "minLength": 4,
+        "maxLength": 6,
+        "minNumeric": 7900,
+        "maxNumeric": 687832,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 5.67,
+        "uniquenessRatio": 0.1849
+      },
+      "Channel": {
+        "type": "ATTRIBUTE",
+        "name": "Channel",
+        "nullCount": 14,
+        "blankCount": 0,
+        "distinctCount": 2,
+        "minLength": 6,
+        "maxLength": 7,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 1.55,
+        "avgLength": 6.14,
+        "uniquenessRatio": 0.0022
+      }
+    }
   },
   {
     "tableName": "Lorries",
-    "role": "Dimension",
+    "role": "DIMENSION",
+    "grain": {
+      "primaryKey": [
+        "Lorry ID"
+      ],
+      "foreignKeys": [],
+      "grainFields": [
+        "Lorry ID"
+      ],
+      "grainDescription": "Lorry ID"
+    },
+    "rowCount": 112,
     "candidateKeys": [
-      "Lorry ID",
-      "Type"
+      "Lorry ID"
     ],
-    "grain": "Header",
-    "reasoning": "Asset dimension table containing unique transport units and their categorical type."
+    "fieldClassifications": {
+      "Lorry ID": {
+        "type": "IDENTIFIER",
+        "name": "Lorry ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 112,
+        "minLength": 3,
+        "maxLength": 4,
+        "minNumeric": 346,
+        "maxNumeric": 1339,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 3.55,
+        "uniquenessRatio": 1
+      },
+      "License Plate": {
+        "type": "ATTRIBUTE",
+        "name": "License Plate",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 112,
+        "minLength": 9,
+        "maxLength": 9,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 9,
+        "uniquenessRatio": 1
+      },
+      "Type": {
+        "type": "ATTRIBUTE",
+        "name": "Type",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 4,
+        "minLength": 4,
+        "maxLength": 6,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 4.54,
+        "uniquenessRatio": 0.0357
+      }
+    }
   },
   {
     "tableName": "LorriesCost",
-    "role": "Reference",
-    "candidateKeys": [
-      "Lorry_Type"
-    ],
-    "grain": "Reference",
-    "reasoning": "Low-cardinality reference table providing cost values for specific vehicle categories."
+    "role": "DIMENSION",
+    "grain": {
+      "primaryKey": [],
+      "foreignKeys": [],
+      "grainFields": [],
+      "grainDescription": "Unknown"
+    },
+    "rowCount": 4,
+    "candidateKeys": [],
+    "fieldClassifications": {
+      "Lorry_Type": {
+        "type": "ATTRIBUTE",
+        "name": "Lorry_Type",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 4,
+        "minLength": 4,
+        "maxLength": 6,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 4.75,
+        "uniquenessRatio": 1
+      },
+      "Cost": {
+        "type": "ATTRIBUTE",
+        "name": "Cost",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 4,
+        "minLength": 4,
+        "maxLength": 4,
+        "minNumeric": 1050,
+        "maxNumeric": 2100,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 4,
+        "uniquenessRatio": 1
+      }
+    }
   },
   {
     "tableName": "Part",
-    "role": "Dimension",
+    "role": "DIMENSION",
+    "grain": {
+      "primaryKey": [
+        "Part ID"
+      ],
+      "foreignKeys": [],
+      "grainFields": [
+        "Part ID"
+      ],
+      "grainDescription": "Part ID"
+    },
+    "rowCount": 389,
     "candidateKeys": [
       "Part ID"
     ],
-    "grain": "Header",
-    "reasoning": "Master catalog for parts containing descriptive attributes like brand and category; Part ID is the primary key."
+    "fieldClassifications": {
+      "Part ID": {
+        "type": "IDENTIFIER",
+        "name": "Part ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 389,
+        "minLength": 1,
+        "maxLength": 5,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 4.69,
+        "uniquenessRatio": 1
+      },
+      "Part Barcode": {
+        "type": "ATTRIBUTE",
+        "name": "Part Barcode",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 261,
+        "minLength": 1,
+        "maxLength": 17,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 11.53,
+        "uniquenessRatio": 0.671
+      },
+      "Part Name": {
+        "type": "ATTRIBUTE",
+        "name": "Part Name",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 389,
+        "minLength": 1,
+        "maxLength": 47,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 23.77,
+        "uniquenessRatio": 1
+      },
+      "Brand Des": {
+        "type": "ATTRIBUTE",
+        "name": "Brand Des",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 5,
+        "minLength": 5,
+        "maxLength": 14,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 8.21,
+        "uniquenessRatio": 0.0129
+      },
+      "Category Level 1": {
+        "type": "ATTRIBUTE",
+        "name": "Category Level 1",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 7,
+        "minLength": 1,
+        "maxLength": 11,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 7.14,
+        "uniquenessRatio": 0.018
+      },
+      "Category Level 2": {
+        "type": "ATTRIBUTE",
+        "name": "Category Level 2",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 22,
+        "minLength": 3,
+        "maxLength": 18,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 10.49,
+        "uniquenessRatio": 0.0566
+      },
+      "Units in Carton": {
+        "type": "ATTRIBUTE",
+        "name": "Units in Carton",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 20,
+        "minLength": 1,
+        "maxLength": 2,
+        "minNumeric": 1,
+        "maxNumeric": 20,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 1.56,
+        "uniquenessRatio": 0.0514
+      },
+      "Cost": {
+        "type": "ATTRIBUTE",
+        "name": "Cost",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 12,
+        "minLength": 1,
+        "maxLength": 2,
+        "minNumeric": 2,
+        "maxNumeric": 15,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 1.54,
+        "uniquenessRatio": 0.0308
+      }
+    }
   },
   {
     "tableName": "Regions",
-    "role": "Reference",
-    "candidateKeys": [
-      "RegionNum"
-    ],
-    "grain": "Reference",
-    "reasoning": "Small reference table defining the top-level geographical hierarchy."
+    "role": "DIMENSION",
+    "grain": {
+      "primaryKey": [],
+      "foreignKeys": [],
+      "grainFields": [],
+      "grainDescription": "Unknown"
+    },
+    "rowCount": 8,
+    "candidateKeys": [],
+    "fieldClassifications": {
+      "RegionNum": {
+        "type": "ATTRIBUTE",
+        "name": "RegionNum",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 8,
+        "minLength": 1,
+        "maxLength": 1,
+        "minNumeric": 0,
+        "maxNumeric": 7,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 1,
+        "uniquenessRatio": 1
+      },
+      "Region": {
+        "type": "ATTRIBUTE",
+        "name": "Region",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 8,
+        "minLength": 5,
+        "maxLength": 22,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 12.75,
+        "uniquenessRatio": 1
+      }
+    }
   },
   {
     "tableName": "TransDocument",
-    "role": "Fact",
+    "role": "FACT",
+    "grain": {
+      "primaryKey": [],
+      "foreignKeys": [
+        "Document Number",
+        "Lorry ID",
+        "Part Num",
+        "Customer Num"
+      ],
+      "grainFields": [
+        "Document Number",
+        "Lorry ID",
+        "Part Num",
+        "Customer Num"
+      ],
+      "grainDescription": "Document Number + Lorry ID + Part Num + Customer Num"
+    },
+    "rowCount": 456161,
     "candidateKeys": [
       "Document Number",
       "Lorry ID",
       "Part Num",
       "Customer Num"
     ],
-    "grain": "Detail",
-    "reasoning": "Very high-volume logistical transaction table with multiple foreign keys to assets, products, and customers."
+    "fieldClassifications": {
+      "Document Number": {
+        "type": "IDENTIFIER",
+        "name": "Document Number",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 4992,
+        "minLength": 10,
+        "maxLength": 10,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 10,
+        "uniquenessRatio": 0.0109
+      },
+      "Status": {
+        "type": "ATTRIBUTE",
+        "name": "Status",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 2,
+        "minLength": 5,
+        "maxLength": 5,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 5,
+        "uniquenessRatio": 0
+      },
+      "Date": {
+        "type": "DATE",
+        "name": "Date",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 392,
+        "minLength": 10,
+        "maxLength": 10,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "nullPercentage": 0,
+        "avgLength": 10,
+        "uniquenessRatio": 0.0009
+      },
+      "Lorry ID": {
+        "type": "IDENTIFIER",
+        "name": "Lorry ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 80,
+        "minLength": 3,
+        "maxLength": 4,
+        "minNumeric": 346,
+        "maxNumeric": 1339,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 3.28,
+        "uniquenessRatio": 0.0002
+      },
+      "Part Num": {
+        "type": "IDENTIFIER",
+        "name": "Part Num",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 388,
+        "minLength": 4,
+        "maxLength": 5,
+        "minNumeric": 4623,
+        "maxNumeric": 25897,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 4.57,
+        "uniquenessRatio": 0.0009
+      },
+      "Customer Num": {
+        "type": "IDENTIFIER",
+        "name": "Customer Num",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 903,
+        "minLength": 1,
+        "maxLength": 4,
+        "minNumeric": 1,
+        "maxNumeric": 2948,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 3.75,
+        "uniquenessRatio": 0.002
+      },
+      "Carton - Qnt": {
+        "type": "ATTRIBUTE",
+        "name": "Carton - Qnt",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 570,
+        "minLength": 1,
+        "maxLength": 4,
+        "minNumeric": 0,
+        "maxNumeric": 9120,
+        "isNumeric": true,
+        "nullPercentage": 0,
+        "avgLength": 1.24,
+        "uniquenessRatio": 0.0012
+      }
+    }
   }
 ]

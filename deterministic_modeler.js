@@ -2,16 +2,7 @@ const path = require('path');
 
 function cleanEntityName(name) {
     // Remove variations of ID, Num, Number, Key, Code, common delimiters, and numeric suffixes
-    // We sort by length descending to ensure 'Number' is matched before 'Num'
-    // We use \b to ensure word boundaries (so 'Number' doesn't leave 'ber' if 'Num' matches)
     let clean = name.replace(/\b(Number|IDNum|Number|Code|Num|Key|ID|PK|FK)s?\b|[_-]?\d+$/gi, '').replace(/[_-]/g, ' ').trim();
-
-    // Special case: if it ends with Type but that's not the ONLY thing left
-    if (clean.toLowerCase().endsWith('type') && clean.length > 4) {
-        // Keep Type
-    } else if (clean.toLowerCase() === 'type') {
-        // Keep Type
-    }
 
     // Handle camelCase or PascalCase
     if (!clean.includes(' ')) {
@@ -65,7 +56,6 @@ function resolveArchitecture(profileData, classifications) {
     });
 
     // 2. Build Dimension Key Mappings
-    // Map Dims to their primary keys to establish the "Golden" keys
     const goldenKeys = {}; // 'customer' -> 'CustomerKey'
 
     dimTables.forEach(dim => {
@@ -106,16 +96,15 @@ function resolveArchitecture(profileData, classifications) {
                 else if (goldenKeys[fieldEntity]) {
                     normName = goldenKeys[fieldEntity];
                 }
-                // Fuzzy matching: Avoid matching 'type' to the primary key of the entity!
+                // Fuzzy matching
                 else {
                     const fuzzyMatch = Object.keys(goldenKeys).find(gk =>
-                        gk === fieldEntity // Exact match after cleaning
+                        gk === fieldEntity
                     );
 
                     if (fuzzyMatch) {
                         normName = goldenKeys[fuzzyMatch];
                     } else if (fieldEntity.includes('type')) {
-                        // Special handling for Type joins (e.g., LorryTypeKey)
                         const entityPart = fieldEntity.replace('type', '').trim();
                         if (entityPart && goldenKeys[entityPart]) {
                             normName = `${cleanEntityName(entityPart)}TypeKey`.replace(/(^|\s)\S/g, l => l.toUpperCase()).replace(/\s+/g, '');
@@ -123,21 +112,19 @@ function resolveArchitecture(profileData, classifications) {
                             normName = `${fieldEntity}Key`.replace(/(^|\s)\S/g, l => l.toUpperCase()).replace(/\s+/g, '');
                         }
                     } else {
-                        // Fallback for unidentified keys
                         normName = `${fieldEntity}Key`.replace(/(^|\s)\S/g, l => l.toUpperCase()).replace(/\s+/g, '');
                     }
                 }
             } else if (isDate) {
                 if (isFact) {
-                    normName = `${c.tableName}_${orig}`; // Prefix fact dates uniquely
-                    dateFieldsList.push({ tableName: c.tableName, fieldName: normName });
+                    normName = `${c.tableName}_${orig}`;
+                    dateFieldsList.push({ tableName: c.tableName, fieldName: normName, isFactTable: true });
                 } else {
-                    normName = `${c.tableName}_${orig}`; // Prefix dim dates
+                    normName = `${c.tableName}_${orig}`;
                 }
             } else {
                 // Regular attribute
                 if (isDim) {
-                    // Prefix dim attributes UNLESS it was a native link
                     normName = (orig.startsWith(c.tableName) || isNativeLink) ? orig : `${c.tableName}_${orig}`;
                 } else {
                     normName = orig; // Fact measures
@@ -146,20 +133,31 @@ function resolveArchitecture(profileData, classifications) {
 
             normFields.push({
                 originalName: orig,
-                normalizedName: normName.replace(/\s+/g, '') // remove spaces
+                normalizedName: normName.replace(/\s+/g, ''), // remove spaces
+                type: c.fieldClassifications ? c.fieldClassifications[orig]?.type : undefined
             });
         });
+
+        // Extract grain description — support both structured and legacy string grain
+        let grainDescription;
+        if (typeof c.grain === 'object' && c.grain !== null) {
+            grainDescription = c.grain.grainDescription || c.grain.grainFields?.join(', ') || 'Unknown';
+        } else {
+            grainDescription = c.grain || 'Unknown';
+        }
 
         normalizedData.push({
             tableName: c.tableName,
             originalFields: originalFields,
             normalizedFields: normFields,
             role: c.role.toLowerCase(),
-            grain: c.grain.toLowerCase()
+            grain: grainDescription.toLowerCase()
         });
     });
 
-    // 4. Determine Strategy (Concat vs Link vs Star)
+    // 4. Determine Strategy
+    // Default to star schema. Only use link table if the engine test later detects synthetic keys,
+    // OR if we can already confirm 2+ shared conformed keys between fact pairs.
     let strategy = 'SINGLE_FACT';
     let needsDateBridge = false;
 
@@ -168,16 +166,12 @@ function resolveArchitecture(profileData, classifications) {
     const hasEngineSynKeys = engineSynKeys.length > 0;
 
     if (hasEngineSynKeys) {
-        console.log(`[Modeler] Qlik Engine detected ${engineSynKeys.length} Synthetic Keys.Forcing multi - table strategy.`);
+        console.log(`[Modeler] Qlik Engine detected ${engineSynKeys.length} Synthetic Keys. Forcing link table evaluation.`);
     }
 
-    // Treat header/detail as a single logical fact if they share a pure 1:M relationship
     if (factTables.length > 1 || hasEngineSynKeys) {
-        // Collect normalized keys for each fact
-        const factKeys = {};
-        let allIdentical = true;
-        let referenceKeys = null;
-
+        // Count shared conformed keys between fact table pairs
+        const keyPresenceInFacts = {}; // 'CustomerKey' -> Set(['TableA', 'TableB'])
         const factToEvaluate = factTables.length > 0 ? factTables : classifications;
 
         factToEvaluate.forEach(f => {
@@ -185,24 +179,25 @@ function resolveArchitecture(profileData, classifications) {
             if (!tableNorms) return;
             const fkList = tableNorms.normalizedFields
                 .filter(nf => nf.normalizedName.endsWith('Key'))
-                .map(nf => nf.normalizedName).sort();
+                .map(nf => nf.normalizedName);
 
-            factKeys[f.tableName] = fkList;
-
-            if (!referenceKeys) {
-                referenceKeys = fkList;
-            } else {
-                if (JSON.stringify(referenceKeys) !== JSON.stringify(fkList)) {
-                    allIdentical = false;
-                }
-            }
+            fkList.forEach(k => {
+                if (!keyPresenceInFacts[k]) keyPresenceInFacts[k] = new Set();
+                keyPresenceInFacts[k].add(f.tableName);
+            });
         });
 
-        if (allIdentical && factTables.length > 1) {
-            strategy = 'CONCATENATE';
-        } else {
-            // Need a link table if they share *some* dimensions but not all, or have Synthetic Keys
+        // Only keys shared by 2+ facts could cause synthetic keys
+        const sharedKeys = Object.keys(keyPresenceInFacts).filter(k => keyPresenceInFacts[k].size > 1);
+        
+        if (sharedKeys.length >= 2 || hasEngineSynKeys) {
+            // 2+ shared conformed keys → link table needed per spec Step 5
             strategy = 'LINK_TABLE';
+            console.log(`[Modeler] ${sharedKeys.length} shared conformed keys between facts. Strategy: LINK_TABLE`);
+        } else if (factTables.length > 1) {
+            // Only 0-1 shared key → star schema is sufficient
+            strategy = 'MULTI_FACT_STAR';
+            console.log(`[Modeler] Only ${sharedKeys.length} shared key(s) between facts. Strategy: MULTI_FACT_STAR (no link table needed)`);
         }
     }
 
@@ -221,11 +216,7 @@ function resolveArchitecture(profileData, classifications) {
     if (strategy === 'LINK_TABLE') {
         const sharedKeysSet = new Set();
 
-        // --- Minimalist Link Table Logic ---
-        // Identify keys present in MORE THAN ONE Fact table.
-        // Dimension-to-Dimension or single-Fact-to-Dimension links stay as Star/Snowflake.
-
-        const keyPresenceInFacts = {}; // 'CustomerKey' -> Set(['TableA', 'TableB'])
+        const keyPresenceInFacts = {};
         factTables.forEach(f => {
             const tableNorms = normalizedData.find(n => n.tableName === f.tableName);
             tableNorms.normalizedFields.forEach(nf => {
@@ -236,7 +227,7 @@ function resolveArchitecture(profileData, classifications) {
             });
         });
 
-        // Only move keys to LinkTable if they are shared by at least 2 Fact tables
+        // Only move keys to LinkTable if shared by 2+ Fact tables
         Object.keys(keyPresenceInFacts).forEach(k => {
             if (keyPresenceInFacts[k].size > 1) {
                 sharedKeysSet.add(k);
@@ -255,7 +246,7 @@ function resolveArchitecture(profileData, classifications) {
         return {
             tableName: n.tableName,
             notes: `Role: ${n.role}, Grain: ${n.grain} `,
-            loadStatement: `LOAD * FROM[${n.tableName}]` // Simplified, generator reconstructs it
+            loadStatement: `LOAD * FROM[${n.tableName}]`
         };
     });
 

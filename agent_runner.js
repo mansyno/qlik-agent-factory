@@ -116,110 +116,105 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             if (!e.message?.includes('already exists')) throw e;
         }
 
-        // ── Phase 1: Profiling (skipped for Enhancer-only) ───────────────────
-        const profiles = {};
-        let relationships = null;
+        // ── Phase 1: Profiling (Deterministic Streaming) ───────────────────
         if (runArchitect) {
-            broadcast('Architect', '── Phase 1: Profiling Data ──', 'phase');
-            logger.log('Architect', 'Starting Data Profiling');
+            broadcast('Architect', '── Phase 1: Profiling Data (Local Streaming) ──', 'phase');
+            logger.log('Architect', 'Starting Deterministic Data Profiling');
 
             // Cleanup OLD debug files to prevent user confusion
             const oldFiles = fs.readdirSync(process.cwd()).filter(f => f.startsWith('.debug_') || f.endsWith('_script.qvs'));
             oldFiles.forEach(f => { try { fs.unlinkSync(path.join(process.cwd(), f)); } catch (_) { } });
 
-            for (const file of files) {
-                broadcast('Architect', `Profiling ${file} (Pass A)...`, 'info');
-                const profile = await profileData(qlikGlobal, path.resolve(dataDir, file), workApp);
-                if (profile.error) {
-                    broadcast('Architect', `Failed to profile ${file}: ${profile.error}`, 'error');
-                    logger.error('Architect', `Profiling failed for ${file}`, profile.error);
-                } else {
-                    profiles[file.replace('.csv', '')] = profile;
-                }
+            const { profileAllData } = require('./architect_profiler');
+            const { getEngineMetrics } = require('./qlik_tools');
+
+            broadcast('Architect', `Analyzing ${files.length} tables...`, 'info');
+            
+            // Step 0: Engine Native Profiling (for memory/symbol metrics)
+            const engineMetrics = await getEngineMetrics(qlikGlobal, dataDir, files, workApp);
+
+            // Step 1: Profiling
+            const profileResult = await profileAllData(dataDir, files, engineMetrics);
+            if (profileResult.error) {
+                broadcast('Architect', `Failed to profile data: ${profileResult.error}`, 'error');
+                throw new Error(profileResult.error);
             }
-            if (Object.keys(profiles).length === 0) throw new Error('No data could be profiled.');
+            
+            const metadata = profileResult.metadata;
+            broadcast('Architect', `Profiling complete. Found ${metadata.relationships.overlap.length} potential relationships.`, 'success');
 
-            broadcast('Architect', 'Profiling Native Relationships (Pass B)...', 'info');
-            relationships = await profileNativeRelationships(qlikGlobal, dataDir, files, workApp);
+            // ── Phase 1 → 2 gate ─────────────────────────────────────────────────
+            if (!(await checkControl(ctrl, broadcast))) return;
 
-            if (io) io.emit('model-artifact', { profiles, relationships });
-        }
+            // ── Phase 2: Architectural Reasoning (Deterministic) ──────────────────────
+            broadcast('Architect', '── Phase 2: Architectural Reasoning (Deterministic) ──', 'phase');
 
-        // ── Phase 1 → 2 gate ─────────────────────────────────────────────────
-        if (!(await checkControl(ctrl, broadcast))) return;
-
-        // ── Phase 2: Architectural Reasoning (V2) ──────────────────────
-        let currentScript = '';
-        let success = false;
-
-        if (runArchitect) {
-            broadcast('Architect', '── Phase 2: Architectural Reasoning (V2) ──', 'phase');
-
-            // Wrap the data payload
-            const fullProfile = {
-                tables: profiles,
-                relationships: relationships
-            };
+            const { classifyData } = require('./architect_classifier');
+            const { determineRelationships } = require('./architect_relationship_detector');
+            const { generateBlueprint } = require('./architect_structural_tester');
+            const { generateQvsScript } = require('./architect_generator');
 
             // Step 1: Classify Tables
-            broadcast('Architect', `Step 1: Classifying ${Object.keys(fullProfile.tables).length} tables...`, 'info');
-            const classificationResult = await classifyTablesAndFields(fullProfile);
-
-            if (classificationResult.error && classificationResult.error !== "null" && classificationResult.error !== null) {
-                broadcast('Architect', `LLM Escape Hatch: ${classificationResult.error}`, 'error');
-                throw new Error(classificationResult.error);
-            }
-            // FILTER classifications to only include tables that were actually profiled
-            // This prevents the LLM from hallucinating/retaining deleted tables.
-            const profiledTables = Object.keys(fullProfile.tables);
-            const classifications = classificationResult.classifications.filter(c => profiledTables.includes(c.tableName));
-
-            // Write classification to disk for debugging
+            broadcast('Architect', `Step 1: Classifying Tables and Fields...`, 'info');
+            const classResult = classifyData(metadata);
+            const classifications = classResult.classifications;
             fs.writeFileSync(path.join(process.cwd(), '.debug_classifications.json'), JSON.stringify(classifications, null, 2));
 
             if (!(await checkControl(ctrl, broadcast))) return;
 
-            // Step 2: Heuristic & Strategy Resolution
-            broadcast('Architect', `Step 2: Resolving Architecture Deterministically...`, 'info');
-
-            // --- NEW: PHASE 2A: Naive Model Test (The "Try and See" approach) ---
-            broadcast('Architect', 'Phase 2A: Testing Naive Model (Direct Association)...', 'info');
-            const strawmanBlueprint = { strategy: 'SINGLE_FACT', factTables: classifications.filter(c => c.role === 'fact') };
-            const strawmanNormalized = classifications.map(c => ({
-                tableName: c.tableName,
-                normalizedFields: fullProfile.tables[c.tableName].fields.map(f => ({ originalName: f.name, normalizedName: f.name }))
-            }));
-            const strawmanDirectives = strawmanNormalized.map(n => ({ tableName: n.tableName }));
-
-            const naiveScript = generateQvsScript(strawmanDirectives, strawmanNormalized, dataDir, strawmanBlueprint, true);
-            fs.writeFileSync(path.join(process.cwd(), '.debug_naive_script.qvs'), naiveScript);
-            const naiveValidation = await validateScript(qlikGlobal, naiveScript, workApp);
-
-            let finalStrategyResult;
-            if (naiveValidation.success && naiveValidation.synKeys === 0) {
-                broadcast('Architect', '✅ Naive model passed (No Synthetic Keys). Using Star/Snowflake.', 'success');
-                finalStrategyResult = { normalizedData: strawmanNormalized, structuralBlueprint: strawmanBlueprint, finalDirectives: strawmanDirectives };
-            } else {
-                const reason = naiveValidation.synKeys > 0 ? `${naiveValidation.synKeys} SynKeys detected` : "Circular references/errors detected";
-                broadcast('Architect', `⚠️ Naive model ${reason}. Resolving via LinkTable/Concatenate...`, 'warning');
-
-                // --- PHASE 2B: Full Deterministic Resolution ---
-                finalStrategyResult = resolveArchitecture(fullProfile, classifications);
-            }
-
-            const { normalizedData, structuralBlueprint, finalDirectives } = finalStrategyResult;
+            // Step 2: Relationship Detection & Normalization
+            broadcast('Architect', `Step 2: Normalizing Relationships to prevent Synthetic Keys...`, 'info');
+            const relResult = determineRelationships(metadata, classifications);
+            const normalizedData = relResult.normalizedData;
 
             if (!(await checkControl(ctrl, broadcast))) return;
 
-            // Step 3: Final Compilation
-            broadcast('Architect', 'Step 3: Compiling Final architecture via Qlik Engine...', 'info');
+            // Step 3: Structural Strategy & Compilation
+            broadcast('Architect', `Step 3: Calculating Best Multi-Fact Strategy...`, 'info');
+            let { structuralBlueprint, finalDirectives } = generateBlueprint(normalizedData);
+            broadcast('Architect', `Selected Base Strategy: ${structuralBlueprint.strategy}`, 'info');
+
+            broadcast('Architect', 'Step 4: Real-time Qlik Engine Structural Validation...', 'info');
             let finalFastScript = generateQvsScript(finalDirectives, normalizedData, dataDir, structuralBlueprint, true);
+            let validation = await validateScript(qlikGlobal, finalFastScript, workApp);
+
+            // Fallback Logic if Synthetic Keys are found
+            if (validation.synKeys > 0 && structuralBlueprint.strategy === 'SINGLE_FACT') {
+                broadcast('Architect', `⚠️ Qlik Engine detected ${validation.synKeys} Synthetic Keys. Forcing LINK_TABLE strategy...`, 'warning');
+                
+                structuralBlueprint.strategy = 'LINK_TABLE';
+                const sharedKeysSet = new Set();
+                const factTables = structuralBlueprint.factTables.map(f => f.tableName);
+                const keyPresenceInFacts = {}; 
+                
+                factTables.forEach(fName => {
+                    const tableNorms = normalizedData.find(n => n.tableName === fName);
+                    tableNorms.normalizedFields.forEach(nf => {
+                        if (nf.type === 'IDENTIFIER') {
+                            if (!keyPresenceInFacts[nf.normalizedName]) keyPresenceInFacts[nf.normalizedName] = new Set();
+                            keyPresenceInFacts[nf.normalizedName].add(fName);
+                        }
+                    });
+                });
+
+                Object.keys(keyPresenceInFacts).forEach(k => {
+                    if (keyPresenceInFacts[k].size > 1) sharedKeysSet.add(k);
+                });
+
+                structuralBlueprint.linkTableRequired = true;
+                structuralBlueprint.linkTableBlueprint = {
+                    linkTableName: 'LinkTable',
+                    sharedKeys: Array.from(sharedKeysSet)
+                };
+
+                finalFastScript = generateQvsScript(finalDirectives, normalizedData, dataDir, structuralBlueprint, true);
+                validation = await validateScript(qlikGlobal, finalFastScript, workApp);
+            }
 
             fs.writeFileSync(path.join(process.cwd(), '.debug_final_script.qvs'), finalFastScript);
 
-            const finalValidation = await validateScript(qlikGlobal, finalFastScript, workApp);
-            if (finalValidation.success && (finalValidation.synKeys === 0 || finalValidation.synKeys === undefined)) {
-                broadcast('Architect', `✅ Final script validated. Model is clean.`, 'success');
+            if (validation.success && (validation.synKeys === 0 || validation.synKeys === undefined)) {
+                broadcast('Architect', `✅ Final strategy validated. Model is clean (0 Syn Keys).`, 'success');
                 logger.log('Architect', 'Script Verification Passed');
                 success = true;
 
@@ -228,18 +223,21 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                 fs.writeFileSync(CACHE_FILE, currentScript);
                 if (io) io.emit('script-update', { phase: 'architect', script: currentScript });
             } else {
-                const errStr = `Qlik Engine Compilation Failed:\n${finalValidation.errors.join('\\n')}\n` +
-                    `Synthetic Keys Found: ${finalValidation.synKeys}\n` +
-                    `Circular References: ${finalValidation.circularReferences}`;
-                logger.log('Architect', 'Validation Failed', { synKeys: finalValidation.synKeys, errors: finalValidation.errors });
+                const primaryError = validation.errors[0] || "Unknown Error";
+                const details = (validation.errors.length > 1) ? validation.errors[1] : "";
+                
+                // Show the clean error as the fatal one
+                const errStr = `Qlik Engine Compilation Failed: ${primaryError}`;
+                
+                // If there are details (log context), broadcast them as a separate info event for the user to see them clearly
+                if (details) {
+                    broadcast('System', details, 'error');
+                }
+
+                logger.log('Architect', 'Validation Failed', { synKeys: validation.synKeys, errors: validation.errors });
                 throw new Error(errStr);
             }
 
-            if (!success) {
-                const msg = `Failed to generate a valid data model.`;
-                broadcast('Architect', msg, 'error');
-                throw new Error(msg);
-            }
         } else if (runEnhancer || runLayout) {
             // preloadedBaseScript was fetched before the working session opened
             // (see top of runAgent). Re-calling fetchLiveBaseScript here would

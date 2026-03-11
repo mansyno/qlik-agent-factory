@@ -44,6 +44,8 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
 
     const isLinkTable = structuralBlueprint && structuralBlueprint.strategy === 'LINK_TABLE';
     const isConcat = structuralBlueprint && structuralBlueprint.strategy === 'CONCATENATE';
+    // MULTI_FACT_STAR: multiple facts but no link table needed — treat each fact as a standard table
+    const isMultiFactStar = structuralBlueprint && structuralBlueprint.strategy === 'MULTI_FACT_STAR';
 
     // Build sets for Link Table shared keys
     const sharedKeysSet = new Set();
@@ -119,17 +121,26 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
                 }
             });
         }
-        // Link Table Logic: Only bridge keys that are actually present in this fact
+        // Link Table Logic: Each fact gets a deterministic composite key for bridging
         else if (isLinkTable && isFactTable) {
-            const tableSharedKeys = normalizedFields
-                .filter(nf => sharedKeysSet.has(nf.normalizedName))
-                .sort((a, b) => a.normalizedName.localeCompare(b.normalizedName));
+            const grainFields = (directive.notes || "").includes("Grain:") 
+                ? directive.notes.split("Grain:")[1].split(",").map(g => g.trim())
+                : [];
 
-            const hashComponents = tableSharedKeys
-                .map(nf => `"${nf.originalName}"`)
-                .join(` & '|' & `);
+            if (grainFields.length > 0) {
+                const hashComponents = grainFields.map(gf => `"${gf}"`).join(` & '|' & `);
+                console.log(`[DEBUG] Table ${tableName} Fact Key Hash: ${hashComponents}`);
+                fieldLines.push(`    AutoNumber(Hash128(${hashComponents})) AS "%Key_${tableName}"`);
+            } else {
+                // Fallback to identifiers if grain is missing
+                const ids = normalizedFields.filter(f => f.type === 'IDENTIFIER');
+                if (ids.length > 0) {
+                    const hashComponents = ids.map(f => `"${f.originalName}"`).join(` & '|' & `);
+                    fieldLines.push(`    AutoNumber(Hash128(${hashComponents})) AS "%Key_${tableName}"`);
+                }
+            }
 
-            fieldLines.push(`    AutoNumber(Hash128(${hashComponents})) AS "%Key_${tableName}"`);
+
 
             normalizedFields.forEach(f => {
                 const isSharedKey = sharedKeysSet.has(f.normalizedName);
@@ -169,11 +180,18 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
             const tableNorms = tableLookup[factName];
             if (!tableNorms) return;
 
+            const hasSharedKeys = tableNorms.some(f => sharedKeysSet.has(f.normalizedName));
+            if (!hasSharedKeys) return;
+
             if (!isFirstFact) script += `CONCATENATE([LinkTable])\n`;
             if (isFirstFact) script += `[LinkTable]:\n`;
 
             script += `LOAD\n`;
-            const linkFieldLines = [`    "%Key_${factName}"`];
+            const linkFieldLines = [
+                `    "%Key_${factName}"`,
+                `    "%Key_${factName}" AS "%DateBridgeKey"`,
+                `    '${factName}' AS "%SourceTable"`
+            ];
 
             sharedKeysSet.forEach(sharedKey => {
                 const hasField = tableNorms.find(f => f.normalizedName === sharedKey);
@@ -188,62 +206,60 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
             isFirstFact = false;
         });
 
-        // Drop the renamed shared keys from the local facts
+        // Drop the renamed shared keys from the local facts (only if they existed)
         factTablesInBlueprint.forEach(factName => {
+            const tableNorms = tableLookup[factName] || [];
+            
             sharedKeysSet.forEach(sharedKey => {
-                script += `DROP FIELD "${factName}_${sharedKey}" FROM [${factName}];\n`;
+                const hasField = tableNorms.find(f => f.normalizedName === sharedKey);
+                if (hasField) {
+                    script += `DROP FIELD "${factName}_${sharedKey}" FROM [${factName}];\n`;
+                }
             });
         });
     }
 
-    // --- Generate Canonical Date Bridge ---
-    if (structuralBlueprint && structuralBlueprint.dateBridgeRequired && structuralBlueprint.dates) {
-        script += `\n// --- Canonical Date Bridge ---\n`;
+    // --- Canonical Date Bridge ---
+    const factDates = structuralBlueprint && structuralBlueprint.dates 
+        ? structuralBlueprint.dates.filter(d => d.isFactTable) 
+        : [];
 
-        if (isLinkTable) {
-            // LINK TABLE MODE: Use existing %Key_<TableName> composite keys (no %FactID needed)
-            script += `// Uses the composite %Key per fact to avoid creating a second association path (circular ref).\n\n`;
-        } else {
-            // CONCATENATE MODE: Use the universal %FactID
-            script += `// Pivots all canonical dates off %FactID within Consolidated_Fact.\n\n`;
-        }
+    if (structuralBlueprint && structuralBlueprint.dateBridgeRequired && factDates.length > 0) {
+        script += `\n// --- Canonical Date Bridge ---\n`;
+        script += `// Unifies multiple dates into a single axis for cross-date analysis.\n`;
+        script += `[CanonicalDateBridge]:\n`;
 
         let isFirstDate = true;
-
-        structuralBlueprint.dates.forEach(dateObj => {
+        factDates.forEach(d => {
             if (!isFirstDate) script += `CONCATENATE([CanonicalDateBridge])\n`;
-            if (isFirstDate) script += `[CanonicalDateBridge]:\n`;
-
+            
             script += `LOAD\n`;
-
-            if (isLinkTable) {
-                // Link Table mode: load the composite key from the individual fact table
-                script += `    "%Key_${dateObj.tableName}",\n`;
-                script += `    '${dateObj.fieldName.split('_').slice(1).join('_') || dateObj.fieldName}' AS "DateType",\n`;
-                script += `    "${dateObj.fieldName}" AS "%DateKey"\n`;
-                script += `RESIDENT [${dateObj.tableName}]\n`;
-                script += `WHERE NOT IsNull("${dateObj.fieldName}");\n\n`;
+            if (isConcat || isMultiFactStar) {
+                // No composite key available — use RowNo as a bridge key
+                script += `    AutoNumber(RowNo() & '|' & '${d.tableName}') AS "%FactKey_${d.tableName}",\n`;
             } else {
-                // Concatenate mode: load %FactID from Consolidated_Fact
-                script += `    "%FactID",\n`;
-                script += `    '${dateObj.fieldName.split('_').slice(1).join('_') || dateObj.fieldName}' AS "DateType",\n`;
-                script += `    "${dateObj.fieldName}" AS "%DateKey"\n`;
-                script += `RESIDENT [Consolidated_Fact]\n`;
-                script += `WHERE ("%SourceTable" = '${dateObj.tableName}') AND (NOT IsNull("${dateObj.fieldName}"));\n\n`;
+                // LINK_TABLE mode: bridge connects to LinkTable using unified key to avoid synthetic keys
+                script += `    "%Key_${d.tableName}" AS "%DateBridgeKey",\n`;
             }
-
+            
+            script += `    "${d.fieldName}" AS "CanonicalDate",\n`;
+            script += `    '${d.fieldName}' AS "DateType"\n`;
+            script += `RESIDENT [${isConcat ? 'Consolidated_Fact' : d.tableName}];\n\n`;
+            
             isFirstDate = false;
         });
 
-        // Drop the original date fields from the Facts to prevent Synthetic Keys
-        script += `// --- Drop Source Dates from Facts ---\n`;
-        structuralBlueprint.dates.forEach(dateObj => {
-            const dropTarget = isConcat ? 'Consolidated_Fact' : dateObj.tableName;
-            script += `DROP FIELD "${dateObj.fieldName}" FROM [${dropTarget}];\n`;
-        });
-        script += `\n`;
+        // Add Master Calendar for the Canonical Date axis
+        script += `\n// --- Master Calendar ---\n`;
+        script += `[MasterCalendar]:\n`;
+        script += `LOAD\n`;
+        script += `    CanonicalDate,\n`;
+        script += `    Year(CanonicalDate) AS "Year",\n`;
+        script += `    Month(CanonicalDate) AS "Month",\n`;
+        script += `    Day(CanonicalDate) AS "Day",\n`;
+        script += `    'Q' & Ceil(Month(CanonicalDate)/3) AS "Quarter"\n`;
+        script += `RESIDENT [CanonicalDateBridge];\n`;
     }
-
     return script;
 }
 

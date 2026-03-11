@@ -1,0 +1,58 @@
+{
+    "Cities.csv": {
+        "City ID": "IDENTIFIER",
+        "City": "ATTRIBUTE",
+        "latitude": "ATTRIBUTE",
+        "longitude": "ATTRIBUTE",
+        "Coordinate": "ATTRIBUTE",
+        "Region ID": "IDENTIFIER"
+    },
+    "CustomerOrders.csv": {
+        "Order Number": "IDENTIFIER",
+        "Order Line": "IDENTIFIER",
+        "Date": "DATE",
+        "Customer ID": "IDENTIFIER",
+        "Part ID": "IDENTIFIER",
+        "Qnt": "MEASURE",
+        "Price": "MEASURE",
+        "Total Amount": "MEASURE"
+    },
+    "Customers.csv": {
+        "Customer ID": "IDENTIFIER",
+        "Customer Name": "ATTRIBUTE",
+        "City ID": "IDENTIFIER",
+        "Channel": "ATTRIBUTE"
+    },
+    "Lorries.csv": {
+        "Lorry ID": "IDENTIFIER",
+        "License Plate": "ATTRIBUTE",
+        "Type": "ATTRIBUTE"
+    },
+    "LorriesCost.csv": {
+        "Lorry_Type": "ATTRIBUTE",
+        "Cost": "MEASURE"
+    },
+    "Part.csv": {
+        "Part ID": "IDENTIFIER",
+        "Part Barcode": "ATTRIBUTE",
+        "Part Name": "ATTRIBUTE",
+        "Brand Des": "ATTRIBUTE",
+        "Category Level 1": "ATTRIBUTE",
+        "Category Level 2": "ATTRIBUTE",
+        "Units in Carton": "MEASURE",
+        "Cost": "MEASURE"
+    },
+    "Regions.csv": {
+        "RegionNum": "IDENTIFIER",
+        "Region": "ATTRIBUTE"
+    },
+    "TransDocument.csv": {
+        "Document Number": "IDENTIFIER",
+        "Status": "ATTRIBUTE",
+        "Date": "DATE",
+        "Lorry ID": "IDENTIFIER",
+        "Part Num": "IDENTIFIER",
+        "Customer Num": "IDENTIFIER",
+        "Carton - Qnt": "MEASURE"
+    }
+}

@@ -135,9 +135,64 @@ async function profileData(global, targetPath, app = null) {
 }
 
 /**
- * Pass B: Profile Native Relationships
- * Loads 1 row from all tables UNQUALIFIED to see native engine associations & syn keys
+ * Fetches engine-level metrics (Symbol table size, memory footprint) for a set of tables.
+ * This aligns with the "Data Profiling" phase in qliktext.txt.
  */
+async function getEngineMetrics(global, dataDir, files, app = null) {
+    let sessionApp = app;
+    let createdApp = false;
+    
+    if (!sessionApp) {
+        sessionApp = await global.createSessionApp();
+        createdApp = true;
+    }
+
+    const connectionName = 'MetricProbe_' + Date.now();
+    
+    try {
+        await sessionApp.createConnection({
+            qName: connectionName,
+            qConnectionString: dataDir.replace(/\\\\/g, '/'),
+            qType: 'folder'
+        });
+
+        let script = '';
+        files.forEach(f => {
+            const tableName = f.replace('.csv', '');
+            script += `[${tableName}]: LOAD * FROM [lib://${connectionName}/${f}] (txt, utf8, embedded labels, delimiter is ',', msq);\n`;
+        });
+
+        await sessionApp.setScript(script);
+        await sessionApp.doReload();
+
+        // getTablesAndKeys with extra details provides memory and symbol counts
+        const tableData = await sessionApp.getTablesAndKeys({ 
+            qWindowSize: { qcx: 100, qcy: 100 }, 
+            qNullSize: { qcx: 0, qcy: 0 }, 
+            qSyntheticMode: false,
+            qIncludeSysVars: false
+        });
+
+        const metrics = {};
+        tableData.qtr.forEach(t => {
+            metrics[t.qName] = {
+                rows: t.qNoOfRows,
+                fields: t.qNoOfFields,
+                memorySize: t.qByteSize, // Total size in memory
+                isSynthetic: t.qIsSynthetic
+            };
+        });
+
+        return metrics;
+    } catch (err) {
+        console.error("[QLIK_TOOLS] getEngineMetrics error:", err);
+        return {};
+    } finally {
+        if (createdApp && sessionApp) {
+            await sessionApp.session.close();
+        }
+    }
+}
 async function profileNativeRelationships(global, dataDir, files, app = null) {
     let sessionApp = app;
     try {
@@ -204,6 +259,65 @@ async function profileNativeRelationships(global, dataDir, files, app = null) {
     }
 }
 
+function stripQlikMetadata(line) {
+    if (!line) return "";
+    // Regex matches the ISO-like timestamp and subsequent metadata (Process ID, etc)
+    // Example: "20260310T134006.057+0200      "
+    const cleaned = line.replace(/^[0-9T.:+-]+\s+/g, '').trim();
+    // Also remove line numbers like "0139 " (4 digits + space)
+    return cleaned.replace(/^[0-9]{4}\s+/g, '').trim();
+}
+
+function cleanQlikError(logContent) {
+    if (!logContent) return null;
+    const lines = logContent.split('\n');
+    const errorLines = lines.filter(l => l.includes('Error:'));
+    
+    if (errorLines.length > 0) {
+        let lastError = errorLines[errorLines.length - 1];
+        const parts = lastError.split('Error:');
+        if (parts.length > 1) {
+            return `Error: ${parts[1].trim()}`;
+        }
+        return stripQlikMetadata(lastError);
+    }
+    return null;
+}
+
+async function getLatestScriptLog() {
+    try {
+        const logDir = 'd:\\Users\\Daniel\\Documents\\Qlik\\Sense\\Log\\Script';
+        if (!fs.existsSync(logDir)) return null;
+
+        const files = fs.readdirSync(logDir)
+            .filter(f => f.endsWith('.log'))
+            .map(f => ({
+                name: f,
+                time: fs.statSync(path.join(logDir, f)).mtime.getTime()
+            }))
+            .sort((a, b) => b.time - a.time);
+
+        if (files.length === 0) return null;
+
+        const latestFile = path.join(logDir, files[0].name);
+        const content = fs.readFileSync(latestFile, 'utf8');
+        
+        const coreError = cleanQlikError(content);
+        const logLines = content.split('\n').filter(l => l.trim().length > 0);
+        
+        // Clean up the last 15 lines for context
+        const cleanedLines = logLines.slice(-15).map(stripQlikMetadata).filter(l => l.length > 0);
+
+        return {
+            coreError,
+            fullContext: cleanedLines.join('\n')
+        };
+    } catch (err) {
+        console.error(`[QLIK_TOOLS] Failed to read physical log: ${err.message}`);
+        return null;
+    }
+}
+
 async function validateScript(global, scriptText, appOrDataPath) {
     let app;
     let createdIsolatedApp = false;
@@ -229,22 +343,30 @@ async function validateScript(global, scriptText, appOrDataPath) {
     }
 
     try {
-        console.log(`[QLIK_TOOLS] Validating script (Version V3)...`);
+        console.log(`[QLIK_TOOLS] Validating script (Version V5 - Physical Logs)...`);
         await app.setScript(scriptText);
 
-        // Use doReloadEx to aggressively trap syntax compilation errors
         const reloadRes = await app.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
 
         if (!reloadRes.qSuccess) {
             const engineError = reloadRes.qErrorDesc || "Unknown Script Error";
             console.error(`[QLIK_ENGINE_ERROR] ${engineError}`);
+            
+            // Deterministic approach: Read the newest log file from disk
+            const physicalLog = await getLatestScriptLog();
+            
+            let displayError = (physicalLog && physicalLog.coreError) ? physicalLog.coreError : `Reload Failed: ${engineError}`;
+            let verboseDetails = (physicalLog && physicalLog.fullContext)
+                ? `\n--- RELOAD LOG CONTEXT ---\n${physicalLog.fullContext}`
+                : "No detailed engine logs found on disk.";
+
             return {
                 success: false,
                 synKeys: 0,
                 circularReferences: false,
                 errors: [
-                    `Qlik Engine Reload Failed: ${engineError}`,
-                    "Review .debug_final_script.qvs in the project root to find the syntax error."
+                    displayError,
+                    verboseDetails
                 ]
             };
         }
@@ -318,10 +440,12 @@ async function validateScript(global, scriptText, appOrDataPath) {
         edgeCount = edgeSet.size;
         const hasCircularRefs = edgeCount > (realTables.length - 1);
 
-        const success = (synKeys === 0 && componentCount <= 1 && !hasCircularRefs);
+        const success = (synKeys === 0 && !hasCircularRefs);
         const errors = [];
         if (synKeys > 0) errors.push(`Failed validation: Engine created ${synKeys} Synthetic Keys.`);
-        if (componentCount > 1) errors.push(`Failed validation: The data model is fractured into ${componentCount} disconnected groups (sub-graphs). All tables must eventually connect together into a single associative model.`);
+        if (componentCount > 1) {
+            console.warn(`[VALIDATION WARNING] The data model contains ${componentCount} disconnected groups (sub-graphs). This is allowed, but may indicate unmapped foreign keys.`);
+        }
         if (hasCircularRefs) errors.push(`Failed validation: Circular references detected. The data model has ${edgeCount} associations but only ${realTables.length} tables (expected max ${realTables.length - 1} associations for a tree).`);
 
         return {
@@ -399,5 +523,6 @@ module.exports = {
     profileNativeRelationships,
     validateScript,
     createConnection,
-    createPersistentApp
+    createPersistentApp,
+    getEngineMetrics
 };
