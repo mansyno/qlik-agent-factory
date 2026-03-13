@@ -156,7 +156,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
 
             // Step 1: Classify Tables
             broadcast('Architect', `Step 1: Classifying Tables and Fields...`, 'info');
-            const classResult = classifyData(metadata);
+            const classResult = await classifyData(metadata);
             const classifications = classResult.classifications;
             fs.writeFileSync(path.join(process.cwd(), '.debug_classifications.json'), JSON.stringify(classifications, null, 2));
 

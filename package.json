@@ -10,11 +10,12 @@
         "dev:ui": "npm run dev --prefix ui"
     },
     "dependencies": {
+        "@google/genai": "^1.44.0",
         "@google/generative-ai": "^0.11.0",
         "concurrently": "^9.1.2",
         "cors": "^2.8.5",
         "csv-parser": "^3.2.0",
-        "dotenv": "^16.4.5",
+        "dotenv": "^16.6.1",
         "enigma.js": "^2.10.0",
         "express": "^4.21.2",
         "inquirer": "^13.2.5",

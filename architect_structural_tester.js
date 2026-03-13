@@ -9,11 +9,57 @@
  * - CONCATENATE: Multiple facts with identical FK sets (same grain pattern)
  */
 
+/**
+ * Identify fact tables that are highly similar and should be concatenated.
+ */
+function findFactGroups(normalizedData) {
+    const factTables = normalizedData.filter(t => t.role === 'FACT');
+    const groups = [];
+    const processed = new Set();
+
+    for (let i = 0; i < factTables.length; i++) {
+        if (processed.has(factTables[i].tableName)) continue;
+        const group = [factTables[i].tableName];
+        processed.add(factTables[i].tableName);
+
+        const fieldsI = new Set(factTables[i].normalizedFields.map(f => f.normalizedName));
+
+        for (let j = i + 1; j < factTables.length; j++) {
+            if (processed.has(factTables[j].tableName)) continue;
+            const fieldsJ = factTables[j].normalizedFields.map(f => f.normalizedName);
+            
+            let matchCount = 0;
+            fieldsJ.forEach(f => { if (fieldsI.has(f)) matchCount++; });
+
+            const similarity = matchCount / Math.max(fieldsI.size, fieldsJ.length);
+            // If > 70% similarity, they are likely historical/current versions of the same data
+            if (similarity > 0.7) {
+                group.push(factTables[j].tableName);
+                processed.add(factTables[j].tableName);
+            }
+        }
+
+        if (group.length > 1) {
+            groups.push(group);
+        }
+    }
+    return groups;
+}
+
 function generateBlueprint(normalizedData) {
     let strategy = 'SINGLE_FACT';
     let needsDateBridge = false;
     
-    const factTables = normalizedData.filter(t => t.role === 'FACT').map(t => t.tableName);
+    // 1. Identify Fact Groups for Concatenation
+    const factGroups = findFactGroups(normalizedData);
+    const hasConcatenation = factGroups.length > 0;
+    
+    if (hasConcatenation) {
+        strategy = 'CONCATENATE';
+        console.log(`[StructuralTester] Detected ${factGroups.length} groups of concatenatable fact tables.`);
+    }
+
+    const allFactTables = normalizedData.filter(t => t.role === 'FACT').map(t => t.tableName);
     const dateFieldsList = [];
     
     normalizedData.forEach(t => {
@@ -34,19 +80,29 @@ function generateBlueprint(normalizedData) {
         needsDateBridge = true;
     }
 
-    // Count shared conformed keys between fact table pairs
+    // Count shared conformed keys between virtual fact tables
+    // Treat each concatenated group as a single logical fact table
+    const virtualFactTables = allFactTables.filter(ft => !factGroups.flat().includes(ft));
+    factGroups.forEach((g, idx) => virtualFactTables.push(`Consolidated_Fact_${idx + 1}`));
+
     const sharedKeysSet = new Set();
     const keyPresenceInFacts = {};
 
-    if (factTables.length > 1) {
-        factTables.forEach(fName => {
-            const tableNorms = normalizedData.find(n => n.tableName === fName);
-            tableNorms.normalizedFields.forEach(nf => {
-                if (nf.type === 'IDENTIFIER') {
-                    if (!keyPresenceInFacts[nf.normalizedName]) keyPresenceInFacts[nf.normalizedName] = new Set();
-                    keyPresenceInFacts[nf.normalizedName].add(fName);
-                }
-            });
+    if (virtualFactTables.length > 1) {
+        normalizedData.forEach(t => {
+            const isFact = t.role === 'FACT';
+            const groupIdx = factGroups.findIndex(g => g.includes(t.tableName));
+            
+            if (isFact || groupIdx !== -1) {
+                const virtualName = groupIdx !== -1 ? `Consolidated_Fact_${groupIdx + 1}` : t.tableName;
+                
+                t.normalizedFields.forEach(nf => {
+                    if (nf.type === 'IDENTIFIER') {
+                        if (!keyPresenceInFacts[nf.normalizedName]) keyPresenceInFacts[nf.normalizedName] = new Set();
+                        keyPresenceInFacts[nf.normalizedName].add(virtualName);
+                    }
+                });
+            }
         });
 
         Object.keys(keyPresenceInFacts).forEach(k => {
@@ -58,8 +114,8 @@ function generateBlueprint(normalizedData) {
         // Apply the 2+ shared key guard per spec Step 5
         if (sharedKeysSet.size >= 2) {
             strategy = 'LINK_TABLE';
-            console.log(`[StructuralTester] ${sharedKeysSet.size} shared conformed keys. Strategy: LINK_TABLE`);
-        } else {
+            console.log(`[StructuralTester] ${sharedKeysSet.size} shared conformed keys among virtual facts. Strategy: LINK_TABLE`);
+        } else if (strategy !== 'CONCATENATE') {
             // 0-1 shared keys: star schema handles this fine, no link table needed
             strategy = 'MULTI_FACT_STAR';
             console.log(`[StructuralTester] Only ${sharedKeysSet.size} shared key(s). Strategy: MULTI_FACT_STAR (no link table)`);
@@ -68,7 +124,8 @@ function generateBlueprint(normalizedData) {
 
     const structuralBlueprint = {
         strategy: strategy,
-        factTables: factTables.map(f => ({ tableName: f })),
+        factTables: allFactTables.map(f => ({ tableName: f })),
+        factGroups: factGroups,
         dateBridgeRequired: needsDateBridge,
         dates: dateFieldsList
     };
@@ -94,7 +151,7 @@ function generateBlueprint(normalizedData) {
         return {
             tableName: n.tableName,
             notes: `Role: ${n.role}, Grain: ${grainStr} `,
-            loadStatement: `LOAD * FROM[${n.tableName}]`
+            loadStatement: `LOAD * FROM [${n.tableName}]`
         };
     });
 

@@ -152,7 +152,7 @@ async function getEngineMetrics(global, dataDir, files, app = null) {
     try {
         await sessionApp.createConnection({
             qName: connectionName,
-            qConnectionString: dataDir.replace(/\\\\/g, '/'),
+            qConnectionString: path.resolve(dataDir),
             qType: 'folder'
         });
 

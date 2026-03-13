@@ -1,0 +1,59 @@
+Testing pipeline on D:\A_i\qlik\poc architect agent\northwind...
+
+[PIPELINE] Initializing Qlik Engine Session...
+[PIPELINE] Phase 0: Gathering Qlik Engine metrics...
+
+[PIPELINE] Phase 1: Profiling Data...
+[Profiler] Starting local CSV profiling for 11 tables...
+[Profiler] Scanning table: categories
+  Merged Engine Metrics for categories: 0 KB
+[Profiler] Scanning table: customers
+  Merged Engine Metrics for customers: 0 KB
+[Profiler] Scanning table: employees
+  Merged Engine Metrics for employees: 0 KB
+[Profiler] Scanning table: employee_territories
+  Merged Engine Metrics for employee_territories: 0 KB
+[Profiler] Scanning table: orders
+  Merged Engine Metrics for orders: 0 KB
+[Profiler] Scanning table: order_details
+  Merged Engine Metrics for order_details: 0 KB
+[Profiler] Scanning table: products
+  Merged Engine Metrics for products: 0 KB
+[Profiler] Scanning table: regions
+  Merged Engine Metrics for regions: 0 KB
+[Profiler] Scanning table: shippers
+  Merged Engine Metrics for shippers: 0 KB
+[Profiler] Scanning table: suppliers
+  Merged Engine Metrics for suppliers: 0 KB
+[Profiler] Scanning table: territories
+  Merged Engine Metrics for territories: 0 KB
+[Profiler] Calculating cross-table relational metrics...
+
+[PIPELINE] Phase 2: Classifying Tables and Fields...
+[CLASSIFIER] Preparing LLM Classification Prompt...
+[CLASSIFIER] Requesting classification from gemini-2.5-flash (Attempts remaining: 3)...
+[CLASSIFIER] LLM Classification successfully merged into internal schema.
+
+[PIPELINE] Phase 3: Relationship Detection and Normalization...
+
+[PIPELINE] Phase 4: Structural Test and Blueprint Generation...
+[StructuralTester] Only 1 shared key(s). Strategy: MULTI_FACT_STAR (no link table)
+  Initial Strategy Selected: MULTI_FACT_STAR
+  Running Structural Test Load on Qlik Engine...
+[QLIK_TOOLS] Validating script (Version V5 - Physical Logs)...
+  Escalating from MULTI_FACT_STAR to LINK_TABLE to resolve synthetic keys.
+[VALIDATION WARNING] The data model contains 3 disconnected groups (sub-graphs). This is allowed, but may indicate unmapped foreign keys.
+[PIPELINE] WARNING: Test load produced 1 Synthetic Keys!
+[PIPELINE] Escalation LinkTable keys: [ 'orderID' ]
+[DEBUG] Table orders Fact Key Hash: "orderID" & '|' & "customerID" & '|' & "employeeID" & '|' & "shipVia"
+[DEBUG] Table order_details Fact Key Hash: "orderID" & '|' & "productID"
+[QLIK_TOOLS] Validating script (Version V5 - Physical Logs)...
+[VALIDATION WARNING] The data model contains 2 disconnected groups (sub-graphs). This is allowed, but may indicate unmapped foreign keys.
+
+[PIPELINE] Validation FAILED Even with Fallback Strategy: [ 'Failed validation: Engine created 1 Synthetic Keys.' ]
+Pipeline failed: Error: Qlik Compilation Failed:
+Failed validation: Engine created 1 Synthetic Keys.
+Syn Keys: 1
+    at runPipeline (D:\A_i\qlik\poc architect agent\pipeline_runner.js:122:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async test (D:\A_i\qlik\poc architect agent\test_new_pipeline.js:9:24)

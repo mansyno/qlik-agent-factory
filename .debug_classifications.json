@@ -1,6 +1,7 @@
 [
   {
     "tableName": "Cities",
+    "originalFileName": "Cities.csv",
     "role": "DIMENSION",
     "grain": {
       "primaryKey": [
@@ -32,6 +33,12 @@
         "minNumeric": 7900,
         "maxNumeric": 687832,
         "isNumeric": true,
+        "sampleValues": [
+          "12346",
+          "45679",
+          "7900"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 5.86,
         "uniquenessRatio": 1
@@ -47,6 +54,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "Ashkelon",
+          "Netivot",
+          "Sderot"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 8.72,
         "uniquenessRatio": 1
@@ -62,6 +75,12 @@
         "minNumeric": 29.560313,
         "maxNumeric": 33.19214200000001,
         "isNumeric": true,
+        "sampleValues": [
+          "31.65457000000001",
+          "31.424775",
+          "31.515862"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 12.22,
         "uniquenessRatio": 0.9822
@@ -77,6 +96,12 @@
         "minNumeric": 34.57632700000001,
         "maxNumeric": 35.70853400000001,
         "isNumeric": true,
+        "sampleValues": [
+          "34.57632700000001",
+          "34.60156300000001",
+          "34.60193200000001"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 11.74,
         "uniquenessRatio": 0.9822
@@ -92,6 +117,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "[34.576327,31.65457]",
+          "[34.601563,31.424775]",
+          "[34.601932,31.515862]"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 20.75,
         "uniquenessRatio": 0.9822
@@ -107,6 +138,12 @@
         "minNumeric": 0,
         "maxNumeric": 7,
         "isNumeric": true,
+        "sampleValues": [
+          "3",
+          "2",
+          "6"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 1,
         "uniquenessRatio": 0.0473
@@ -115,24 +152,28 @@
   },
   {
     "tableName": "CustomerOrders",
+    "originalFileName": "CustomerOrders.csv",
     "role": "FACT",
     "grain": {
       "primaryKey": [],
       "foreignKeys": [
         "Order Number",
+        "Order Line",
         "Customer ID",
         "Part ID"
       ],
       "grainFields": [
         "Order Number",
+        "Order Line",
         "Customer ID",
         "Part ID"
       ],
-      "grainDescription": "Order Number + Customer ID + Part ID"
+      "grainDescription": "Order Number + Order Line + Customer ID + Part ID"
     },
     "rowCount": 62525,
     "candidateKeys": [
       "Order Number",
+      "Order Line",
       "Customer ID",
       "Part ID"
     ],
@@ -148,12 +189,18 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "ORD80000004",
+          "ORD80000008",
+          "ORD80000012"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 11,
         "uniquenessRatio": 0.0154
       },
       "Order Line": {
-        "type": "ATTRIBUTE",
+        "type": "IDENTIFIER",
         "name": "Order Line",
         "nullCount": 0,
         "blankCount": 0,
@@ -163,6 +210,12 @@
         "minNumeric": 1,
         "maxNumeric": 226,
         "isNumeric": true,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 1.95,
         "uniquenessRatio": 0.0036
@@ -178,6 +231,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "2019-06-01",
+          "2019-05-29",
+          "2020-04-20"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 10,
         "uniquenessRatio": 0.0066
@@ -193,6 +252,12 @@
         "minNumeric": 1,
         "maxNumeric": 2948,
         "isNumeric": true,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 3.78,
         "uniquenessRatio": 0.0154
@@ -208,12 +273,18 @@
         "minNumeric": 4975,
         "maxNumeric": 25897,
         "isNumeric": true,
+        "sampleValues": [
+          "4975",
+          "5023",
+          "5083"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 4.63,
         "uniquenessRatio": 0.0061
       },
       "Qnt": {
-        "type": "ATTRIBUTE",
+        "type": "MEASURE",
         "name": "Qnt",
         "nullCount": 0,
         "blankCount": 0,
@@ -223,12 +294,18 @@
         "minNumeric": 1,
         "maxNumeric": 196716,
         "isNumeric": true,
+        "sampleValues": [
+          "1280",
+          "338",
+          "624"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 1.6,
         "uniquenessRatio": 0.0272
       },
       "Price": {
-        "type": "MEASURE",
+        "type": "ATTRIBUTE",
         "name": "Price",
         "nullCount": 0,
         "blankCount": 0,
@@ -238,6 +315,12 @@
         "minNumeric": 20.013582101546273,
         "maxNumeric": 39.99009329083025,
         "isNumeric": true,
+        "sampleValues": [
+          "27.769420523249693",
+          "23.21264465061399",
+          "22.741596051721444"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 17.41,
         "uniquenessRatio": 0.0061
@@ -253,6 +336,12 @@
         "minNumeric": 20.013582101546273,
         "maxNumeric": 7111217.056706242,
         "isNumeric": true,
+        "sampleValues": [
+          "35544.85826975961",
+          "7845.873891907529",
+          "14190.755936274181"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 17.36,
         "uniquenessRatio": 0.2554
@@ -261,6 +350,7 @@
   },
   {
     "tableName": "Customers",
+    "originalFileName": "Customers.csv",
     "role": "DIMENSION",
     "grain": {
       "primaryKey": [
@@ -292,6 +382,12 @@
         "minNumeric": 1,
         "maxNumeric": 2948,
         "isNumeric": true,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 3.78,
         "uniquenessRatio": 1
@@ -307,6 +403,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "T.P. QDESHV VOYFQJK",
+          "LCOA CIVU EIMMM FZOUV SBVZ TN\"D",
+          "RDBYVH QLBHSXH (7998)"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 21,
         "uniquenessRatio": 0.9989
@@ -322,6 +424,12 @@
         "minNumeric": 7900,
         "maxNumeric": 687832,
         "isNumeric": true,
+        "sampleValues": [
+          "644503",
+          "654502",
+          "564511"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 5.67,
         "uniquenessRatio": 0.1849
@@ -337,6 +445,11 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "Regular",
+          "Direct"
+        ],
+        "informationDensity": 0.9845,
         "nullPercentage": 1.55,
         "avgLength": 6.14,
         "uniquenessRatio": 0.0022
@@ -345,6 +458,7 @@
   },
   {
     "tableName": "Lorries",
+    "originalFileName": "Lorries.csv",
     "role": "DIMENSION",
     "grain": {
       "primaryKey": [
@@ -372,6 +486,12 @@
         "minNumeric": 346,
         "maxNumeric": 1339,
         "isNumeric": true,
+        "sampleValues": [
+          "346",
+          "348",
+          "349"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 3.55,
         "uniquenessRatio": 1
@@ -387,6 +507,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "15-660-92",
+          "72-539-94",
+          "64-288-94"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 9,
         "uniquenessRatio": 1
@@ -402,6 +528,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "Full",
+          "Ramp",
+          "Single"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 4.54,
         "uniquenessRatio": 0.0357
@@ -410,6 +542,7 @@
   },
   {
     "tableName": "LorriesCost",
+    "originalFileName": "LorriesCost.csv",
     "role": "DIMENSION",
     "grain": {
       "primaryKey": [],
@@ -431,6 +564,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "Full",
+          "Ramp",
+          "Single"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 4.75,
         "uniquenessRatio": 1
@@ -446,6 +585,12 @@
         "minNumeric": 1050,
         "maxNumeric": 2100,
         "isNumeric": true,
+        "sampleValues": [
+          "2100",
+          "2000",
+          "1560"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 4,
         "uniquenessRatio": 1
@@ -454,6 +599,7 @@
   },
   {
     "tableName": "Part",
+    "originalFileName": "Part.csv",
     "role": "DIMENSION",
     "grain": {
       "primaryKey": [
@@ -481,6 +627,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "12155",
+          "12153",
+          "12157"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 4.69,
         "uniquenessRatio": 1
@@ -496,6 +648,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "-",
+          "7290000208091",
+          "7290000208329"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 11.53,
         "uniquenessRatio": 0.671
@@ -511,6 +669,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "6 MKCK (*)",
+          "6 TQSA (*)",
+          "154 VRW (*)"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 23.77,
         "uniquenessRatio": 1
@@ -526,6 +690,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "Fruta",
+          "Fruta IL",
+          "Fruta Badaz"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 8.21,
         "uniquenessRatio": 0.0129
@@ -541,6 +711,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "Vegetables",
+          "Corn",
+          "Concentrate"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 7.14,
         "uniquenessRatio": 0.018
@@ -556,6 +732,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "No Category",
+          "Pea",
+          "Corn"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 10.49,
         "uniquenessRatio": 0.0566
@@ -571,6 +753,12 @@
         "minNumeric": 1,
         "maxNumeric": 20,
         "isNumeric": true,
+        "sampleValues": [
+          "3",
+          "18",
+          "15"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 1.56,
         "uniquenessRatio": 0.0514
@@ -586,6 +774,12 @@
         "minNumeric": 2,
         "maxNumeric": 15,
         "isNumeric": true,
+        "sampleValues": [
+          "2",
+          "8",
+          "11"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 1.54,
         "uniquenessRatio": 0.0308
@@ -594,18 +788,25 @@
   },
   {
     "tableName": "Regions",
+    "originalFileName": "Regions.csv",
     "role": "DIMENSION",
     "grain": {
-      "primaryKey": [],
+      "primaryKey": [
+        "RegionNum"
+      ],
       "foreignKeys": [],
-      "grainFields": [],
-      "grainDescription": "Unknown"
+      "grainFields": [
+        "RegionNum"
+      ],
+      "grainDescription": "RegionNum"
     },
     "rowCount": 8,
-    "candidateKeys": [],
+    "candidateKeys": [
+      "RegionNum"
+    ],
     "fieldClassifications": {
       "RegionNum": {
-        "type": "ATTRIBUTE",
+        "type": "IDENTIFIER",
         "name": "RegionNum",
         "nullCount": 0,
         "blankCount": 0,
@@ -615,6 +816,12 @@
         "minNumeric": 0,
         "maxNumeric": 7,
         "isNumeric": true,
+        "sampleValues": [
+          "0",
+          "3",
+          "4"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 1,
         "uniquenessRatio": 1
@@ -630,6 +837,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "No Zone",
+          "Southern District",
+          "Jerusalem"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 12.75,
         "uniquenessRatio": 1
@@ -638,6 +851,7 @@
   },
   {
     "tableName": "TransDocument",
+    "originalFileName": "TransDocument.csv",
     "role": "FACT",
     "grain": {
       "primaryKey": [],
@@ -674,6 +888,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "TR20000001",
+          "TR20000002",
+          "TR20000003"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 10,
         "uniquenessRatio": 0.0109
@@ -689,6 +909,11 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "Final",
+          "Draft"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 5,
         "uniquenessRatio": 0
@@ -704,6 +929,12 @@
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
+        "sampleValues": [
+          "2020-01-01",
+          "2020-01-02",
+          "2020-01-05"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 10,
         "uniquenessRatio": 0.0009
@@ -719,6 +950,12 @@
         "minNumeric": 346,
         "maxNumeric": 1339,
         "isNumeric": true,
+        "sampleValues": [
+          "945",
+          "734",
+          "862"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 3.28,
         "uniquenessRatio": 0.0002
@@ -734,6 +971,12 @@
         "minNumeric": 4623,
         "maxNumeric": 25897,
         "isNumeric": true,
+        "sampleValues": [
+          "4997",
+          "5002",
+          "5022"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 4.57,
         "uniquenessRatio": 0.0009
@@ -749,6 +992,12 @@
         "minNumeric": 1,
         "maxNumeric": 2948,
         "isNumeric": true,
+        "sampleValues": [
+          "1203",
+          "2030",
+          "787"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 3.75,
         "uniquenessRatio": 0.002
@@ -764,6 +1013,12 @@
         "minNumeric": 0,
         "maxNumeric": 9120,
         "isNumeric": true,
+        "sampleValues": [
+          "156",
+          "4",
+          "13"
+        ],
+        "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 1.24,
         "uniquenessRatio": 0.0012

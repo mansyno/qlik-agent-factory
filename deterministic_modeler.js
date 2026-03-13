@@ -19,6 +19,42 @@ function cleanEntityName(name) {
     return clean.toLowerCase().trim() || name.toLowerCase().trim();
 }
 
+/**
+ * Identify fact tables that are highly similar and should be concatenated.
+ */
+function findFactGroups(factTables, tables) {
+    const groups = [];
+    const processed = new Set();
+
+    for (let i = 0; i < factTables.length; i++) {
+        if (processed.has(factTables[i].tableName)) continue;
+        const group = [factTables[i].tableName];
+        processed.add(factTables[i].tableName);
+
+        const fieldsI = new Set(tables[factTables[i].tableName].fields.map(f => f.name));
+
+        for (let j = i + 1; j < factTables.length; j++) {
+            if (processed.has(factTables[j].tableName)) continue;
+            const fieldsJ = tables[factTables[j].tableName].fields.map(f => f.name);
+            
+            let matchCount = 0;
+            fieldsJ.forEach(f => { if (fieldsI.has(f)) matchCount++; });
+
+            const similarity = matchCount / Math.max(fieldsI.size, fieldsJ.length);
+            // If > 70% similarity, they are likely historical/current versions of the same data
+            if (similarity > 0.7) {
+                group.push(factTables[j].tableName);
+                processed.add(factTables[j].tableName);
+            }
+        }
+
+        if (group.length > 1) {
+            groups.push(group);
+        }
+    }
+    return groups;
+}
+
 function resolveArchitecture(profileData, classifications) {
     const { tables, relationships } = profileData;
     const nativeLinks = (relationships && relationships.nativeLinks) ? relationships.nativeLinks : {};
@@ -156,10 +192,16 @@ function resolveArchitecture(profileData, classifications) {
     });
 
     // 4. Determine Strategy
-    // Default to star schema. Only use link table if the engine test later detects synthetic keys,
-    // OR if we can already confirm 2+ shared conformed keys between fact pairs.
     let strategy = 'SINGLE_FACT';
     let needsDateBridge = false;
+
+    const factGroups = findFactGroups(factTables, tables);
+    const hasConcatenation = factGroups.length > 0;
+    
+    if (hasConcatenation) {
+        strategy = 'CONCATENATE';
+        console.log(`[Modeler] Detected ${factGroups.length} groups of concatenatable fact tables.`);
+    }
 
     // Detect if we have engine-level Synthetic Keys
     const engineSynKeys = (relationships && relationships.syntheticKeys) ? relationships.syntheticKeys : [];
@@ -169,35 +211,35 @@ function resolveArchitecture(profileData, classifications) {
         console.log(`[Modeler] Qlik Engine detected ${engineSynKeys.length} Synthetic Keys. Forcing link table evaluation.`);
     }
 
-    if (factTables.length > 1 || hasEngineSynKeys) {
-        // Count shared conformed keys between fact table pairs
-        const keyPresenceInFacts = {}; // 'CustomerKey' -> Set(['TableA', 'TableB'])
-        const factToEvaluate = factTables.length > 0 ? factTables : classifications;
+    // Determine if we need a Link Table AFTER possible concatenation
+    // Treat each concatenated group as 1 table for bridge counting
+    const virtualFacts = [...factTables.filter(f => !factGroups.flat().includes(f.tableName))];
+    factGroups.forEach((g, idx) => virtualFacts.push({ tableName: `Consolidated_Fact_${idx + 1}` }));
 
-        factToEvaluate.forEach(f => {
-            const tableNorms = normalizedData.find(n => n.tableName === f.tableName);
-            if (!tableNorms) return;
-            const fkList = tableNorms.normalizedFields
-                .filter(nf => nf.normalizedName.endsWith('Key'))
-                .map(nf => nf.normalizedName);
-
-            fkList.forEach(k => {
-                if (!keyPresenceInFacts[k]) keyPresenceInFacts[k] = new Set();
-                keyPresenceInFacts[k].add(f.tableName);
-            });
+    if (virtualFacts.length > 1 || hasEngineSynKeys) {
+        // ... (Count shared keys among virtual facts)
+        const keyPresence = {};
+        
+        normalizedData.forEach(f => {
+            const isFact = f.role === 'fact';
+            const groupIdx = factGroups.findIndex(g => g.includes(f.tableName));
+            const virtualName = groupIdx !== -1 ? `Consolidated_Fact_${groupIdx + 1}` : f.tableName;
+            
+            if (isFact || groupIdx !== -1) {
+                f.normalizedFields.filter(nf => nf.normalizedName.endsWith('Key')).forEach(nf => {
+                    if (!keyPresence[nf.normalizedName]) keyPresence[nf.normalizedName] = new Set();
+                    keyPresence[nf.normalizedName].add(virtualName);
+                });
+            }
         });
 
-        // Only keys shared by 2+ facts could cause synthetic keys
-        const sharedKeys = Object.keys(keyPresenceInFacts).filter(k => keyPresenceInFacts[k].size > 1);
+        const sharedKeys = Object.keys(keyPresence).filter(k => keyPresence[k].size > 1);
         
         if (sharedKeys.length >= 2 || hasEngineSynKeys) {
-            // 2+ shared conformed keys → link table needed per spec Step 5
-            strategy = 'LINK_TABLE';
-            console.log(`[Modeler] ${sharedKeys.length} shared conformed keys between facts. Strategy: LINK_TABLE`);
-        } else if (factTables.length > 1) {
-            // Only 0-1 shared key → star schema is sufficient
+            strategy = 'LINK_TABLE'; // Link Table takes precedence as it's more robust for poly-fact models
+            console.log(`[Modeler] ${sharedKeys.length} shared keys. Strategy: LINK_TABLE`);
+        } else if (strategy !== 'CONCATENATE') {
             strategy = 'MULTI_FACT_STAR';
-            console.log(`[Modeler] Only ${sharedKeys.length} shared key(s) between facts. Strategy: MULTI_FACT_STAR (no link table needed)`);
         }
     }
 
@@ -209,6 +251,7 @@ function resolveArchitecture(profileData, classifications) {
     const structuralBlueprint = {
         strategy: strategy,
         factTables: factTables.map(f => ({ tableName: f.tableName })),
+        factGroups: factGroups,
         dateBridgeRequired: needsDateBridge,
         dates: dateFieldsList
     };

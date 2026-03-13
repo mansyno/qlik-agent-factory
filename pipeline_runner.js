@@ -37,7 +37,7 @@ async function runPipeline(dataPath) {
 
         // Step 2: Classification
         console.log("\n[PIPELINE] Phase 2: Classifying Tables and Fields...");
-        const classResult = classifyData(metadata);
+        const classResult = await classifyData(metadata);
         const classifications = classResult.classifications;
 
         fs.writeFileSync(path.join(__dirname, '.debug_classifications.json'), JSON.stringify(classifications, null, 2));

@@ -13,25 +13,31 @@ async function profileAllData(dataDir, files, engineMetrics = {}) {
     const metadata = { tables: {}, relationships: { overlap: [], subsets: [] } };
     const globalFieldValues = {}; // fieldName -> Set of values (for cross-table overlap)
 
+    const commonPrefix = findCommonPrefix(files);
+    if (commonPrefix) console.log(`[Profiler] Detected common prefix to strip: "${commonPrefix}"`);
+
     for (const file of files) {
         const filePath = path.join(dataDir, file);
-        const tableName = path.basename(file, path.extname(file)).replace(/\W/g, '_');
-        console.log(`[Profiler] Scanning table: ${tableName}`);
+        const originalName = path.basename(file, path.extname(file));
+        const tableName = commonPrefix ? originalName.replace(commonPrefix, '').trim() : originalName;
+        
+        console.log(`[Profiler] Scanning table: ${tableName} (Source: ${file})`);
         
         try {
             const tableStats = await scanTable(filePath);
             tableStats.tableName = tableName;
+            tableStats.originalFileName = file;
 
             // Merge Engine-Native Metrics (Memory, Symbol counts)
-            if (engineMetrics[tableName]) {
-                tableStats.engineMetrics = engineMetrics[tableName];
+            if (engineMetrics[originalName]) {
+                tableStats.engineMetrics = engineMetrics[originalName];
                 const mem = tableStats.engineMetrics.memorySize || 0;
                 console.log(`  Merged Engine Metrics for ${tableName}: ${Math.round(mem / 1024)} KB`);
             }
 
             metadata.tables[tableName] = tableStats;
 
-            // Store distincts for relational metrics
+            // Store distincts for relational metrics using the CLEAN tableName
             Object.keys(tableStats.fields).forEach(fieldName => {
                 const uniqueKey = `${tableName}.${fieldName}`;
                 globalFieldValues[uniqueKey] = tableStats.fields[fieldName]._distinctSet;
@@ -74,6 +80,7 @@ function scanTable(filePath) {
                         minNumeric: Infinity,
                         maxNumeric: -Infinity,
                         isNumeric: true,
+                        sampleValues: [],
                         _distinctSet: new Set()
                     };
                 });
@@ -103,6 +110,9 @@ function scanTable(filePath) {
                         
                         // Distincts
                         if (f._distinctSet.size < MAX_DISTINCT_VALUES) {
+                            if (!f._distinctSet.has(strVal) && f.sampleValues.length < 3) {
+                                f.sampleValues.push(strVal);
+                            }
                             f._distinctSet.add(strVal);
                         }
                         
@@ -126,6 +136,7 @@ function scanTable(filePath) {
                 Object.keys(fields).forEach(col => {
                     const f = fields[col];
                     f.distinctCount = f._distinctSet.size;
+                    f.informationDensity = rowCount === 0 ? 0 : parseFloat(((rowCount - f.nullCount) / rowCount).toFixed(4));
                     f.nullPercentage = rowCount === 0 ? 0 : parseFloat(((f.nullCount / rowCount) * 100).toFixed(2));
                     f.avgLength = (rowCount - f.nullCount) === 0 ? 0 : parseFloat((f.sumLength / (rowCount - f.nullCount)).toFixed(2));
                     f.uniquenessRatio = (rowCount - f.nullCount) === 0 ? 0 : parseFloat((f.distinctCount / (rowCount - f.nullCount)).toFixed(4));
@@ -156,8 +167,12 @@ function calculateRelationalMetrics(metadata, globalFieldValues) {
             const keyA = fieldKeys[i];
             const keyB = fieldKeys[j];
             
-            const [tableA, colA] = keyA.split('.');
-            const [tableB, colB] = keyB.split('.');
+            const lastDotA = keyA.lastIndexOf('.');
+            const lastDotB = keyB.lastIndexOf('.');
+            const tableA = keyA.substring(0, lastDotA);
+            const colA = keyA.substring(lastDotA + 1);
+            const tableB = keyB.substring(0, lastDotB);
+            const colB = keyB.substring(lastDotB + 1);
             
             const setA = globalFieldValues[keyA];
             const setB = globalFieldValues[keyB];
@@ -203,6 +218,37 @@ function calculateRelationalMetrics(metadata, globalFieldValues) {
             }
         }
     }
+}
+
+function findCommonPrefix(files) {
+    if (!files || files.length <= 1) return "";
+    
+    // Sort to easily find the shared prefix between the most different strings
+    const sorted = [...files].sort();
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    
+    let i = 0;
+    while (i < first.length && first[i] === last[i]) {
+        i++;
+    }
+    
+    const prefix = first.substring(0, i);
+    
+    // Try to find a logical end for the prefix (space, dash, underscore)
+    // so we don't snap "CustomerRecord1" and "CustomerRecord2" to "CustomerRecord"
+    const lastSeparator = Math.max(
+        prefix.lastIndexOf(' - '),
+        prefix.lastIndexOf(' – '),
+        prefix.lastIndexOf('_'),
+        prefix.lastIndexOf(' ')
+    );
+    
+    if (lastSeparator !== -1) {
+        return prefix.substring(0, lastSeparator + 1);
+    }
+    
+    return prefix;
 }
 
 module.exports = {

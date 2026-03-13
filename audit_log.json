@@ -1,39 +1,39 @@
 [
   {
-    "timestamp": "2026-03-11T17:19:45.920Z",
+    "timestamp": "2026-03-13T09:34:10.546Z",
     "category": "System",
     "message": "Logger Initialized",
     "details": null
   },
   {
-    "timestamp": "2026-03-11T17:19:45.920Z",
+    "timestamp": "2026-03-13T09:34:10.546Z",
     "category": "System",
     "message": "Job Started",
     "details": {
       "dataDir": "./lorries",
-      "targetAppName": "lorries6"
+      "targetAppName": "lorries"
     }
   },
   {
-    "timestamp": "2026-03-11T17:19:45.949Z",
+    "timestamp": "2026-03-13T09:34:10.554Z",
     "category": "System",
     "message": "Connected to Qlik Engine",
     "details": null
   },
   {
-    "timestamp": "2026-03-11T17:19:46.074Z",
+    "timestamp": "2026-03-13T09:34:10.756Z",
     "category": "Architect",
     "message": "Starting Deterministic Data Profiling",
     "details": null
   },
   {
-    "timestamp": "2026-03-11T17:19:48.171Z",
+    "timestamp": "2026-03-13T09:38:41.032Z",
     "category": "Architect",
     "message": "Script Verification Passed",
     "details": null
   },
   {
-    "timestamp": "2026-03-11T17:19:48.173Z",
+    "timestamp": "2026-03-13T09:38:41.034Z",
     "category": "System",
     "message": "Final Script Saved",
     "details": {
@@ -41,7 +41,7 @@
     }
   },
   {
-    "timestamp": "2026-03-11T17:19:51.511Z",
+    "timestamp": "2026-03-13T09:38:43.366Z",
     "category": "System",
     "message": "App Reload Finished",
     "details": {
@@ -49,15 +49,15 @@
     }
   },
   {
-    "timestamp": "2026-03-11T17:19:51.985Z",
+    "timestamp": "2026-03-13T09:38:43.834Z",
     "category": "System",
     "message": "App Saved",
     "details": {
-      "appName": "lorries6"
+      "appName": "lorries"
     }
   },
   {
-    "timestamp": "2026-03-11T17:19:51.987Z",
+    "timestamp": "2026-03-13T09:38:43.836Z",
     "category": "System",
     "message": "Process Terminated",
     "details": null
