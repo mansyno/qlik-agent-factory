@@ -1,12 +1,12 @@
 [
   {
-    "timestamp": "2026-03-13T23:17:27.604Z",
+    "timestamp": "2026-03-13T23:30:47.638Z",
     "category": "System",
     "message": "Logger Initialized",
     "details": null
   },
   {
-    "timestamp": "2026-03-13T23:17:27.604Z",
+    "timestamp": "2026-03-13T23:30:47.638Z",
     "category": "System",
     "message": "Job Started",
     "details": {
@@ -15,21 +15,21 @@
     }
   },
   {
-    "timestamp": "2026-03-13T23:17:27.613Z",
+    "timestamp": "2026-03-13T23:30:47.650Z",
     "category": "System",
     "message": "Connected to Qlik Engine",
     "details": null
   },
   {
-    "timestamp": "2026-03-13T23:17:27.741Z",
+    "timestamp": "2026-03-13T23:30:47.803Z",
     "category": "Architect",
     "message": "Starting Deterministic Data Profiling",
     "details": null
   },
   {
-    "timestamp": "2026-03-13T23:17:39.060Z",
+    "timestamp": "2026-03-13T23:35:23.522Z",
     "category": "Architect",
-    "message": "Validation Failed",
+    "message": "Validation Failed - Proceeding anyway",
     "details": {
       "synKeys": 2,
       "errors": [
@@ -38,13 +38,31 @@
     }
   },
   {
-    "timestamp": "2026-03-13T23:17:39.060Z",
-    "category": "Error",
-    "message": "[System] Fatal Process Error",
-    "details": "Error: Qlik Engine Compilation Failed: Failed validation: Engine created 2 Synthetic Keys."
+    "timestamp": "2026-03-13T23:35:23.524Z",
+    "category": "System",
+    "message": "Final Script Saved",
+    "details": {
+      "path": "final_script.qvs"
+    }
   },
   {
-    "timestamp": "2026-03-13T23:17:39.063Z",
+    "timestamp": "2026-03-13T23:35:28.543Z",
+    "category": "System",
+    "message": "App Reload Finished",
+    "details": {
+      "success": true
+    }
+  },
+  {
+    "timestamp": "2026-03-13T23:35:29.186Z",
+    "category": "System",
+    "message": "App Saved",
+    "details": {
+      "appName": "data2"
+    }
+  },
+  {
+    "timestamp": "2026-03-13T23:35:29.188Z",
     "category": "System",
     "message": "Process Terminated",
     "details": null

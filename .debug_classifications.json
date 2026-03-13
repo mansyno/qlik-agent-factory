@@ -103,7 +103,7 @@
         "uniquenessRatio": 0.9818
       },
       "Population": {
-        "type": "MEASURE",
+        "type": "ATTRIBUTE",
         "name": "Population",
         "nullCount": 0,
         "blankCount": 0,

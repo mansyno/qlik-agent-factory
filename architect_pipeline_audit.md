@@ -88,3 +88,9 @@ The pipeline follows an **"Assisted Determinism"** pattern:
     2.  **Group Union Padding Isolation**: Prefixed internal `Null()` pads in concatenated groups (e.g., `Null() AS [Consolidated_Fact_1_Shipment_ID]`) to ensure fact nodes are 100% isolated from dimension tables. This resolved the "padding collision" in `data2`.
     3.  **Robust Field Clean-up (DROPs)**: Implemented a post-generation `DROP FIELD` block that cleans up all prefixed bridge keys from fact tables after the LinkTable is born, ensuring a clean, association-only star schema.
 - **Classification (Phase 2)**: Updated the semantic strategy to ensure Unit Prices and Costs are treated as `ATTRIBUTES` (Reference data) rather than `MEASUREs` (Transactional totals). This forces the system to treat them as descriptive metadata that shouldn't be automatically summed or linked across distinct entities.
+
+---
+
+## Future Features / Roadmap
+
+- **Interactive JS Data Model Viewer**: Implement an interactive, Node-based UI (e.g., using React Flow or Cytoscape.js) directly within the Agent Factory's UI. This will replicate the Qlik Sense Data Model Viewer experience (tables, fields, associative links, panning/zooming) without needing to open the Qlik Hub. It will allow users to visually inspect and debug the generated associative model in real-time before finalizing the app.
