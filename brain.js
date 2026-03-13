@@ -11,10 +11,24 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 
 const MODELS = {
     primary: "gemini-3-flash-preview",
-    fallback: "gemini-3-flash-lite"
+    secondary: "gemini-2.5-flash",
+    fallback: "gemini-1.5-flash"
 };
 
 let activeModel = MODELS.primary;
+
+function getActiveModel() {
+    return activeModel;
+}
+
+function setActiveModel(modelKeyOrName) {
+    if (MODELS[modelKeyOrName]) {
+        activeModel = MODELS[modelKeyOrName];
+    } else {
+        activeModel = modelKeyOrName;
+    }
+    console.log(`[Brain] Active model set to: ${activeModel}`);
+}
 
 /**
  * Wraps an async LLM call with retry logic for 503 and 429 errors.
@@ -551,4 +565,15 @@ ${JSON.stringify(profileData, null, 2)}
     }, 'ArchitectBrain');
 }
 
-module.exports = { generateScript, generateContent, classifyTablesAndFields, normalizeFields, buildAssociationGraph, resolveModelStructure, resolveTemporalAndJoins };
+module.exports = { 
+    generateScript, 
+    generateContent, 
+    classifyTablesAndFields, 
+    normalizeFields, 
+    buildAssociationGraph, 
+    resolveModelStructure, 
+    resolveTemporalAndJoins,
+    getActiveModel,
+    setActiveModel,
+    MODELS
+};

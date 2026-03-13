@@ -17,22 +17,26 @@ function findFactGroups(normalizedData) {
     const groups = [];
     const processed = new Set();
 
+    const normalizeField = (f) => f.toLowerCase().replace(/[\s_-]/g, '').trim();
+
     for (let i = 0; i < factTables.length; i++) {
         if (processed.has(factTables[i].tableName)) continue;
         const group = [factTables[i].tableName];
         processed.add(factTables[i].tableName);
 
-        const fieldsI = new Set(factTables[i].normalizedFields.map(f => f.normalizedName));
+        // Similarity check should use ORIGINAL fields (normalized for delimiters/casing)
+        // to detect structural identity before any table-specific aliasing occurs.
+        const fieldsI = new Set(factTables[i].originalFields.map(normalizeField));
 
         for (let j = i + 1; j < factTables.length; j++) {
             if (processed.has(factTables[j].tableName)) continue;
-            const fieldsJ = factTables[j].normalizedFields.map(f => f.normalizedName);
+            const fieldsJ = factTables[j].originalFields.map(normalizeField);
             
             let matchCount = 0;
             fieldsJ.forEach(f => { if (fieldsI.has(f)) matchCount++; });
 
             const similarity = matchCount / Math.max(fieldsI.size, fieldsJ.length);
-            // If > 70% similarity, they are likely historical/current versions of the same data
+            // Re-relax to 0.7 to ensure HistorySales and Sales concatenate
             if (similarity > 0.7) {
                 group.push(factTables[j].tableName);
                 processed.add(factTables[j].tableName);
@@ -80,7 +84,6 @@ function generateBlueprint(normalizedData) {
         needsDateBridge = true;
     }
 
-    // Count shared conformed keys between virtual fact tables
     // Treat each concatenated group as a single logical fact table
     const virtualFactTables = allFactTables.filter(ft => !factGroups.flat().includes(ft));
     factGroups.forEach((g, idx) => virtualFactTables.push(`Consolidated_Fact_${idx + 1}`));
@@ -97,7 +100,11 @@ function generateBlueprint(normalizedData) {
                 const virtualName = groupIdx !== -1 ? `Consolidated_Fact_${groupIdx + 1}` : t.tableName;
                 
                 t.normalizedFields.forEach(nf => {
-                    if (nf.type === 'IDENTIFIER') {
+                    // BROADENED KEY DETECTION: Any field that isn't a measure and exists in 2+ fact clusters
+                    // must be moved to the LinkTable to prevent synthetic keys between measures/attributes.
+                    // IMPORTANT: We now include DATE fields because if two facts share a date AND both link 
+                    // to a LinkTable, keeping the date in the facts creates a loop (synthetic key).
+                    if (nf.type !== 'MEASURE' && nf.normalizedName !== '%FactID') {
                         if (!keyPresenceInFacts[nf.normalizedName]) keyPresenceInFacts[nf.normalizedName] = new Set();
                         keyPresenceInFacts[nf.normalizedName].add(virtualName);
                     }

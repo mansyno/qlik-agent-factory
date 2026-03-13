@@ -93,6 +93,9 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
         const isFactTable = factTableNames.has(tableName);
         const groupIndex = factGroups.findIndex(g => g.includes(tableName));
         const isInGroup = groupIndex !== -1;
+        const consolidatedName = isInGroup 
+            ? (factGroups.length > 1 ? `Consolidated_Fact_${groupIndex + 1}` : `Consolidated_Fact`)
+            : null;
 
         script += `\n// --- Table: ${tableName} ---\n`;
         if (directive.notes) script += `// Notes: ${directive.notes}\n`;
@@ -100,7 +103,6 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
 
         // If concatenating, label all facts in group as [Consolidated_Fact_X]
         if (isInGroup) {
-            const consolidatedName = factGroups.length > 1 ? `Consolidated_Fact_${groupIndex + 1}` : `Consolidated_Fact`;
             const isFirstInGroup = factGroups[groupIndex][0] === tableName;
             if (!isFirstInGroup) script += `CONCATENATE([${consolidatedName}])\n`;
             script += `[${consolidatedName}]:\nLOAD\n`;
@@ -127,16 +129,27 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
             const groupUnion = groupFieldUnions[groupIndex];
             groupUnion.forEach(globalField => {
                 const localFieldObj = normalizedFields.find(f => f.normalizedName === globalField);
+                const isSharedKey = sharedKeysSet.has(globalField);
+                const cleanNorm = globalField.replace(/[\[\]]/g, '');
+
                 if (localFieldObj) {
-                    // Field exists in this table
-                    if (localFieldObj.originalName === localFieldObj.normalizedName) {
+                    // In LinkTable mode, shared keys MUST be prefixed to isolate fact resident load from dimension tables.
+                    if (isLinkTable && isSharedKey) {
+                        fieldLines.push(`    [${localFieldObj.originalName}] AS [${consolidatedName}_${cleanNorm}]`);
+                    } else if (localFieldObj.originalName === globalField) {
                         fieldLines.push(`    [${localFieldObj.originalName}]`);
                     } else {
-                        fieldLines.push(`    [${localFieldObj.originalName}] AS [${localFieldObj.normalizedName}]`);
+                        fieldLines.push(`    [${localFieldObj.originalName}] AS [${globalField}]`);
                     }
                 } else {
                     // Padding for missing fields in this specific group table
-                    fieldLines.push(`    Null() AS [${globalField}]`);
+                    // THIS IS CRITICAL: If this is a shared key, we MUST use the prefixed name even for Null() 
+                    // otherwise it will collide with dimensions and create synthetic keys.
+                    if (isLinkTable && isSharedKey) {
+                        fieldLines.push(`    Null() AS [${consolidatedName}_${cleanNorm}]`);
+                    } else {
+                        fieldLines.push(`    Null() AS [${globalField}]`);
+                    }
                 }
             });
         }
@@ -144,7 +157,7 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
         // Link Table Logic: Each fact gets a deterministic composite key for bridging
         if (isLinkTable && isFactTable) {
             const keyName = isInGroup 
-                ? (factGroups.length > 1 ? `%Key_Consolidated_Fact_${groupIndex + 1}` : `%Key_Consolidated_Fact`)
+                ? `%Key_${consolidatedName}`
                 : `%Key_${tableName}`;
 
             const grainFields = (directive.notes || "").includes("Grain:") 
@@ -233,11 +246,8 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
             sharedKeysSet.forEach(sharedKey => {
                 const hasField = tableNorms.find(f => f.normalizedName === sharedKey);
                 if (hasField) {
-                    const factIsInGroup = factGroups.some(g => g.includes(factName));
                     const cleanNorm = sharedKey.replace(/[\[\]]/g, '');
-                    // Logic Sync: Consolidated facts have clean normalized names. 
-                    // Standalone facts in LinkTable mode are prefixed with TableName_.
-                    const sourceFieldName = factIsInGroup ? sharedKey : `${factName}_${cleanNorm}`;
+                    const sourceFieldName = `${consolidatedName}_${cleanNorm}`;
                     linkFieldLines.push(`    [${sourceFieldName}] AS [${sharedKey}]`);
                 }
             });
@@ -248,27 +258,32 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
             isFirstFact = false;
         });
 
-        // Drop the renamed shared keys from the local facts (only if they existed)
-        factTablesToBridge.forEach(factName => {
-            const groupIndex = factGroups.findIndex(g => g.includes(factName));
-            const consolidatedName = groupIndex !== -1 
-                ? (factGroups.length > 1 ? `Consolidated_Fact_${groupIndex + 1}` : `Consolidated_Fact`)
-                : factName;
-            
-            const factInfo = tableLookup[factName];
-            if (!factInfo) return;
-            const tableNorms = factInfo.fields;
-            
-            sharedKeysSet.forEach(sharedKey => {
-                const hasField = tableNorms.find(f => f.normalizedName === sharedKey);
-                if (hasField) {
-                    const factIsInGroup = factGroups.some(g => g.includes(factName));
-                    if (!factIsInGroup) {
-                        const cleanNorm = sharedKey.replace(/[\[\]]/g, '');
-                        script += `DROP FIELD [${factName}_${cleanNorm}] FROM [${consolidatedName}];\n`;
-                    }
+        // Drop the renamed shared keys from the fact tables (isolation)
+        // Grouped (Consolidated) Facts
+        factGroups.forEach((group, idx) => {
+            const cName = factGroups.length > 1 ? `Consolidated_Fact_${idx + 1}` : `Consolidated_Fact`;
+            groupFieldUnions[idx].forEach(fieldName => {
+                if (sharedKeysSet.has(fieldName)) {
+                    const cleanNorm = fieldName.replace(/[\[\]]/g, '');
+                    script += `DROP FIELD [${cName}_${cleanNorm}] FROM [${cName}];\n`;
                 }
             });
+        });
+
+        // Standalone Facts
+        factTableNames.forEach(factName => {
+            const factIsInGroup = factGroups.some(g => g.includes(factName));
+            if (!factIsInGroup) {
+                const factInfo = tableLookup[factName];
+                if (factInfo) {
+                    factInfo.fields.forEach(f => {
+                        if (sharedKeysSet.has(f.normalizedName)) {
+                            const cleanNorm = f.normalizedName.replace(/[\[\]]/g, '');
+                            script += `DROP FIELD [${factName}_${cleanNorm}] FROM [${factName}];\n`;
+                        }
+                    });
+                }
+            }
         });
     }
 

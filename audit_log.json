@@ -1,63 +1,50 @@
 [
   {
-    "timestamp": "2026-03-13T09:34:10.546Z",
+    "timestamp": "2026-03-13T23:17:27.604Z",
     "category": "System",
     "message": "Logger Initialized",
     "details": null
   },
   {
-    "timestamp": "2026-03-13T09:34:10.546Z",
+    "timestamp": "2026-03-13T23:17:27.604Z",
     "category": "System",
     "message": "Job Started",
     "details": {
-      "dataDir": "./lorries",
-      "targetAppName": "lorries"
+      "dataDir": "./data2",
+      "targetAppName": "data2"
     }
   },
   {
-    "timestamp": "2026-03-13T09:34:10.554Z",
+    "timestamp": "2026-03-13T23:17:27.613Z",
     "category": "System",
     "message": "Connected to Qlik Engine",
     "details": null
   },
   {
-    "timestamp": "2026-03-13T09:34:10.756Z",
+    "timestamp": "2026-03-13T23:17:27.741Z",
     "category": "Architect",
     "message": "Starting Deterministic Data Profiling",
     "details": null
   },
   {
-    "timestamp": "2026-03-13T09:38:41.032Z",
+    "timestamp": "2026-03-13T23:17:39.060Z",
     "category": "Architect",
-    "message": "Script Verification Passed",
-    "details": null
-  },
-  {
-    "timestamp": "2026-03-13T09:38:41.034Z",
-    "category": "System",
-    "message": "Final Script Saved",
+    "message": "Validation Failed",
     "details": {
-      "path": "final_script.qvs"
+      "synKeys": 2,
+      "errors": [
+        "Failed validation: Engine created 2 Synthetic Keys."
+      ]
     }
   },
   {
-    "timestamp": "2026-03-13T09:38:43.366Z",
-    "category": "System",
-    "message": "App Reload Finished",
-    "details": {
-      "success": true
-    }
+    "timestamp": "2026-03-13T23:17:39.060Z",
+    "category": "Error",
+    "message": "[System] Fatal Process Error",
+    "details": "Error: Qlik Engine Compilation Failed: Failed validation: Engine created 2 Synthetic Keys."
   },
   {
-    "timestamp": "2026-03-13T09:38:43.834Z",
-    "category": "System",
-    "message": "App Saved",
-    "details": {
-      "appName": "lorries"
-    }
-  },
-  {
-    "timestamp": "2026-03-13T09:38:43.836Z",
+    "timestamp": "2026-03-13T23:17:39.063Z",
     "category": "System",
     "message": "Process Terminated",
     "details": null

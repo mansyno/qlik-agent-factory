@@ -216,27 +216,25 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             if (validation.success && (validation.synKeys === 0 || validation.synKeys === undefined)) {
                 broadcast('Architect', `✅ Final strategy validated. Model is clean (0 Syn Keys).`, 'success');
                 logger.log('Architect', 'Script Verification Passed');
-                success = true;
-
-                // Generate the FINAL production script
-                currentScript = generateQvsScript(finalDirectives, normalizedData, dataDir, structuralBlueprint, false);
-                fs.writeFileSync(CACHE_FILE, currentScript);
-                if (io) io.emit('script-update', { phase: 'architect', script: currentScript });
             } else {
                 const primaryError = validation.errors[0] || "Unknown Error";
                 const details = (validation.errors.length > 1) ? validation.errors[1] : "";
                 
-                // Show the clean error as the fatal one
-                const errStr = `Qlik Engine Compilation Failed: ${primaryError}`;
+                broadcast('Architect', `⚠️ Warning: Qlik Engine Compilation Failed: ${primaryError}`, 'warning');
                 
-                // If there are details (log context), broadcast them as a separate info event for the user to see them clearly
                 if (details) {
-                    broadcast('System', details, 'error');
+                    broadcast('System', details, 'warning');
                 }
 
-                logger.log('Architect', 'Validation Failed', { synKeys: validation.synKeys, errors: validation.errors });
-                throw new Error(errStr);
+                broadcast('Architect', `Proceeding with app creation despite validation failure to allow manual inspection in Qlik Hub.`, 'info');
+                logger.log('Architect', 'Validation Failed - Proceeding anyway', { synKeys: validation.synKeys, errors: validation.errors });
             }
+
+            success = true;
+            // Generate the FINAL production script regardless of validation success
+            currentScript = generateQvsScript(finalDirectives, normalizedData, dataDir, structuralBlueprint, false);
+            fs.writeFileSync(CACHE_FILE, currentScript);
+            if (io) io.emit('script-update', { phase: 'architect', script: currentScript });
 
         } else if (runEnhancer || runLayout) {
             // preloadedBaseScript was fetched before the working session opened

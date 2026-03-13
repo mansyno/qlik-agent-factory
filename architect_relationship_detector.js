@@ -58,9 +58,13 @@ function determineRelationships(metadata, classifications) {
         const tableB = rel.fieldB.substring(0, lastDotB);
         const colB = rel.fieldB.substring(lastDotB + 1);
         
+        if (tableA === tableB) return;
+
         // Exact same name gets high confidence boost
         const tokensA = tokenize(colA);
         const tokensB = tokenize(colB);
+        const tableTokensA = tokenize(tableA);
+        const tableTokensB = tokenize(tableB);
 
         const areIdentical = tokensA.length === tokensB.length && tokensA.every((t, i) => t === tokensB[i]);
 
@@ -71,7 +75,20 @@ function determineRelationships(metadata, classifications) {
         } else if (isTokenSubset(tokensA, tokensB)) {
             // Only boost partial matches if they aren't both significant identifiers
             // e.g., allow "Lorry" -> "Lorry_Code", but be wary of "Product" -> "Product Group"
-            confidence += 0.1; 
+            confidence += 0.05; 
+        }
+
+        // --- ENTITY COMPOSITION BOOST ---
+        // Boosts confidence if the field name combined with the table name perfectly 
+        // describes the other field (e.g., Lorries.Type ↔ LorriesCost.Lorry_Type)
+        const combinedA = new Set([...tokensA, ...tableTokensA]);
+        const combinedB = new Set([...tokensB, ...tableTokensB]);
+
+        const isPerfectEntityA = tokensB.every(t => combinedA.has(t)) && tokensA.every(t => new Set(tokensB).has(t));
+        const isPerfectEntityB = tokensA.every(t => combinedB.has(t)) && tokensB.every(t => new Set(tokensA).has(t));
+
+        if (isPerfectEntityA || isPerfectEntityB) {
+            confidence += 0.45;
         }
 
         // High overlap ratio is necessary but not sufficient for linkage
@@ -88,29 +105,26 @@ function determineRelationships(metadata, classifications) {
         if (isIdA && isIdB) {
             confidence += 0.1;
 
-            const tableTokensA = tokenize(tableA);
-            const tableTokensB = tokenize(tableB);
             const isAIgnorable = /^(id|key|code|num|number)$/i.test(colA);
             const isBIgnorable = /^(id|key|code|num|number)$/i.test(colB);
 
             // CASE 1: Table.ID matches OtherTable.Table_ID
-            // e.g., Customers.ID (tokens: ['id']) and Sales.Customer_ID (tokens: ['customer'])
-            // tableTokensA: ['customer']
-            const aMatchesB = tableTokensA.length > 0 && (areIdentical || (isAIgnorable && isTokenSubset(tableTokensA, tokensB) && tableTokensA.length === tokensB.length));
-            const bMatchesA = tableTokensB.length > 0 && (areIdentical || (isBIgnorable && isTokenSubset(tableTokensB, tokensA) && tableTokensB.length === tokensA.length));
+            const aMatchesB = tableTokensA.length > 0 && (isAIgnorable && isTokenSubset(tableTokensA, tokensB) && tableTokensA.length === tokensB.length);
+            const bMatchesA = tableTokensB.length > 0 && (isBIgnorable && isTokenSubset(tableTokensB, tokensA) && tableTokensB.length === tokensA.length);
 
             if (aMatchesB || bMatchesA) {
                 confidence += 0.4;
             } else {
-                // If they are both IDs but names/entities don't match, PENALIZE overlap confidence
-                // This prevents Order_ID (1-70k) from linking to SalesMgr_ID (1-8) purely on overlap.
-                if (!areIdentical) confidence -= 0.4;
+                // If they are both IDs but names/entities don't match (and NOT a perfect entity match), PENALIZE overlap confidence
+                if (!areIdentical && !isPerfectEntityA && !isPerfectEntityB) {
+                    confidence -= 0.5; 
+                }
             }
         }
 
         // --- MEASURE GUARD ---
-        if (classA !== 'IDENTIFIER' && classB !== 'IDENTIFIER') {
-            confidence = 0; // Prevent linking purely on non-identifiers
+        if (classA !== 'IDENTIFIER' && classB !== 'IDENTIFIER' && !isPerfectEntityA && !isPerfectEntityB) {
+            confidence = 0; // Prevent linking purely on non-identifiers unless they are strong entity matches
         }
 
         if (confidence >= 0.7) {

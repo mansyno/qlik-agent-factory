@@ -77,12 +77,14 @@ The pipeline follows an **"Assisted Determinism"** pattern:
 
 ---
 
-## Technical Audit: Where "Isolation" & "Aliasing" Live
 - **Relationship Detector (Phase 3)**: Optimized with strict semantic logic:
     1.  **Strict Identifier Guard (Fixed)**: Implemented a penalty system. If two fields match value overlap but fail token similarity (e.g., `Order_ID` vs `SalesMgr_ID`), the confidence is penalized by 0.4. This prevents the "leap of logic" seen in `data2`.
     2.  **Entity Protection (Fixed)**: Identifier unification now requires an exact token match (e.g. `Product_ID` and `Product_ID`) or a precise `Table.ID` match. This stopped `Product_ID` from merging with `Product Group ID`, resolving the dynamic triangle cycle.
-    3.  **Global Namespace Guard**: All fields default to table-prefixed names unless confirmed unique and safe, preventing "Measure Hijacking" for `Cost` and `Price`.
-- **Generator (Phase 5)**: This converts the logical mapping into Qlik code. I fixed two synchronization bugs here:
-    1.  **Resident Mapping**: Fixed the `LinkTable` to correctly identify when a field is in a consolidated fact (uses normalized name) vs. a standalone fact (uses prefixed name).
-    2.  **Bracket Sensitivity**: Ensured that bracketed names are handled consistently during the prefixing and resident loading process.
+    3.  **Attribute Bridging (Fixed `Lorries` Island)**: The "Perfect Entity Boost" (e.g., `Lorries.Type` ↔ `LorriesCost.Lorry_Type`) was moved to a global level and allowed to bypass the **Measure Guard**. This ensures descriptive attributes link successfully even if they aren't transactional identifiers.
+    4.  **Global Namespace Guard**: All fields default to table-prefixed names unless confirmed unique and safe, preventing "Measure Hijacking" for `Cost` and `Price`.
+- **Structural Tester (Phase 4)**: Added **Broadened Date Detection**. Shared date fields are now automatically treated as conformed keys and moved to the LinkTable. This prevents the "hidden" synthetic key loops that occur when multiple fact nodes share a common date dimension.
+- **Generator (Phase 5)**: This converts the logical mapping into Qlik code. I implemented three critical isolation levels:
+    1.  **Unified Fact Prefixing (Fixed `data2` SynKeys)**: Standardized naming (e.g., `Consolidated_Fact_1_Order_ID`) for both concatenated and standalone facts. 
+    2.  **Group Union Padding Isolation**: Prefixed internal `Null()` pads in concatenated groups (e.g., `Null() AS [Consolidated_Fact_1_Shipment_ID]`) to ensure fact nodes are 100% isolated from dimension tables. This resolved the "padding collision" in `data2`.
+    3.  **Robust Field Clean-up (DROPs)**: Implemented a post-generation `DROP FIELD` block that cleans up all prefixed bridge keys from fact tables after the LinkTable is born, ensuring a clean, association-only star schema.
 - **Classification (Phase 2)**: Updated the semantic strategy to ensure Unit Prices and Costs are treated as `ATTRIBUTES` (Reference data) rather than `MEASUREs` (Transactional totals). This forces the system to treat them as descriptive metadata that shouldn't be automatically summed or linked across distinct entities.

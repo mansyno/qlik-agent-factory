@@ -60,86 +60,11 @@ Classify the following schema:
 
 {
   "Cities": {
-    "rowCount": 169,
+    "rowCount": 1098,
     "fields": {
-      "City ID": {
-        "distinctCount": 169,
+      "City_ID": {
+        "distinctCount": 1098,
         "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "12346",
-          "45679",
-          "7900"
-        ]
-      },
-      "City": {
-        "distinctCount": 169,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Ashkelon",
-          "Netivot",
-          "Sderot"
-        ]
-      },
-      "latitude": {
-        "distinctCount": 166,
-        "subsetRatio": 0.9822,
-        "informationDensity": 1,
-        "sampleValues": [
-          "31.65457000000001",
-          "31.424775",
-          "31.515862"
-        ]
-      },
-      "longitude": {
-        "distinctCount": 166,
-        "subsetRatio": 0.9822,
-        "informationDensity": 1,
-        "sampleValues": [
-          "34.57632700000001",
-          "34.60156300000001",
-          "34.60193200000001"
-        ]
-      },
-      "Coordinate": {
-        "distinctCount": 166,
-        "subsetRatio": 0.9822,
-        "informationDensity": 1,
-        "sampleValues": [
-          "[34.576327,31.65457]",
-          "[34.601563,31.424775]",
-          "[34.601932,31.515862]"
-        ]
-      },
-      "Region ID": {
-        "distinctCount": 8,
-        "subsetRatio": 0.0473,
-        "informationDensity": 1,
-        "sampleValues": [
-          "3",
-          "2",
-          "6"
-        ]
-      }
-    }
-  },
-  "CustomerOrders": {
-    "rowCount": 62525,
-    "fields": {
-      "Order Number": {
-        "distinctCount": 960,
-        "subsetRatio": 0.0154,
-        "informationDensity": 1,
-        "sampleValues": [
-          "ORD80000004",
-          "ORD80000008",
-          "ORD80000012"
-        ]
-      },
-      "Order Line": {
-        "distinctCount": 226,
-        "subsetRatio": 0.0036,
         "informationDensity": 1,
         "sampleValues": [
           "1",
@@ -147,73 +72,53 @@ Classify the following schema:
           "3"
         ]
       },
-      "Date": {
-        "distinctCount": 413,
-        "subsetRatio": 0.0066,
+      "CityName": {
+        "distinctCount": 1086,
+        "subsetRatio": 0.9891,
         "informationDensity": 1,
         "sampleValues": [
-          "2019-06-01",
-          "2019-05-29",
-          "2020-04-20"
+          "tokyo",
+          "shanghai",
+          "bombay"
         ]
       },
-      "Customer ID": {
-        "distinctCount": 960,
-        "subsetRatio": 0.0154,
+      "Latitude": {
+        "distinctCount": 1063,
+        "subsetRatio": 0.9681,
         "informationDensity": 1,
         "sampleValues": [
-          "1",
-          "2",
-          "3"
+          "35.685",
+          "31.045556",
+          "18.975"
         ]
       },
-      "Part ID": {
-        "distinctCount": 379,
-        "subsetRatio": 0.0061,
+      "Longitude": {
+        "distinctCount": 1078,
+        "subsetRatio": 0.9818,
         "informationDensity": 1,
         "sampleValues": [
-          "4975",
-          "5023",
-          "5083"
+          "139.751389",
+          "121.399722",
+          "72.825833"
         ]
       },
-      "Qnt": {
-        "distinctCount": 1701,
-        "subsetRatio": 0.0272,
+      "Population": {
+        "distinctCount": 1086,
+        "subsetRatio": 0.9891,
         "informationDensity": 1,
         "sampleValues": [
-          "1280",
-          "338",
-          "624"
-        ]
-      },
-      "Price": {
-        "distinctCount": 379,
-        "subsetRatio": 0.0061,
-        "informationDensity": 1,
-        "sampleValues": [
-          "27.769420523249693",
-          "23.21264465061399",
-          "22.741596051721444"
-        ]
-      },
-      "Total Amount": {
-        "distinctCount": 15972,
-        "subsetRatio": 0.2554,
-        "informationDensity": 1,
-        "sampleValues": [
-          "35544.85826975961",
-          "7845.873891907529",
-          "14190.755936274181"
+          "  31,480,498 ",
+          "  14,608,512 ",
+          "  12,692,717 "
         ]
       }
     }
   },
   "Customers": {
-    "rowCount": 903,
+    "rowCount": 500,
     "fields": {
-      "Customer ID": {
-        "distinctCount": 903,
+      "ID": {
+        "distinctCount": 500,
         "subsetRatio": 1,
         "informationDensity": 1,
         "sampleValues": [
@@ -222,277 +127,497 @@ Classify the following schema:
           "3"
         ]
       },
-      "Customer Name": {
-        "distinctCount": 902,
-        "subsetRatio": 0.9989,
+      "Customer": {
+        "distinctCount": 500,
+        "subsetRatio": 1,
         "informationDensity": 1,
         "sampleValues": [
-          "T.P. QDESHV VOYFQJK",
-          "LCOA CIVU EIMMM FZOUV SBVZ TN\"D",
-          "RDBYVH QLBHSXH (7998)"
+          "3M Company",
+          "Abbott Labs",
+          "Abercrombie & Fitch Co."
         ]
       },
-      "City ID": {
-        "distinctCount": 167,
-        "subsetRatio": 0.1849,
+      "CustomerSince": {
+        "distinctCount": 492,
+        "subsetRatio": 0.984,
         "informationDensity": 1,
         "sampleValues": [
-          "644503",
-          "654502",
-          "564511"
+          "35887",
+          "34679",
+          "38279"
         ]
       },
-      "Channel": {
+      "City_ID": {
+        "distinctCount": 393,
+        "subsetRatio": 0.786,
+        "informationDensity": 1,
+        "sampleValues": [
+          "646",
+          "557",
+          "390"
+        ]
+      },
+      "Industry": {
+        "distinctCount": 24,
+        "subsetRatio": 0.0487,
+        "informationDensity": 0.986,
+        "sampleValues": [
+          "Capital Goods",
+          "Pharmaceuticals, Biotechnology & Life Sciences",
+          "Retailing"
+        ]
+      }
+    }
+  },
+  "HistorySales": {
+    "rowCount": 31031,
+    "fields": {
+      "Order_ID": {
+        "distinctCount": 31031,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "7",
+          "11",
+          "12"
+        ]
+      },
+      "Date_ID": {
+        "distinctCount": 730,
+        "subsetRatio": 0.0235,
+        "informationDensity": 1,
+        "sampleValues": [
+          "3/2/2009",
+          "5/5/2009",
+          "6/18/2010"
+        ]
+      },
+      "Customer_ID": {
+        "distinctCount": 500,
+        "subsetRatio": 0.0161,
+        "informationDensity": 1,
+        "sampleValues": [
+          "199",
+          "166",
+          "434"
+        ]
+      },
+      "Product_ID": {
+        "distinctCount": 228,
+        "subsetRatio": 0.0073,
+        "informationDensity": 1,
+        "sampleValues": [
+          "149",
+          "141",
+          "135"
+        ]
+      },
+      "SalesMgr_ID": {
+        "distinctCount": 8,
+        "subsetRatio": 0.0003,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "5",
+          "3"
+        ]
+      },
+      "Quantity": {
+        "distinctCount": 7462,
+        "subsetRatio": 0.2405,
+        "informationDensity": 1,
+        "sampleValues": [
+          "25.7",
+          "6.5",
+          "3363.15"
+        ]
+      },
+      "Unit Cost Price": {
+        "distinctCount": 120,
+        "subsetRatio": 0.0039,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1.55",
+          "3.15",
+          "2.55"
+        ]
+      },
+      "Unit Sales Price": {
+        "distinctCount": 142,
+        "subsetRatio": 0.0046,
+        "informationDensity": 1,
+        "sampleValues": [
+          "2.25",
+          "3.85",
+          "5.15"
+        ]
+      },
+      "Total Sales": {
+        "distinctCount": 17687,
+        "subsetRatio": 0.57,
+        "informationDensity": 1,
+        "sampleValues": [
+          "57.825",
+          "25.025",
+          "17320.2225"
+        ]
+      },
+      "Total Cost": {
+        "distinctCount": 16043,
+        "subsetRatio": 0.517,
+        "informationDensity": 1,
+        "sampleValues": [
+          "39.835",
+          "20.475",
+          "8576.0325"
+        ]
+      },
+      "Customer Group": {
         "distinctCount": 2,
-        "subsetRatio": 0.0022,
-        "informationDensity": 0.9845,
+        "subsetRatio": 0.0001,
+        "informationDensity": 1,
         "sampleValues": [
-          "Regular",
+          "Partner",
           "Direct"
         ]
-      }
-    }
-  },
-  "Lorries": {
-    "rowCount": 112,
-    "fields": {
-      "Lorry ID": {
-        "distinctCount": 112,
-        "subsetRatio": 1,
+      },
+      "Sector": {
+        "distinctCount": 2,
+        "subsetRatio": 0.0001,
         "informationDensity": 1,
         "sampleValues": [
-          "346",
-          "348",
-          "349"
+          "Wholesalers",
+          "Private"
         ]
       },
-      "License Plate": {
-        "distinctCount": 112,
-        "subsetRatio": 1,
+      "ReturnFlag": {
+        "distinctCount": 2,
+        "subsetRatio": 0.0001,
         "informationDensity": 1,
         "sampleValues": [
-          "15-660-92",
-          "72-539-94",
-          "64-288-94"
-        ]
-      },
-      "Type": {
-        "distinctCount": 4,
-        "subsetRatio": 0.0357,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Full",
-          "Ramp",
-          "Single"
+          "N",
+          "Y"
         ]
       }
     }
   },
-  "LorriesCost": {
-    "rowCount": 4,
+  "ProductGroups": {
+    "rowCount": 21,
     "fields": {
-      "Lorry_Type": {
-        "distinctCount": 4,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Full",
-          "Ramp",
-          "Single"
-        ]
-      },
-      "Cost": {
-        "distinctCount": 4,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "2100",
-          "2000",
-          "1560"
-        ]
-      }
-    }
-  },
-  "Part": {
-    "rowCount": 389,
-    "fields": {
-      "Part ID": {
-        "distinctCount": 389,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "12155",
-          "12153",
-          "12157"
-        ]
-      },
-      "Part Barcode": {
-        "distinctCount": 261,
-        "subsetRatio": 0.671,
-        "informationDensity": 1,
-        "sampleValues": [
-          "-",
-          "7290000208091",
-          "7290000208329"
-        ]
-      },
-      "Part Name": {
-        "distinctCount": 389,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "6 MKCK (*)",
-          "6 TQSA (*)",
-          "154 VRW (*)"
-        ]
-      },
-      "Brand Des": {
-        "distinctCount": 5,
-        "subsetRatio": 0.0129,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Fruta",
-          "Fruta IL",
-          "Fruta Badaz"
-        ]
-      },
-      "Category Level 1": {
-        "distinctCount": 7,
-        "subsetRatio": 0.018,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Vegetables",
-          "Corn",
-          "Concentrate"
-        ]
-      },
-      "Category Level 2": {
-        "distinctCount": 22,
-        "subsetRatio": 0.0566,
-        "informationDensity": 1,
-        "sampleValues": [
-          "No Category",
-          "Pea",
-          "Corn"
-        ]
-      },
-      "Units in Carton": {
+      "ID": {
         "distinctCount": 20,
-        "subsetRatio": 0.0514,
+        "subsetRatio": 0.9524,
         "informationDensity": 1,
         "sampleValues": [
-          "3",
-          "18",
-          "15"
+          "1",
+          "2",
+          "3"
         ]
       },
-      "Cost": {
-        "distinctCount": 12,
-        "subsetRatio": 0.0308,
+      "Product Group": {
+        "distinctCount": 21,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "Yogurt",
+          "Cottage Cheese",
+          "Milk"
+        ]
+      },
+      "Product Category": {
+        "distinctCount": 6,
+        "subsetRatio": 0.2857,
+        "informationDensity": 1,
+        "sampleValues": [
+          "Dairy",
+          "Fruit",
+          "Meat"
+        ]
+      },
+      "ImportedFlag": {
+        "distinctCount": 2,
+        "subsetRatio": 0.1,
+        "informationDensity": 0.9524,
+        "sampleValues": [
+          "N",
+          "Y"
+        ]
+      }
+    }
+  },
+  "Products": {
+    "rowCount": 228,
+    "fields": {
+      "ID": {
+        "distinctCount": 228,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ]
+      },
+      "Product Code": {
+        "distinctCount": 228,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "5044",
+          "5108",
+          "5109"
+        ]
+      },
+      "Product Description": {
+        "distinctCount": 225,
+        "subsetRatio": 0.9868,
+        "informationDensity": 1,
+        "sampleValues": [
+          "Club Strawberry Yogurt",
+          "Club Low Fat Cottage Cheese",
+          "Even Better Low Fat Cottage Cheese"
+        ]
+      },
+      "Product Group ID": {
+        "distinctCount": 20,
+        "subsetRatio": 0.0877,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ]
+      }
+    }
+  },
+  "Sales": {
+    "rowCount": 77978,
+    "fields": {
+      "Order_ID": {
+        "distinctCount": 77978,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ]
+      },
+      "Date_ID": {
+        "distinctCount": 1825,
+        "subsetRatio": 0.0234,
+        "informationDensity": 1,
+        "sampleValues": [
+          "10/3/2015",
+          "5/15/2011",
+          "12/15/2015"
+        ]
+      },
+      "Customer_ID": {
+        "distinctCount": 500,
+        "subsetRatio": 0.0064,
+        "informationDensity": 1,
+        "sampleValues": [
+          "401",
+          "21",
+          "313"
+        ]
+      },
+      "Product_ID": {
+        "distinctCount": 228,
+        "subsetRatio": 0.0029,
+        "informationDensity": 1,
+        "sampleValues": [
+          "164",
+          "228",
+          "93"
+        ]
+      },
+      "SalesMgr_ID": {
+        "distinctCount": 8,
+        "subsetRatio": 0.0001,
         "informationDensity": 1,
         "sampleValues": [
           "2",
-          "8",
-          "11"
-        ]
-      }
-    }
-  },
-  "Regions": {
-    "rowCount": 8,
-    "fields": {
-      "RegionNum": {
-        "distinctCount": 8,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "0",
-          "3",
+          "5",
           "4"
         ]
       },
-      "Region": {
-        "distinctCount": 8,
-        "subsetRatio": 1,
+      "Quantity": {
+        "distinctCount": 14031,
+        "subsetRatio": 0.1799,
         "informationDensity": 1,
         "sampleValues": [
-          "No Zone",
-          "Southern District",
-          "Jerusalem"
-        ]
-      }
-    }
-  },
-  "TransDocument": {
-    "rowCount": 456161,
-    "fields": {
-      "Document Number": {
-        "distinctCount": 4992,
-        "subsetRatio": 0.0109,
-        "informationDensity": 1,
-        "sampleValues": [
-          "TR20000001",
-          "TR20000002",
-          "TR20000003"
+          "2",
+          "2.35",
+          "457.3"
         ]
       },
-      "Status": {
+      "Unit Cost Price": {
+        "distinctCount": 120,
+        "subsetRatio": 0.0015,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1.05",
+          "2.55",
+          "9.4"
+        ]
+      },
+      "Unit Sales Price": {
+        "distinctCount": 142,
+        "subsetRatio": 0.0018,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1.7",
+          "5",
+          "16.2"
+        ]
+      },
+      "Total Sales": {
+        "distinctCount": 35141,
+        "subsetRatio": 0.4507,
+        "informationDensity": 1,
+        "sampleValues": [
+          "3.4",
+          "11.75",
+          "7408.26"
+        ]
+      },
+      "Total Cost": {
+        "distinctCount": 32205,
+        "subsetRatio": 0.413,
+        "informationDensity": 1,
+        "sampleValues": [
+          "2.1",
+          "5.9925",
+          "4298.62"
+        ]
+      },
+      "Customer Group": {
         "distinctCount": 2,
         "subsetRatio": 0,
         "informationDensity": 1,
         "sampleValues": [
-          "Final",
-          "Draft"
+          "Direct",
+          "Partner"
         ]
       },
-      "Date": {
-        "distinctCount": 392,
-        "subsetRatio": 0.0009,
+      "Sector": {
+        "distinctCount": 2,
+        "subsetRatio": 0,
         "informationDensity": 1,
         "sampleValues": [
-          "2020-01-01",
-          "2020-01-02",
-          "2020-01-05"
+          "Wholesalers",
+          "Private"
         ]
       },
-      "Lorry ID": {
-        "distinctCount": 80,
-        "subsetRatio": 0.0002,
+      "ReturnFlag": {
+        "distinctCount": 2,
+        "subsetRatio": 0,
         "informationDensity": 1,
         "sampleValues": [
-          "945",
-          "734",
-          "862"
+          "N",
+          "Y"
+        ]
+      }
+    }
+  },
+  "SalesMgr": {
+    "rowCount": 8,
+    "fields": {
+      "ID": {
+        "distinctCount": 8,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
         ]
       },
-      "Part Num": {
-        "distinctCount": 388,
-        "subsetRatio": 0.0009,
+      "Name": {
+        "distinctCount": 8,
+        "subsetRatio": 1,
         "informationDensity": 1,
         "sampleValues": [
-          "4997",
-          "5002",
-          "5022"
+          "Patrick Dan",
+          "Marc Ronson",
+          "Jeroen Maroen"
+        ]
+      }
+    }
+  },
+  "Shipments": {
+    "rowCount": 32245,
+    "fields": {
+      "Shipment_ID": {
+        "distinctCount": 32245,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "16841",
+          "16843",
+          "16844"
         ]
       },
-      "Customer Num": {
-        "distinctCount": 903,
-        "subsetRatio": 0.002,
+      "Order_ID": {
+        "distinctCount": 32245,
+        "subsetRatio": 1,
         "informationDensity": 1,
         "sampleValues": [
-          "1203",
-          "2030",
-          "787"
+          "1",
+          "2",
+          "3"
         ]
       },
-      "Carton - Qnt": {
-        "distinctCount": 570,
-        "subsetRatio": 0.0012,
+      "Date_ID": {
+        "distinctCount": 1825,
+        "subsetRatio": 0.0566,
         "informationDensity": 1,
         "sampleValues": [
-          "156",
-          "4",
-          "13"
+          "10/3/2015",
+          "5/15/2011",
+          "12/15/2015"
+        ]
+      },
+      "Customer_ID": {
+        "distinctCount": 500,
+        "subsetRatio": 0.0155,
+        "informationDensity": 1,
+        "sampleValues": [
+          "401",
+          "21",
+          "313"
+        ]
+      },
+      "Product_ID": {
+        "distinctCount": 228,
+        "subsetRatio": 0.0071,
+        "informationDensity": 1,
+        "sampleValues": [
+          "164",
+          "228",
+          "93"
+        ]
+      },
+      "Quantity": {
+        "distinctCount": 7708,
+        "subsetRatio": 0.239,
+        "informationDensity": 1,
+        "sampleValues": [
+          "2",
+          "2.35",
+          "457.3"
+        ]
+      },
+      "UnitType": {
+        "distinctCount": 4,
+        "subsetRatio": 0.0001,
+        "informationDensity": 1,
+        "sampleValues": [
+          "KG",
+          "ml",
+          "Liter"
         ]
       }
     }

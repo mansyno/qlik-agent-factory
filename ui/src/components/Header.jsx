@@ -1,4 +1,5 @@
 import { Cpu, Wifi, WifiOff } from 'lucide-react'
+import ModelToggle from './ModelToggle'
 
 export default function Header({ isRunning, connected }) {
     return (
@@ -46,6 +47,9 @@ export default function Header({ isRunning, connected }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: connected ? 'var(--color-success)' : 'var(--color-error)', fontSize: 12 }}>
                     {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
                     {connected ? 'Live' : 'Disconnected'}
+                </div>
+                <div style={{ marginLeft: 8, paddingLeft: 16, borderLeft: '1px solid var(--color-border)', height: 24, display: 'flex', alignItems: 'center' }}>
+                    <ModelToggle />
                 </div>
             </div>
         </header>

@@ -1,256 +1,33 @@
 [
   {
     "tableName": "Cities",
-    "originalFileName": "Cities.csv",
+    "originalFileName": "SalesData.xlsx - Cities.csv",
     "role": "DIMENSION",
     "grain": {
       "primaryKey": [
-        "City ID"
+        "City_ID"
       ],
-      "foreignKeys": [
-        "Region ID"
-      ],
+      "foreignKeys": [],
       "grainFields": [
-        "City ID",
-        "Region ID"
+        "City_ID"
       ],
-      "grainDescription": "City ID + Region ID"
+      "grainDescription": "City_ID"
     },
-    "rowCount": 169,
+    "rowCount": 1098,
     "candidateKeys": [
-      "City ID",
-      "Region ID"
+      "City_ID"
     ],
     "fieldClassifications": {
-      "City ID": {
+      "City_ID": {
         "type": "IDENTIFIER",
-        "name": "City ID",
+        "name": "City_ID",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 169,
-        "minLength": 4,
-        "maxLength": 6,
-        "minNumeric": 7900,
-        "maxNumeric": 687832,
-        "isNumeric": true,
-        "sampleValues": [
-          "12346",
-          "45679",
-          "7900"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 5.86,
-        "uniquenessRatio": 1
-      },
-      "City": {
-        "type": "ATTRIBUTE",
-        "name": "City",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 169,
-        "minLength": 3,
-        "maxLength": 17,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "Ashkelon",
-          "Netivot",
-          "Sderot"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 8.72,
-        "uniquenessRatio": 1
-      },
-      "latitude": {
-        "type": "ATTRIBUTE",
-        "name": "latitude",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 166,
-        "minLength": 7,
-        "maxLength": 17,
-        "minNumeric": 29.560313,
-        "maxNumeric": 33.19214200000001,
-        "isNumeric": true,
-        "sampleValues": [
-          "31.65457000000001",
-          "31.424775",
-          "31.515862"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 12.22,
-        "uniquenessRatio": 0.9822
-      },
-      "longitude": {
-        "type": "ATTRIBUTE",
-        "name": "longitude",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 166,
-        "minLength": 7,
-        "maxLength": 17,
-        "minNumeric": 34.57632700000001,
-        "maxNumeric": 35.70853400000001,
-        "isNumeric": true,
-        "sampleValues": [
-          "34.57632700000001",
-          "34.60156300000001",
-          "34.60193200000001"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 11.74,
-        "uniquenessRatio": 0.9822
-      },
-      "Coordinate": {
-        "type": "ATTRIBUTE",
-        "name": "Coordinate",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 166,
-        "minLength": 19,
-        "maxLength": 21,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "[34.576327,31.65457]",
-          "[34.601563,31.424775]",
-          "[34.601932,31.515862]"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 20.75,
-        "uniquenessRatio": 0.9822
-      },
-      "Region ID": {
-        "type": "IDENTIFIER",
-        "name": "Region ID",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 8,
-        "minLength": 1,
-        "maxLength": 1,
-        "minNumeric": 0,
-        "maxNumeric": 7,
-        "isNumeric": true,
-        "sampleValues": [
-          "3",
-          "2",
-          "6"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 1,
-        "uniquenessRatio": 0.0473
-      }
-    }
-  },
-  {
-    "tableName": "CustomerOrders",
-    "originalFileName": "CustomerOrders.csv",
-    "role": "FACT",
-    "grain": {
-      "primaryKey": [],
-      "foreignKeys": [
-        "Order Number",
-        "Order Line",
-        "Customer ID",
-        "Part ID"
-      ],
-      "grainFields": [
-        "Order Number",
-        "Order Line",
-        "Customer ID",
-        "Part ID"
-      ],
-      "grainDescription": "Order Number + Order Line + Customer ID + Part ID"
-    },
-    "rowCount": 62525,
-    "candidateKeys": [
-      "Order Number",
-      "Order Line",
-      "Customer ID",
-      "Part ID"
-    ],
-    "fieldClassifications": {
-      "Order Number": {
-        "type": "IDENTIFIER",
-        "name": "Order Number",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 960,
-        "minLength": 11,
-        "maxLength": 11,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "ORD80000004",
-          "ORD80000008",
-          "ORD80000012"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 11,
-        "uniquenessRatio": 0.0154
-      },
-      "Order Line": {
-        "type": "IDENTIFIER",
-        "name": "Order Line",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 226,
-        "minLength": 1,
-        "maxLength": 3,
-        "minNumeric": 1,
-        "maxNumeric": 226,
-        "isNumeric": true,
-        "sampleValues": [
-          "1",
-          "2",
-          "3"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 1.95,
-        "uniquenessRatio": 0.0036
-      },
-      "Date": {
-        "type": "DATE",
-        "name": "Date",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 413,
-        "minLength": 10,
-        "maxLength": 10,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "2019-06-01",
-          "2019-05-29",
-          "2020-04-20"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 10,
-        "uniquenessRatio": 0.0066
-      },
-      "Customer ID": {
-        "type": "IDENTIFIER",
-        "name": "Customer ID",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 960,
+        "distinctCount": 1098,
         "minLength": 1,
         "maxLength": 4,
         "minNumeric": 1,
-        "maxNumeric": 2948,
+        "maxNumeric": 1098,
         "isNumeric": true,
         "sampleValues": [
           "1",
@@ -259,128 +36,128 @@
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 3.78,
-        "uniquenessRatio": 0.0154
+        "avgLength": 2.99,
+        "uniquenessRatio": 1
       },
-      "Part ID": {
-        "type": "IDENTIFIER",
-        "name": "Part ID",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 379,
-        "minLength": 4,
-        "maxLength": 5,
-        "minNumeric": 4975,
-        "maxNumeric": 25897,
-        "isNumeric": true,
-        "sampleValues": [
-          "4975",
-          "5023",
-          "5083"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 4.63,
-        "uniquenessRatio": 0.0061
-      },
-      "Qnt": {
-        "type": "MEASURE",
-        "name": "Qnt",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 1701,
-        "minLength": 1,
-        "maxLength": 6,
-        "minNumeric": 1,
-        "maxNumeric": 196716,
-        "isNumeric": true,
-        "sampleValues": [
-          "1280",
-          "338",
-          "624"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 1.6,
-        "uniquenessRatio": 0.0272
-      },
-      "Price": {
+      "CityName": {
         "type": "ATTRIBUTE",
-        "name": "Price",
+        "name": "CityName",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 379,
-        "minLength": 14,
-        "maxLength": 18,
-        "minNumeric": 20.013582101546273,
-        "maxNumeric": 39.99009329083025,
-        "isNumeric": true,
+        "distinctCount": 1086,
+        "minLength": 3,
+        "maxLength": 24,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
         "sampleValues": [
-          "27.769420523249693",
-          "23.21264465061399",
-          "22.741596051721444"
+          "tokyo",
+          "shanghai",
+          "bombay"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 17.41,
-        "uniquenessRatio": 0.0061
+        "avgLength": 7.8,
+        "uniquenessRatio": 0.9891
       },
-      "Total Amount": {
-        "type": "MEASURE",
-        "name": "Total Amount",
+      "Latitude": {
+        "type": "ATTRIBUTE",
+        "name": "Latitude",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 15972,
-        "minLength": 14,
-        "maxLength": 18,
-        "minNumeric": 20.013582101546273,
-        "maxNumeric": 7111217.056706242,
+        "distinctCount": 1063,
+        "minLength": 2,
+        "maxLength": 11,
+        "minNumeric": -43.533333,
+        "maxNumeric": 68.979174,
         "isNumeric": true,
         "sampleValues": [
-          "35544.85826975961",
-          "7845.873891907529",
-          "14190.755936274181"
+          "35.685",
+          "31.045556",
+          "18.975"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 17.36,
-        "uniquenessRatio": 0.2554
+        "avgLength": 8.31,
+        "uniquenessRatio": 0.9681
+      },
+      "Longitude": {
+        "type": "ATTRIBUTE",
+        "name": "Longitude",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 1078,
+        "minLength": 2,
+        "maxLength": 12,
+        "minNumeric": -157.8583333,
+        "maxNumeric": 174.766667,
+        "isNumeric": true,
+        "sampleValues": [
+          "139.751389",
+          "121.399722",
+          "72.825833"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 8.73,
+        "uniquenessRatio": 0.9818
+      },
+      "Population": {
+        "type": "MEASURE",
+        "name": "Population",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 1086,
+        "minLength": 10,
+        "maxLength": 13,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "  31,480,498 ",
+          "  14,608,512 ",
+          "  12,692,717 "
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 10.52,
+        "uniquenessRatio": 0.9891
       }
     }
   },
   {
     "tableName": "Customers",
-    "originalFileName": "Customers.csv",
+    "originalFileName": "SalesData.xlsx - Customers.csv",
     "role": "DIMENSION",
     "grain": {
       "primaryKey": [
-        "Customer ID"
+        "ID"
       ],
       "foreignKeys": [
-        "City ID"
+        "City_ID"
       ],
       "grainFields": [
-        "Customer ID",
-        "City ID"
+        "ID",
+        "City_ID"
       ],
-      "grainDescription": "Customer ID + City ID"
+      "grainDescription": "ID + City_ID"
     },
-    "rowCount": 903,
+    "rowCount": 500,
     "candidateKeys": [
-      "Customer ID",
-      "City ID"
+      "ID",
+      "City_ID"
     ],
     "fieldClassifications": {
-      "Customer ID": {
+      "ID": {
         "type": "IDENTIFIER",
-        "name": "Customer ID",
+        "name": "ID",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 903,
+        "distinctCount": 500,
         "minLength": 1,
-        "maxLength": 4,
+        "maxLength": 3,
         "minNumeric": 1,
-        "maxNumeric": 2948,
+        "maxNumeric": 500,
         "isNumeric": true,
         "sampleValues": [
           "1",
@@ -389,55 +166,338 @@
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 3.78,
+        "avgLength": 2.78,
         "uniquenessRatio": 1
       },
-      "Customer Name": {
+      "Customer": {
         "type": "ATTRIBUTE",
-        "name": "Customer Name",
+        "name": "Customer",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 902,
-        "minLength": 7,
-        "maxLength": 47,
+        "distinctCount": 500,
+        "minLength": 1,
+        "maxLength": 38,
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
         "sampleValues": [
-          "T.P. QDESHV VOYFQJK",
-          "LCOA CIVU EIMMM FZOUV SBVZ TN\"D",
-          "RDBYVH QLBHSXH (7998)"
+          "3M Company",
+          "Abbott Labs",
+          "Abercrombie & Fitch Co."
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 21,
-        "uniquenessRatio": 0.9989
+        "avgLength": 16.18,
+        "uniquenessRatio": 1
       },
-      "City ID": {
-        "type": "IDENTIFIER",
-        "name": "City ID",
+      "CustomerSince": {
+        "type": "DATE",
+        "name": "CustomerSince",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 167,
-        "minLength": 4,
-        "maxLength": 6,
-        "minNumeric": 7900,
-        "maxNumeric": 687832,
+        "distinctCount": 492,
+        "minLength": 5,
+        "maxLength": 5,
+        "minNumeric": 33272,
+        "maxNumeric": 40519,
         "isNumeric": true,
         "sampleValues": [
-          "644503",
-          "654502",
-          "564511"
+          "35887",
+          "34679",
+          "38279"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 5.67,
-        "uniquenessRatio": 0.1849
+        "avgLength": 5,
+        "uniquenessRatio": 0.984
       },
-      "Channel": {
+      "City_ID": {
+        "type": "IDENTIFIER",
+        "name": "City_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 393,
+        "minLength": 1,
+        "maxLength": 4,
+        "minNumeric": 2,
+        "maxNumeric": 1087,
+        "isNumeric": true,
+        "sampleValues": [
+          "646",
+          "557",
+          "390"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 2.98,
+        "uniquenessRatio": 0.786
+      },
+      "Industry": {
         "type": "ATTRIBUTE",
-        "name": "Channel",
-        "nullCount": 14,
+        "name": "Industry",
+        "nullCount": 7,
+        "blankCount": 0,
+        "distinctCount": 24,
+        "minLength": 5,
+        "maxLength": 46,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "Capital Goods",
+          "Pharmaceuticals, Biotechnology & Life Sciences",
+          "Retailing"
+        ],
+        "informationDensity": 0.986,
+        "nullPercentage": 1.4,
+        "avgLength": 18.74,
+        "uniquenessRatio": 0.0487
+      }
+    }
+  },
+  {
+    "tableName": "HistorySales",
+    "originalFileName": "SalesData.xlsx - HistorySales.csv",
+    "role": "FACT",
+    "grain": {
+      "primaryKey": [
+        "Order_ID"
+      ],
+      "foreignKeys": [
+        "Customer_ID",
+        "Product_ID",
+        "SalesMgr_ID"
+      ],
+      "grainFields": [
+        "Order_ID",
+        "Customer_ID",
+        "Product_ID",
+        "SalesMgr_ID"
+      ],
+      "grainDescription": "Order_ID + Customer_ID + Product_ID + SalesMgr_ID"
+    },
+    "rowCount": 31031,
+    "candidateKeys": [
+      "Order_ID",
+      "Customer_ID",
+      "Product_ID",
+      "SalesMgr_ID"
+    ],
+    "fieldClassifications": {
+      "Order_ID": {
+        "type": "IDENTIFIER",
+        "name": "Order_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 31031,
+        "minLength": 1,
+        "maxLength": 6,
+        "minNumeric": 7,
+        "maxNumeric": 110987,
+        "isNumeric": true,
+        "sampleValues": [
+          "7",
+          "11",
+          "12"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 5,
+        "uniquenessRatio": 1
+      },
+      "Date_ID": {
+        "type": "DATE",
+        "name": "Date_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 730,
+        "minLength": 8,
+        "maxLength": 10,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "3/2/2009",
+          "5/5/2009",
+          "6/18/2010"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 8.95,
+        "uniquenessRatio": 0.0235
+      },
+      "Customer_ID": {
+        "type": "IDENTIFIER",
+        "name": "Customer_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 500,
+        "minLength": 1,
+        "maxLength": 3,
+        "minNumeric": 1,
+        "maxNumeric": 500,
+        "isNumeric": true,
+        "sampleValues": [
+          "199",
+          "166",
+          "434"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 2.78,
+        "uniquenessRatio": 0.0161
+      },
+      "Product_ID": {
+        "type": "IDENTIFIER",
+        "name": "Product_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 228,
+        "minLength": 1,
+        "maxLength": 3,
+        "minNumeric": 1,
+        "maxNumeric": 228,
+        "isNumeric": true,
+        "sampleValues": [
+          "149",
+          "141",
+          "135"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 2.53,
+        "uniquenessRatio": 0.0073
+      },
+      "SalesMgr_ID": {
+        "type": "IDENTIFIER",
+        "name": "SalesMgr_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 8,
+        "minLength": 1,
+        "maxLength": 1,
+        "minNumeric": 1,
+        "maxNumeric": 8,
+        "isNumeric": true,
+        "sampleValues": [
+          "1",
+          "5",
+          "3"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 1,
+        "uniquenessRatio": 0.0003
+      },
+      "Quantity": {
+        "type": "MEASURE",
+        "name": "Quantity",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 7462,
+        "minLength": 1,
+        "maxLength": 8,
+        "minNumeric": 0,
+        "maxNumeric": 36927.05,
+        "isNumeric": true,
+        "sampleValues": [
+          "25.7",
+          "6.5",
+          "3363.15"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 4.04,
+        "uniquenessRatio": 0.2405
+      },
+      "Unit Cost Price": {
+        "type": "ATTRIBUTE",
+        "name": "Unit Cost Price",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 120,
+        "minLength": 1,
+        "maxLength": 5,
+        "minNumeric": 0.55,
+        "maxNumeric": 24.05,
+        "isNumeric": true,
+        "sampleValues": [
+          "1.55",
+          "3.15",
+          "2.55"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 3.48,
+        "uniquenessRatio": 0.0039
+      },
+      "Unit Sales Price": {
+        "type": "ATTRIBUTE",
+        "name": "Unit Sales Price",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 142,
+        "minLength": 1,
+        "maxLength": 5,
+        "minNumeric": 1.05,
+        "maxNumeric": 32.4,
+        "isNumeric": true,
+        "sampleValues": [
+          "2.25",
+          "3.85",
+          "5.15"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 3.56,
+        "uniquenessRatio": 0.0046
+      },
+      "Total Sales": {
+        "type": "MEASURE",
+        "name": "Total Sales",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 17687,
+        "minLength": 1,
+        "maxLength": 11,
+        "minNumeric": 0,
+        "maxNumeric": 614504.61,
+        "isNumeric": true,
+        "sampleValues": [
+          "57.825",
+          "25.025",
+          "17320.2225"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 5.93,
+        "uniquenessRatio": 0.57
+      },
+      "Total Cost": {
+        "type": "MEASURE",
+        "name": "Total Cost",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 16043,
+        "minLength": 1,
+        "maxLength": 11,
+        "minNumeric": 0,
+        "maxNumeric": 484940.385,
+        "isNumeric": true,
+        "sampleValues": [
+          "39.835",
+          "20.475",
+          "8576.0325"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 5.73,
+        "uniquenessRatio": 0.517
+      },
+      "Customer Group": {
+        "type": "ATTRIBUTE",
+        "name": "Customer Group",
+        "nullCount": 0,
         "blankCount": 0,
         "distinctCount": 2,
         "minLength": 6,
@@ -446,305 +506,78 @@
         "maxNumeric": null,
         "isNumeric": false,
         "sampleValues": [
-          "Regular",
+          "Partner",
           "Direct"
         ],
-        "informationDensity": 0.9845,
-        "nullPercentage": 1.55,
-        "avgLength": 6.14,
-        "uniquenessRatio": 0.0022
-      }
-    }
-  },
-  {
-    "tableName": "Lorries",
-    "originalFileName": "Lorries.csv",
-    "role": "DIMENSION",
-    "grain": {
-      "primaryKey": [
-        "Lorry ID"
-      ],
-      "foreignKeys": [],
-      "grainFields": [
-        "Lorry ID"
-      ],
-      "grainDescription": "Lorry ID"
-    },
-    "rowCount": 112,
-    "candidateKeys": [
-      "Lorry ID"
-    ],
-    "fieldClassifications": {
-      "Lorry ID": {
-        "type": "IDENTIFIER",
-        "name": "Lorry ID",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 112,
-        "minLength": 3,
-        "maxLength": 4,
-        "minNumeric": 346,
-        "maxNumeric": 1339,
-        "isNumeric": true,
-        "sampleValues": [
-          "346",
-          "348",
-          "349"
-        ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 3.55,
-        "uniquenessRatio": 1
+        "avgLength": 6.35,
+        "uniquenessRatio": 0.0001
       },
-      "License Plate": {
+      "Sector": {
         "type": "ATTRIBUTE",
-        "name": "License Plate",
+        "name": "Sector",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 112,
-        "minLength": 9,
-        "maxLength": 9,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "15-660-92",
-          "72-539-94",
-          "64-288-94"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 9,
-        "uniquenessRatio": 1
-      },
-      "Type": {
-        "type": "ATTRIBUTE",
-        "name": "Type",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 4,
-        "minLength": 4,
-        "maxLength": 6,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "Full",
-          "Ramp",
-          "Single"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 4.54,
-        "uniquenessRatio": 0.0357
-      }
-    }
-  },
-  {
-    "tableName": "LorriesCost",
-    "originalFileName": "LorriesCost.csv",
-    "role": "DIMENSION",
-    "grain": {
-      "primaryKey": [],
-      "foreignKeys": [],
-      "grainFields": [],
-      "grainDescription": "Unknown"
-    },
-    "rowCount": 4,
-    "candidateKeys": [],
-    "fieldClassifications": {
-      "Lorry_Type": {
-        "type": "ATTRIBUTE",
-        "name": "Lorry_Type",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 4,
-        "minLength": 4,
-        "maxLength": 6,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "Full",
-          "Ramp",
-          "Single"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 4.75,
-        "uniquenessRatio": 1
-      },
-      "Cost": {
-        "type": "ATTRIBUTE",
-        "name": "Cost",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 4,
-        "minLength": 4,
-        "maxLength": 4,
-        "minNumeric": 1050,
-        "maxNumeric": 2100,
-        "isNumeric": true,
-        "sampleValues": [
-          "2100",
-          "2000",
-          "1560"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 4,
-        "uniquenessRatio": 1
-      }
-    }
-  },
-  {
-    "tableName": "Part",
-    "originalFileName": "Part.csv",
-    "role": "DIMENSION",
-    "grain": {
-      "primaryKey": [
-        "Part ID"
-      ],
-      "foreignKeys": [],
-      "grainFields": [
-        "Part ID"
-      ],
-      "grainDescription": "Part ID"
-    },
-    "rowCount": 389,
-    "candidateKeys": [
-      "Part ID"
-    ],
-    "fieldClassifications": {
-      "Part ID": {
-        "type": "IDENTIFIER",
-        "name": "Part ID",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 389,
-        "minLength": 1,
-        "maxLength": 5,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "12155",
-          "12153",
-          "12157"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 4.69,
-        "uniquenessRatio": 1
-      },
-      "Part Barcode": {
-        "type": "ATTRIBUTE",
-        "name": "Part Barcode",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 261,
-        "minLength": 1,
-        "maxLength": 17,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "-",
-          "7290000208091",
-          "7290000208329"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 11.53,
-        "uniquenessRatio": 0.671
-      },
-      "Part Name": {
-        "type": "ATTRIBUTE",
-        "name": "Part Name",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 389,
-        "minLength": 1,
-        "maxLength": 47,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "6 MKCK (*)",
-          "6 TQSA (*)",
-          "154 VRW (*)"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 23.77,
-        "uniquenessRatio": 1
-      },
-      "Brand Des": {
-        "type": "ATTRIBUTE",
-        "name": "Brand Des",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 5,
-        "minLength": 5,
-        "maxLength": 14,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "Fruta",
-          "Fruta IL",
-          "Fruta Badaz"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 8.21,
-        "uniquenessRatio": 0.0129
-      },
-      "Category Level 1": {
-        "type": "ATTRIBUTE",
-        "name": "Category Level 1",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 7,
-        "minLength": 1,
+        "distinctCount": 2,
+        "minLength": 7,
         "maxLength": 11,
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
         "sampleValues": [
-          "Vegetables",
-          "Corn",
-          "Concentrate"
+          "Wholesalers",
+          "Private"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 7.14,
-        "uniquenessRatio": 0.018
+        "avgLength": 10.21,
+        "uniquenessRatio": 0.0001
       },
-      "Category Level 2": {
+      "ReturnFlag": {
         "type": "ATTRIBUTE",
-        "name": "Category Level 2",
+        "name": "ReturnFlag",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 22,
-        "minLength": 3,
-        "maxLength": 18,
+        "distinctCount": 2,
+        "minLength": 1,
+        "maxLength": 1,
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
         "sampleValues": [
-          "No Category",
-          "Pea",
-          "Corn"
+          "N",
+          "Y"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 10.49,
-        "uniquenessRatio": 0.0566
-      },
-      "Units in Carton": {
-        "type": "ATTRIBUTE",
-        "name": "Units in Carton",
+        "avgLength": 1,
+        "uniquenessRatio": 0.0001
+      }
+    }
+  },
+  {
+    "tableName": "ProductGroups",
+    "originalFileName": "SalesData.xlsx - ProductGroups.csv",
+    "role": "DIMENSION",
+    "grain": {
+      "primaryKey": [
+        "ID"
+      ],
+      "foreignKeys": [],
+      "grainFields": [
+        "ID"
+      ],
+      "grainDescription": "ID"
+    },
+    "rowCount": 21,
+    "candidateKeys": [
+      "ID"
+    ],
+    "fieldClassifications": {
+      "ID": {
+        "type": "IDENTIFIER",
+        "name": "ID",
         "nullCount": 0,
         "blankCount": 0,
         "distinctCount": 20,
@@ -754,274 +587,727 @@
         "maxNumeric": 20,
         "isNumeric": true,
         "sampleValues": [
-          "3",
-          "18",
-          "15"
+          "1",
+          "2",
+          "3"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 1.56,
-        "uniquenessRatio": 0.0514
+        "avgLength": 1.52,
+        "uniquenessRatio": 0.9524
       },
-      "Cost": {
+      "Product Group": {
         "type": "ATTRIBUTE",
-        "name": "Cost",
+        "name": "Product Group",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 12,
-        "minLength": 1,
-        "maxLength": 2,
-        "minNumeric": 2,
-        "maxNumeric": 15,
-        "isNumeric": true,
+        "distinctCount": 21,
+        "minLength": 4,
+        "maxLength": 17,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
         "sampleValues": [
-          "2",
-          "8",
-          "11"
+          "Yogurt",
+          "Cottage Cheese",
+          "Milk"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 1.54,
-        "uniquenessRatio": 0.0308
+        "avgLength": 9.81,
+        "uniquenessRatio": 1
+      },
+      "Product Category": {
+        "type": "ATTRIBUTE",
+        "name": "Product Category",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 6,
+        "minLength": 4,
+        "maxLength": 11,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "Dairy",
+          "Fruit",
+          "Meat"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 6.76,
+        "uniquenessRatio": 0.2857
+      },
+      "ImportedFlag": {
+        "type": "ATTRIBUTE",
+        "name": "ImportedFlag",
+        "nullCount": 1,
+        "blankCount": 0,
+        "distinctCount": 2,
+        "minLength": 1,
+        "maxLength": 1,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "N",
+          "Y"
+        ],
+        "informationDensity": 0.9524,
+        "nullPercentage": 4.76,
+        "avgLength": 1,
+        "uniquenessRatio": 0.1
       }
     }
   },
   {
-    "tableName": "Regions",
-    "originalFileName": "Regions.csv",
+    "tableName": "Products",
+    "originalFileName": "SalesData.xlsx - Products.csv",
     "role": "DIMENSION",
     "grain": {
       "primaryKey": [
-        "RegionNum"
+        "ID"
       ],
-      "foreignKeys": [],
+      "foreignKeys": [
+        "Product Group ID"
+      ],
       "grainFields": [
-        "RegionNum"
+        "ID",
+        "Product Group ID"
       ],
-      "grainDescription": "RegionNum"
+      "grainDescription": "ID + Product Group ID"
     },
-    "rowCount": 8,
+    "rowCount": 228,
     "candidateKeys": [
-      "RegionNum"
+      "ID",
+      "Product Group ID"
     ],
     "fieldClassifications": {
-      "RegionNum": {
+      "ID": {
         "type": "IDENTIFIER",
-        "name": "RegionNum",
+        "name": "ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 228,
+        "minLength": 1,
+        "maxLength": 3,
+        "minNumeric": 1,
+        "maxNumeric": 228,
+        "isNumeric": true,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 2.53,
+        "uniquenessRatio": 1
+      },
+      "Product Code": {
+        "type": "ATTRIBUTE",
+        "name": "Product Code",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 228,
+        "minLength": 4,
+        "maxLength": 7,
+        "minNumeric": 5043,
+        "maxNumeric": 1949228,
+        "isNumeric": true,
+        "sampleValues": [
+          "5044",
+          "5108",
+          "5109"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 5.78,
+        "uniquenessRatio": 1
+      },
+      "Product Description": {
+        "type": "ATTRIBUTE",
+        "name": "Product Description",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 225,
+        "minLength": 14,
+        "maxLength": 39,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "Club Strawberry Yogurt",
+          "Club Low Fat Cottage Cheese",
+          "Even Better Low Fat Cottage Cheese"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 23.73,
+        "uniquenessRatio": 0.9868
+      },
+      "Product Group ID": {
+        "type": "IDENTIFIER",
+        "name": "Product Group ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 20,
+        "minLength": 1,
+        "maxLength": 2,
+        "minNumeric": 1,
+        "maxNumeric": 20,
+        "isNumeric": true,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 1.59,
+        "uniquenessRatio": 0.0877
+      }
+    }
+  },
+  {
+    "tableName": "Sales",
+    "originalFileName": "SalesData.xlsx - Sales.csv",
+    "role": "FACT",
+    "grain": {
+      "primaryKey": [
+        "Order_ID"
+      ],
+      "foreignKeys": [
+        "Customer_ID",
+        "Product_ID",
+        "SalesMgr_ID"
+      ],
+      "grainFields": [
+        "Order_ID",
+        "Customer_ID",
+        "Product_ID",
+        "SalesMgr_ID"
+      ],
+      "grainDescription": "Order_ID + Customer_ID + Product_ID + SalesMgr_ID"
+    },
+    "rowCount": 77978,
+    "candidateKeys": [
+      "Order_ID",
+      "Customer_ID",
+      "Product_ID",
+      "SalesMgr_ID"
+    ],
+    "fieldClassifications": {
+      "Order_ID": {
+        "type": "IDENTIFIER",
+        "name": "Order_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 77978,
+        "minLength": 1,
+        "maxLength": 6,
+        "minNumeric": 1,
+        "maxNumeric": 110999,
+        "isNumeric": true,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 5,
+        "uniquenessRatio": 1
+      },
+      "Date_ID": {
+        "type": "DATE",
+        "name": "Date_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 1825,
+        "minLength": 8,
+        "maxLength": 10,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "10/3/2015",
+          "5/15/2011",
+          "12/15/2015"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 8.96,
+        "uniquenessRatio": 0.0234
+      },
+      "Customer_ID": {
+        "type": "IDENTIFIER",
+        "name": "Customer_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 500,
+        "minLength": 1,
+        "maxLength": 3,
+        "minNumeric": 1,
+        "maxNumeric": 500,
+        "isNumeric": true,
+        "sampleValues": [
+          "401",
+          "21",
+          "313"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 2.78,
+        "uniquenessRatio": 0.0064
+      },
+      "Product_ID": {
+        "type": "IDENTIFIER",
+        "name": "Product_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 228,
+        "minLength": 1,
+        "maxLength": 3,
+        "minNumeric": 1,
+        "maxNumeric": 228,
+        "isNumeric": true,
+        "sampleValues": [
+          "164",
+          "228",
+          "93"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 2.52,
+        "uniquenessRatio": 0.0029
+      },
+      "SalesMgr_ID": {
+        "type": "IDENTIFIER",
+        "name": "SalesMgr_ID",
         "nullCount": 0,
         "blankCount": 0,
         "distinctCount": 8,
         "minLength": 1,
         "maxLength": 1,
-        "minNumeric": 0,
-        "maxNumeric": 7,
+        "minNumeric": 1,
+        "maxNumeric": 8,
         "isNumeric": true,
         "sampleValues": [
-          "0",
-          "3",
+          "2",
+          "5",
           "4"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 1,
+        "uniquenessRatio": 0.0001
+      },
+      "Quantity": {
+        "type": "MEASURE",
+        "name": "Quantity",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 14031,
+        "minLength": 1,
+        "maxLength": 8,
+        "minNumeric": 0,
+        "maxNumeric": 49944.9,
+        "isNumeric": true,
+        "sampleValues": [
+          "2",
+          "2.35",
+          "457.3"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 4.04,
+        "uniquenessRatio": 0.1799
+      },
+      "Unit Cost Price": {
+        "type": "ATTRIBUTE",
+        "name": "Unit Cost Price",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 120,
+        "minLength": 1,
+        "maxLength": 5,
+        "minNumeric": 0.55,
+        "maxNumeric": 24.05,
+        "isNumeric": true,
+        "sampleValues": [
+          "1.05",
+          "2.55",
+          "9.4"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 3.48,
+        "uniquenessRatio": 0.0015
+      },
+      "Unit Sales Price": {
+        "type": "ATTRIBUTE",
+        "name": "Unit Sales Price",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 142,
+        "minLength": 1,
+        "maxLength": 5,
+        "minNumeric": 1.05,
+        "maxNumeric": 32.4,
+        "isNumeric": true,
+        "sampleValues": [
+          "1.7",
+          "5",
+          "16.2"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 3.56,
+        "uniquenessRatio": 0.0018
+      },
+      "Total Sales": {
+        "type": "MEASURE",
+        "name": "Total Sales",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 35141,
+        "minLength": 1,
+        "maxLength": 11,
+        "minNumeric": 0,
+        "maxNumeric": 1173757.658,
+        "isNumeric": true,
+        "sampleValues": [
+          "3.4",
+          "11.75",
+          "7408.26"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 5.93,
+        "uniquenessRatio": 0.4507
+      },
+      "Total Cost": {
+        "type": "MEASURE",
+        "name": "Total Cost",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 32205,
+        "minLength": 1,
+        "maxLength": 11,
+        "minNumeric": 0,
+        "maxNumeric": 891907.4775,
+        "isNumeric": true,
+        "sampleValues": [
+          "2.1",
+          "5.9925",
+          "4298.62"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 5.74,
+        "uniquenessRatio": 0.413
+      },
+      "Customer Group": {
+        "type": "ATTRIBUTE",
+        "name": "Customer Group",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 2,
+        "minLength": 6,
+        "maxLength": 7,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "Direct",
+          "Partner"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 6.35,
+        "uniquenessRatio": 0
+      },
+      "Sector": {
+        "type": "ATTRIBUTE",
+        "name": "Sector",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 2,
+        "minLength": 7,
+        "maxLength": 11,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "Wholesalers",
+          "Private"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 10.2,
+        "uniquenessRatio": 0
+      },
+      "ReturnFlag": {
+        "type": "ATTRIBUTE",
+        "name": "ReturnFlag",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 2,
+        "minLength": 1,
+        "maxLength": 1,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "N",
+          "Y"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 1,
+        "uniquenessRatio": 0
+      }
+    }
+  },
+  {
+    "tableName": "SalesMgr",
+    "originalFileName": "SalesData.xlsx - SalesMgr.csv",
+    "role": "DIMENSION",
+    "grain": {
+      "primaryKey": [
+        "ID"
+      ],
+      "foreignKeys": [],
+      "grainFields": [
+        "ID"
+      ],
+      "grainDescription": "ID"
+    },
+    "rowCount": 8,
+    "candidateKeys": [
+      "ID"
+    ],
+    "fieldClassifications": {
+      "ID": {
+        "type": "IDENTIFIER",
+        "name": "ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 8,
+        "minLength": 1,
+        "maxLength": 1,
+        "minNumeric": 1,
+        "maxNumeric": 8,
+        "isNumeric": true,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 1,
         "uniquenessRatio": 1
       },
-      "Region": {
+      "Name": {
         "type": "ATTRIBUTE",
-        "name": "Region",
+        "name": "Name",
         "nullCount": 0,
         "blankCount": 0,
         "distinctCount": 8,
-        "minLength": 5,
-        "maxLength": 22,
+        "minLength": 11,
+        "maxLength": 17,
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
         "sampleValues": [
-          "No Zone",
-          "Southern District",
-          "Jerusalem"
+          "Patrick Dan",
+          "Marc Ronson",
+          "Jeroen Maroen"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 12.75,
+        "avgLength": 13.63,
         "uniquenessRatio": 1
       }
     }
   },
   {
-    "tableName": "TransDocument",
-    "originalFileName": "TransDocument.csv",
+    "tableName": "Shipments",
+    "originalFileName": "SalesData.xlsx - Shipments.csv",
     "role": "FACT",
     "grain": {
-      "primaryKey": [],
+      "primaryKey": [
+        "Shipment_ID",
+        "Order_ID"
+      ],
       "foreignKeys": [
-        "Document Number",
-        "Lorry ID",
-        "Part Num",
-        "Customer Num"
+        "Customer_ID",
+        "Product_ID"
       ],
       "grainFields": [
-        "Document Number",
-        "Lorry ID",
-        "Part Num",
-        "Customer Num"
+        "Shipment_ID",
+        "Order_ID",
+        "Customer_ID",
+        "Product_ID"
       ],
-      "grainDescription": "Document Number + Lorry ID + Part Num + Customer Num"
+      "grainDescription": "Shipment_ID + Order_ID + Customer_ID + Product_ID"
     },
-    "rowCount": 456161,
+    "rowCount": 32245,
     "candidateKeys": [
-      "Document Number",
-      "Lorry ID",
-      "Part Num",
-      "Customer Num"
+      "Shipment_ID",
+      "Order_ID",
+      "Customer_ID",
+      "Product_ID"
     ],
     "fieldClassifications": {
-      "Document Number": {
+      "Shipment_ID": {
         "type": "IDENTIFIER",
-        "name": "Document Number",
+        "name": "Shipment_ID",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 4992,
-        "minLength": 10,
-        "maxLength": 10,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
-        "sampleValues": [
-          "TR20000001",
-          "TR20000002",
-          "TR20000003"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 10,
-        "uniquenessRatio": 0.0109
-      },
-      "Status": {
-        "type": "ATTRIBUTE",
-        "name": "Status",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 2,
+        "distinctCount": 32245,
         "minLength": 5,
         "maxLength": 5,
-        "minNumeric": null,
-        "maxNumeric": null,
-        "isNumeric": false,
+        "minNumeric": 16841,
+        "maxNumeric": 62746,
+        "isNumeric": true,
         "sampleValues": [
-          "Final",
-          "Draft"
+          "16841",
+          "16843",
+          "16844"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
         "avgLength": 5,
-        "uniquenessRatio": 0
+        "uniquenessRatio": 1
       },
-      "Date": {
-        "type": "DATE",
-        "name": "Date",
+      "Order_ID": {
+        "type": "IDENTIFIER",
+        "name": "Order_ID",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 392,
-        "minLength": 10,
+        "distinctCount": 32245,
+        "minLength": 1,
+        "maxLength": 5,
+        "minNumeric": 1,
+        "maxNumeric": 45905,
+        "isNumeric": true,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 4.76,
+        "uniquenessRatio": 1
+      },
+      "Date_ID": {
+        "type": "DATE",
+        "name": "Date_ID",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 1825,
+        "minLength": 8,
         "maxLength": 10,
         "minNumeric": null,
         "maxNumeric": null,
         "isNumeric": false,
         "sampleValues": [
-          "2020-01-01",
-          "2020-01-02",
-          "2020-01-05"
+          "10/3/2015",
+          "5/15/2011",
+          "12/15/2015"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 10,
-        "uniquenessRatio": 0.0009
+        "avgLength": 8.96,
+        "uniquenessRatio": 0.0566
       },
-      "Lorry ID": {
+      "Customer_ID": {
         "type": "IDENTIFIER",
-        "name": "Lorry ID",
+        "name": "Customer_ID",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 80,
-        "minLength": 3,
-        "maxLength": 4,
-        "minNumeric": 346,
-        "maxNumeric": 1339,
-        "isNumeric": true,
-        "sampleValues": [
-          "945",
-          "734",
-          "862"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 3.28,
-        "uniquenessRatio": 0.0002
-      },
-      "Part Num": {
-        "type": "IDENTIFIER",
-        "name": "Part Num",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 388,
-        "minLength": 4,
-        "maxLength": 5,
-        "minNumeric": 4623,
-        "maxNumeric": 25897,
-        "isNumeric": true,
-        "sampleValues": [
-          "4997",
-          "5002",
-          "5022"
-        ],
-        "informationDensity": 1,
-        "nullPercentage": 0,
-        "avgLength": 4.57,
-        "uniquenessRatio": 0.0009
-      },
-      "Customer Num": {
-        "type": "IDENTIFIER",
-        "name": "Customer Num",
-        "nullCount": 0,
-        "blankCount": 0,
-        "distinctCount": 903,
+        "distinctCount": 500,
         "minLength": 1,
-        "maxLength": 4,
+        "maxLength": 3,
         "minNumeric": 1,
-        "maxNumeric": 2948,
+        "maxNumeric": 500,
         "isNumeric": true,
         "sampleValues": [
-          "1203",
-          "2030",
-          "787"
+          "401",
+          "21",
+          "313"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 3.75,
-        "uniquenessRatio": 0.002
+        "avgLength": 2.78,
+        "uniquenessRatio": 0.0155
       },
-      "Carton - Qnt": {
-        "type": "ATTRIBUTE",
-        "name": "Carton - Qnt",
+      "Product_ID": {
+        "type": "IDENTIFIER",
+        "name": "Product_ID",
         "nullCount": 0,
         "blankCount": 0,
-        "distinctCount": 570,
+        "distinctCount": 228,
         "minLength": 1,
-        "maxLength": 4,
-        "minNumeric": 0,
-        "maxNumeric": 9120,
+        "maxLength": 3,
+        "minNumeric": 1,
+        "maxNumeric": 228,
         "isNumeric": true,
         "sampleValues": [
-          "156",
-          "4",
-          "13"
+          "164",
+          "228",
+          "93"
         ],
         "informationDensity": 1,
         "nullPercentage": 0,
-        "avgLength": 1.24,
-        "uniquenessRatio": 0.0012
+        "avgLength": 2.52,
+        "uniquenessRatio": 0.0071
+      },
+      "Quantity": {
+        "type": "MEASURE",
+        "name": "Quantity",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 7708,
+        "minLength": 1,
+        "maxLength": 8,
+        "minNumeric": 0,
+        "maxNumeric": 33842.2,
+        "isNumeric": true,
+        "sampleValues": [
+          "2",
+          "2.35",
+          "457.3"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 4.05,
+        "uniquenessRatio": 0.239
+      },
+      "UnitType": {
+        "type": "ATTRIBUTE",
+        "name": "UnitType",
+        "nullCount": 0,
+        "blankCount": 0,
+        "distinctCount": 4,
+        "minLength": 2,
+        "maxLength": 5,
+        "minNumeric": null,
+        "maxNumeric": null,
+        "isNumeric": false,
+        "sampleValues": [
+          "KG",
+          "ml",
+          "Liter"
+        ],
+        "informationDensity": 1,
+        "nullPercentage": 0,
+        "avgLength": 3.02,
+        "uniquenessRatio": 0.0001
       }
     }
   }

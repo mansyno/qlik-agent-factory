@@ -94,6 +94,24 @@ app.post('/api/resume', (req, res) => {
     res.json({ status: 'resumed' });
 });
 
+// ─── API: Model Selection ──────────────────────────────────────────────────
+app.get('/api/model', (req, res) => {
+    const { getActiveModel, MODELS } = require('./brain');
+    res.json({ 
+        activeModel: getActiveModel(),
+        options: MODELS
+    });
+});
+
+app.post('/api/model', (req, res) => {
+    const { model } = req.body;
+    if (!model) return res.status(400).json({ error: 'Model name is required.' });
+    
+    const { setActiveModel } = require('./brain');
+    setActiveModel(model);
+    
+    res.json({ status: 'success', activeModel: model });
+});
 
 // ─── WebSocket Connection ─────────────────────────────────────────────────
 io.on('connection', (socket) => {
