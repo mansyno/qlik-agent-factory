@@ -184,6 +184,7 @@ function generateBlueprint(normalizedData) {
             n.constituentTables.forEach(constituent => {
                 finalDirectives.push({
                     ...baseDirective,
+                    isConcatenated: true,
                     originalFileName: constituent.originalFileName,
                     sourceTableName: constituent.tableName,
                     originalFields: constituent.originalFields // Passed from Collapser
