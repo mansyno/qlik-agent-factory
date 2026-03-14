@@ -1,44 +1,39 @@
 [
   {
-    "timestamp": "2026-03-13T23:30:47.638Z",
+    "timestamp": "2026-03-14T09:18:08.400Z",
     "category": "System",
     "message": "Logger Initialized",
     "details": null
   },
   {
-    "timestamp": "2026-03-13T23:30:47.638Z",
+    "timestamp": "2026-03-14T09:18:08.400Z",
     "category": "System",
     "message": "Job Started",
     "details": {
       "dataDir": "./data2",
-      "targetAppName": "data2"
+      "targetAppName": "data1"
     }
   },
   {
-    "timestamp": "2026-03-13T23:30:47.650Z",
+    "timestamp": "2026-03-14T09:18:08.433Z",
     "category": "System",
     "message": "Connected to Qlik Engine",
     "details": null
   },
   {
-    "timestamp": "2026-03-13T23:30:47.803Z",
+    "timestamp": "2026-03-14T09:18:10.070Z",
     "category": "Architect",
     "message": "Starting Deterministic Data Profiling",
     "details": null
   },
   {
-    "timestamp": "2026-03-13T23:35:23.522Z",
+    "timestamp": "2026-03-14T09:22:54.756Z",
     "category": "Architect",
-    "message": "Validation Failed - Proceeding anyway",
-    "details": {
-      "synKeys": 2,
-      "errors": [
-        "Failed validation: Engine created 2 Synthetic Keys."
-      ]
-    }
+    "message": "Script Verification Passed",
+    "details": null
   },
   {
-    "timestamp": "2026-03-13T23:35:23.524Z",
+    "timestamp": "2026-03-14T09:22:54.758Z",
     "category": "System",
     "message": "Final Script Saved",
     "details": {
@@ -46,7 +41,7 @@
     }
   },
   {
-    "timestamp": "2026-03-13T23:35:28.543Z",
+    "timestamp": "2026-03-14T09:22:56.973Z",
     "category": "System",
     "message": "App Reload Finished",
     "details": {
@@ -54,15 +49,15 @@
     }
   },
   {
-    "timestamp": "2026-03-13T23:35:29.186Z",
+    "timestamp": "2026-03-14T09:22:57.463Z",
     "category": "System",
     "message": "App Saved",
     "details": {
-      "appName": "data2"
+      "appName": "data1"
     }
   },
   {
-    "timestamp": "2026-03-13T23:35:29.188Z",
+    "timestamp": "2026-03-14T09:22:57.465Z",
     "category": "System",
     "message": "Process Terminated",
     "details": null

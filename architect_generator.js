@@ -94,17 +94,16 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
         const groupIndex = factGroups.findIndex(g => g.includes(tableName));
         const isInGroup = groupIndex !== -1;
         const consolidatedName = isInGroup 
-            ? (factGroups.length > 1 ? `Consolidated_Fact_${groupIndex + 1}` : `Consolidated_Fact`)
+            ? factGroups[groupIndex].join('_')
             : null;
 
         script += `\n// --- Table: ${tableName} ---\n`;
         if (directive.notes) script += `// Notes: ${directive.notes}\n`;
         if (fastLoad) script += `FIRST 1\n`;
 
-        // If concatenating, label all facts in group as [Consolidated_Fact_X]
+        // If concatenating, label all facts in group as their joined name.
+        // Qlik Engine will implicitly auto-concatenate tables with the same name.
         if (isInGroup) {
-            const isFirstInGroup = factGroups[groupIndex][0] === tableName;
-            if (!isFirstInGroup) script += `CONCATENATE([${consolidatedName}])\n`;
             script += `[${consolidatedName}]:\nLOAD\n`;
         } else {
             script += `[${tableName}]:\nLOAD\n`;
@@ -112,12 +111,6 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
 
         const fieldLines = [];
         let mappingDone = false;
-
-        // Universal Fact ID (needed for Date Bridging in some modes)
-        // In LINK_TABLE mode, each fact already has a unique %Key_<TableName> composite key
-        if (isFactTable && isConcat) {
-            fieldLines.push(`    AutoNumber(RowNo() & '|' & '${tableName}') AS [%FactID]`);
-        }
 
         // Concatenation Logic
         if (isInGroup) {
@@ -133,8 +126,12 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
                 const cleanNorm = globalField.replace(/[\[\]]/g, '');
 
                 if (localFieldObj) {
+                    // MEASURE ISOLATION: Measures must ALWAYS be aliased to the group/table name to prevent linking.
+                    if (localFieldObj.type === 'MEASURE') {
+                        fieldLines.push(`    [${localFieldObj.originalName}] AS [${consolidatedName}_${cleanNorm}]`);
+                    }
                     // In LinkTable mode, shared keys MUST be prefixed to isolate fact resident load from dimension tables.
-                    if (isLinkTable && isSharedKey) {
+                    else if (isLinkTable && isSharedKey) {
                         fieldLines.push(`    [${localFieldObj.originalName}] AS [${consolidatedName}_${cleanNorm}]`);
                     } else if (localFieldObj.originalName === globalField) {
                         fieldLines.push(`    [${localFieldObj.originalName}]`);
@@ -143,9 +140,13 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
                     }
                 } else {
                     // Padding for missing fields in this specific group table
-                    // THIS IS CRITICAL: If this is a shared key, we MUST use the prefixed name even for Null() 
-                    // otherwise it will collide with dimensions and create synthetic keys.
-                    if (isLinkTable && isSharedKey) {
+                    // Check if the source field (from the union) was a measure in ANY of the source tables
+                    const fieldMetadata = Object.values(tableLookup).flatMap(t => t.fields).find(f => f.normalizedName === globalField);
+                    const isMeasure = fieldMetadata && fieldMetadata.type === 'MEASURE';
+
+                    if (isMeasure) {
+                        fieldLines.push(`    Null() AS [${consolidatedName}_${cleanNorm}]`);
+                    } else if (isLinkTable && isSharedKey) {
                         fieldLines.push(`    Null() AS [${consolidatedName}_${cleanNorm}]`);
                     } else {
                         fieldLines.push(`    Null() AS [${globalField}]`);
@@ -180,13 +181,17 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
                 mappingDone = true;
                 normalizedFields.forEach(f => {
                     const isSharedKey = sharedKeysSet.has(f.normalizedName);
-                    if (isSharedKey) {
-                        const cleanNorm = f.normalizedName.replace(/[\[\]]/g, '');
+                    const cleanNorm = f.normalizedName.replace(/[\[\]]/g, '');
+                    
+                    // MEASURE ISOLATION: Measures must ALWAYS be aliased to the table name.
+                    if (f.type === 'MEASURE') {
+                        fieldLines.push(`    [${f.originalName}] AS [${tableName}_${cleanNorm}]`);
+                    }
+                    else if (isSharedKey) {
                         fieldLines.push(`    [${f.originalName}] AS [${tableName}_${cleanNorm}]`);
                     } else if (f.originalName === f.normalizedName) {
                         fieldLines.push(`    [${f.originalName}]`);
                     } else {
-                        const cleanNorm = f.normalizedName.replace(/[\[\]]/g, '');
                         fieldLines.push(`    [${f.originalName}] AS [${cleanNorm}]`);
                     }
                 });
@@ -220,7 +225,7 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
         factTablesToBridge.forEach(factName => {
             const groupIndex = factGroups.findIndex(g => g.includes(factName));
             const consolidatedName = groupIndex !== -1 
-                ? (factGroups.length > 1 ? `Consolidated_Fact_${groupIndex + 1}` : `Consolidated_Fact`)
+                ? factGroups[groupIndex].join('_')
                 : factName;
             
             if (groupIndex !== -1 && processedGroups.has(groupIndex)) return;
@@ -239,13 +244,15 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
             script += `LOAD\n`;
             const linkFieldLines = [
                 `    [%Key_${consolidatedName}] AS [%Key_${consolidatedName}]`, // Use consolidated key
-                `    [%Key_${consolidatedName}] AS [%DateBridgeKey]`,
-                `    '${consolidatedName}' AS [%SourceTable]`
+                `    [%Key_${consolidatedName}] AS [%DateBridgeKey]`
             ];
 
             sharedKeysSet.forEach(sharedKey => {
-                const hasField = tableNorms.find(f => f.normalizedName === sharedKey);
-                if (hasField) {
+                const isFieldInThisTable = groupIndex !== -1 
+                    ? groupFieldUnions[groupIndex].has(sharedKey)
+                    : tableNorms.find(f => f.normalizedName === sharedKey);
+
+                if (isFieldInThisTable) {
                     const cleanNorm = sharedKey.replace(/[\[\]]/g, '');
                     const sourceFieldName = `${consolidatedName}_${cleanNorm}`;
                     linkFieldLines.push(`    [${sourceFieldName}] AS [${sharedKey}]`);
@@ -261,7 +268,7 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
         // Drop the renamed shared keys from the fact tables (isolation)
         // Grouped (Consolidated) Facts
         factGroups.forEach((group, idx) => {
-            const cName = factGroups.length > 1 ? `Consolidated_Fact_${idx + 1}` : `Consolidated_Fact`;
+            const cName = group.join('_');
             groupFieldUnions[idx].forEach(fieldName => {
                 if (sharedKeysSet.has(fieldName)) {
                     const cleanNorm = fieldName.replace(/[\[\]]/g, '');
@@ -302,26 +309,22 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
         factDates.forEach(d => {
             const groupIndex = factGroups.findIndex(g => g.includes(d.tableName));
             const consolidatedName = groupIndex !== -1 
-                ? (factGroups.length > 1 ? `Consolidated_Fact_${groupIndex + 1}` : `Consolidated_Fact`)
+                ? factGroups[groupIndex].join('_')
                 : d.tableName;
 
             if (!isFirstDate) script += `CONCATENATE([CanonicalDateBridge])\n`;
             
             script += `LOAD\n`;
-            if (isConcat || isMultiFactStar) {
-                // No composite key available — use RowNo as a bridge key
-                script += `    AutoNumber(RowNo() & '|' & '${d.tableName}') AS [%FactKey_${d.tableName}],\n`;
-            } else {
-                // LINK_TABLE mode: bridge connects to LinkTable using unified key
-                const keyName = groupIndex !== -1 
-                    ? (factGroups.length > 1 ? `%Key_Consolidated_Fact_${groupIndex + 1}` : `%Key_Consolidated_Fact`)
-                    : `%Key_${d.tableName}`;
-                script += `    [${keyName}] AS [%DateBridgeKey],\n`;
-            }
             
+            // LINK_TABLE mode: bridge connects to LinkTable using unified key
+            const keyName = groupIndex !== -1 
+                ? `%Key_${factGroups[groupIndex].join('_')}`
+                : `%Key_${d.tableName}`;
+            
+            script += `    [${keyName}] AS [%DateBridgeKey],\n`;
             script += `    [${d.fieldName}] AS [CanonicalDate],\n`;
             script += `    '${d.fieldName}' AS [DateType]\n`;
-            script += `RESIDENT [${consolidatedName}];\n\n`;
+            script += `RESIDENT [LinkTable]\nWHERE NOT IsNull([${keyName}]);\n\n`;
             
             isFirstDate = false;
         });

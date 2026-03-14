@@ -50,6 +50,43 @@ function findFactGroups(normalizedData) {
     return groups;
 }
 
+/**
+ * Ensures that all fields within a fact group sharing the same footprint (original name)
+ * use the exact same normalized name. This prevents divergent columns in concatenated tables.
+ */
+function conformGroupFields(factGroups, normalizedData) {
+    const normalizeOriginal = (f) => f.toLowerCase().replace(/[\s_-]/g, '').trim();
+
+    factGroups.forEach(group => {
+        const fieldNameMap = {}; // footprint -> normalizedName
+
+        // Pass 1: Collect preferred names
+        group.forEach(tableName => {
+            const table = normalizedData.find(t => t.tableName === tableName);
+            if (!table) return;
+            table.normalizedFields.forEach(f => {
+                const footprint = normalizeOriginal(f.originalName);
+                // Use the first one we find as the "Source of Truth" for this group
+                if (!fieldNameMap[footprint]) {
+                    fieldNameMap[footprint] = f.normalizedName;
+                }
+            });
+        });
+
+        // Pass 2: Apply preferred names
+        group.forEach(tableName => {
+            const table = normalizedData.find(t => t.tableName === tableName);
+            if (!table) return;
+            table.normalizedFields.forEach(f => {
+                const footprint = normalizeOriginal(f.originalName);
+                if (fieldNameMap[footprint]) {
+                    f.normalizedName = fieldNameMap[footprint];
+                }
+            });
+        });
+    });
+}
+
 function generateBlueprint(normalizedData) {
     let strategy = 'SINGLE_FACT';
     let needsDateBridge = false;
@@ -57,6 +94,11 @@ function generateBlueprint(normalizedData) {
     // 1. Identify Fact Groups for Concatenation
     const factGroups = findFactGroups(normalizedData);
     const hasConcatenation = factGroups.length > 0;
+
+    // 2. Conformance Stage: Unify names for concatenated fields
+    if (hasConcatenation) {
+        conformGroupFields(factGroups, normalizedData);
+    }
     
     if (hasConcatenation) {
         strategy = 'CONCATENATE';
@@ -86,7 +128,7 @@ function generateBlueprint(normalizedData) {
 
     // Treat each concatenated group as a single logical fact table
     const virtualFactTables = allFactTables.filter(ft => !factGroups.flat().includes(ft));
-    factGroups.forEach((g, idx) => virtualFactTables.push(`Consolidated_Fact_${idx + 1}`));
+    factGroups.forEach(g => virtualFactTables.push(g.join('_')));
 
     const sharedKeysSet = new Set();
     const keyPresenceInFacts = {};
@@ -97,7 +139,7 @@ function generateBlueprint(normalizedData) {
             const groupIdx = factGroups.findIndex(g => g.includes(t.tableName));
             
             if (isFact || groupIdx !== -1) {
-                const virtualName = groupIdx !== -1 ? `Consolidated_Fact_${groupIdx + 1}` : t.tableName;
+                const virtualName = groupIdx !== -1 ? factGroups[groupIdx].join('_') : t.tableName;
                 
                 t.normalizedFields.forEach(nf => {
                     // BROADENED KEY DETECTION: Any field that isn't a measure and exists in 2+ fact clusters
@@ -117,6 +159,16 @@ function generateBlueprint(normalizedData) {
                 sharedKeysSet.add(k);
             }
         });
+
+        // FORCE DATE INCLUSION: If needsDateBridge is true, all fact date fields MUST be in sharedKeysSet
+        // to ensure they are hubbed in the LinkTable.
+        if (needsDateBridge) {
+            dateFieldsList.forEach(df => {
+                if (df.isFactTable) {
+                    sharedKeysSet.add(df.fieldName);
+                }
+            });
+        }
 
         // Apply the 2+ shared key guard per spec Step 5
         if (sharedKeysSet.size >= 2) {
