@@ -5,17 +5,24 @@ Your task is to classify fields in a data model as IDENTIFIER, MEASURE, DATE, AT
 ### RULES
 # Qlik Field Classification Strategy (Refined)
 
-This table outlines a hybrid strategy for field classification, incorporating expert refinements on semantic intent and edge-case "traps." 
+This document outlines a hybrid strategy for field classification, incorporating semantic intent and logical aliasing to bridge data model gaps.
 
 **CRITICAL INSTRUCTION:** The "Semantic Indicators" column provides **EXAMPLES ONLY**. It is NOT an exhaustive list. You must use semantic reasoning to identify synonyms or similar concepts (e.g., "Cost" is semantically identical to "Price").
 
-| Classification | Primary Intent | Semantic Indicators (EXAMPLES ONLY) | Statistical Profile (Heuristics) | Edge Case: The "Trap" |
-| :--- | :--- | :--- | :--- | :--- |
-| **IDENTIFIER** | Linking tables (Keys) | e.g., Words ending/starting with: `ID`, `KEY`, `CODE`, `Num`, `SK`, `GUID`. | High distinctness. Low null count. Unique (PK) or repeated (FK). | **Trap**: Serial numbers or Barcodes (usually Attributes, not Keys). |
-| **MEASURE** | Quantitative analysis (Sum/Avg) | e.g., `Amount`, `Total`, `Qty`, `Weight`, `Tax`, `Qnt`. | Numeric data with high variance. Frequent non-integers. | **Trap**: `Price`, `Cost`, `Units per Carton`, `Rate`. These are usually **ATTRIBUTES** used for calculation, not direct aggregation. |
-| **DATE** | Time dimension/Filtering | e.g., `Date`, `Time`, `Year`, `Updated`, `Timestamp`. | Chronological patterns. Standard date formats. | **Trap**: Birth years or Year constants (often Attributes). |
-| **ATTRIBUTE** | Context, filtering, or description | e.g., `Name`, `Type`, `City`, `Desc`, `Category`, `Status`, `Barcode`, `Cost`, `Price`. | High repeat values (Low Cardinality) OR static reference values. | **Trap**: `Units in Carton` (Numeric, but master data). |
 | **SYSTEM_METADATA** | Technical ETL/Audit fields | e.g., `ROW_ID`, `ETL_`, `BATCH_`, `LoadTimestamp`, `Filename`. | Very high uniqueness (1:1 with row). Technical naming. | **Trap**: Transaction dates (Dates) vs. Row Load timestamps. |
+
+## The Semantic Alias (Bridging synonymous Keys)
+To enable the agent to link fields with different names (e.g., `shipVia` and `shipperID`), you must provide a `semanticAlias`.
+
+*   **Definition**: A common logical entity name shared by synonymous fields.
+*   **Rules**:
+    - If two fields represent the same logical entity across tables but have different names, assign them the **EXACT SAME** `semanticAlias`.
+    - **Example**: 
+        - `Orders.shipVia` → `semanticAlias: "Shipper"`
+        - `Shippers.shipperID` → `semanticAlias: "Shipper"`
+        - `Invoices.BillToCustomer` → `semanticAlias: "Customer"`
+        - `Customers.customerID` → `semanticAlias: "Customer"`
+    - If a field is unique and doesn't share an entity with others, use its own name or a cleaned version as the alias.
 
 ## Refined Decision Matrix
 
@@ -47,10 +54,11 @@ Your output MUST be valid JSON mapping each Table to its Fields and their determ
     "CustomerName": "ATTRIBUTE"
   },
   "Orders.csv": {
-    "OrderID": "IDENTIFIER",
-    "CustomerID": "IDENTIFIER",
-    "OrderDate": "DATE",
-    "Amount": "MEASURE"
+    "OrderID": { "classification": "IDENTIFIER", "semanticAlias": "OrderID" },
+    "CustomerID": { "classification": "IDENTIFIER", "semanticAlias": "Customer" },
+    "shipVia": { "classification": "IDENTIFIER", "semanticAlias": "Shipper" },
+    "OrderDate": { "classification": "DATE", "semanticAlias": "OrderDate" },
+    "Amount": { "classification": "MEASURE", "semanticAlias": "Amount" }
   }
 }
 DO NOT RETURN MARKDOWN CODE BLOCKS. RETURN RAW JSON ONLY.
@@ -59,10 +67,473 @@ DO NOT RETURN MARKDOWN CODE BLOCKS. RETURN RAW JSON ONLY.
 Classify the following schema:
 
 {
-  "categories": {
+  "Cities": {
+    "rowCount": 1098,
+    "fields": {
+      "City_ID": {
+        "distinctCount": 1098,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ]
+      },
+      "CityName": {
+        "distinctCount": 1086,
+        "subsetRatio": 0.9891,
+        "informationDensity": 1,
+        "sampleValues": [
+          "tokyo",
+          "shanghai",
+          "bombay"
+        ]
+      },
+      "Latitude": {
+        "distinctCount": 1063,
+        "subsetRatio": 0.9681,
+        "informationDensity": 1,
+        "sampleValues": [
+          "35.685",
+          "31.045556",
+          "18.975"
+        ]
+      },
+      "Longitude": {
+        "distinctCount": 1078,
+        "subsetRatio": 0.9818,
+        "informationDensity": 1,
+        "sampleValues": [
+          "139.751389",
+          "121.399722",
+          "72.825833"
+        ]
+      },
+      "Population": {
+        "distinctCount": 1086,
+        "subsetRatio": 0.9891,
+        "informationDensity": 1,
+        "sampleValues": [
+          "  31,480,498 ",
+          "  14,608,512 ",
+          "  12,692,717 "
+        ]
+      }
+    }
+  },
+  "Customers": {
+    "rowCount": 500,
+    "fields": {
+      "ID": {
+        "distinctCount": 500,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ]
+      },
+      "Customer": {
+        "distinctCount": 500,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "3M Company",
+          "Abbott Labs",
+          "Abercrombie & Fitch Co."
+        ]
+      },
+      "CustomerSince": {
+        "distinctCount": 492,
+        "subsetRatio": 0.984,
+        "informationDensity": 1,
+        "sampleValues": [
+          "35887",
+          "34679",
+          "38279"
+        ]
+      },
+      "City_ID": {
+        "distinctCount": 393,
+        "subsetRatio": 0.786,
+        "informationDensity": 1,
+        "sampleValues": [
+          "646",
+          "557",
+          "390"
+        ]
+      },
+      "Industry": {
+        "distinctCount": 24,
+        "subsetRatio": 0.0487,
+        "informationDensity": 0.986,
+        "sampleValues": [
+          "Capital Goods",
+          "Pharmaceuticals, Biotechnology & Life Sciences",
+          "Retailing"
+        ]
+      }
+    }
+  },
+  "HistorySales": {
+    "rowCount": 31031,
+    "fields": {
+      "Order_ID": {
+        "distinctCount": 31031,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "7",
+          "11",
+          "12"
+        ]
+      },
+      "Date_ID": {
+        "distinctCount": 730,
+        "subsetRatio": 0.0235,
+        "informationDensity": 1,
+        "sampleValues": [
+          "3/2/2009",
+          "5/5/2009",
+          "6/18/2010"
+        ]
+      },
+      "Customer_ID": {
+        "distinctCount": 500,
+        "subsetRatio": 0.0161,
+        "informationDensity": 1,
+        "sampleValues": [
+          "199",
+          "166",
+          "434"
+        ]
+      },
+      "Product_ID": {
+        "distinctCount": 228,
+        "subsetRatio": 0.0073,
+        "informationDensity": 1,
+        "sampleValues": [
+          "149",
+          "141",
+          "135"
+        ]
+      },
+      "SalesMgr_ID": {
+        "distinctCount": 8,
+        "subsetRatio": 0.0003,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "5",
+          "3"
+        ]
+      },
+      "Quantity": {
+        "distinctCount": 7462,
+        "subsetRatio": 0.2405,
+        "informationDensity": 1,
+        "sampleValues": [
+          "25.7",
+          "6.5",
+          "3363.15"
+        ]
+      },
+      "Unit Cost Price": {
+        "distinctCount": 120,
+        "subsetRatio": 0.0039,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1.55",
+          "3.15",
+          "2.55"
+        ]
+      },
+      "Unit Sales Price": {
+        "distinctCount": 142,
+        "subsetRatio": 0.0046,
+        "informationDensity": 1,
+        "sampleValues": [
+          "2.25",
+          "3.85",
+          "5.15"
+        ]
+      },
+      "Total Sales": {
+        "distinctCount": 17687,
+        "subsetRatio": 0.57,
+        "informationDensity": 1,
+        "sampleValues": [
+          "57.825",
+          "25.025",
+          "17320.2225"
+        ]
+      },
+      "Total Cost": {
+        "distinctCount": 16043,
+        "subsetRatio": 0.517,
+        "informationDensity": 1,
+        "sampleValues": [
+          "39.835",
+          "20.475",
+          "8576.0325"
+        ]
+      },
+      "Customer Group": {
+        "distinctCount": 2,
+        "subsetRatio": 0.0001,
+        "informationDensity": 1,
+        "sampleValues": [
+          "Partner",
+          "Direct"
+        ]
+      },
+      "Sector": {
+        "distinctCount": 2,
+        "subsetRatio": 0.0001,
+        "informationDensity": 1,
+        "sampleValues": [
+          "Wholesalers",
+          "Private"
+        ]
+      },
+      "ReturnFlag": {
+        "distinctCount": 2,
+        "subsetRatio": 0.0001,
+        "informationDensity": 1,
+        "sampleValues": [
+          "N",
+          "Y"
+        ]
+      }
+    }
+  },
+  "ProductGroups": {
+    "rowCount": 21,
+    "fields": {
+      "ID": {
+        "distinctCount": 20,
+        "subsetRatio": 0.9524,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ]
+      },
+      "Product Group": {
+        "distinctCount": 21,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "Yogurt",
+          "Cottage Cheese",
+          "Milk"
+        ]
+      },
+      "Product Category": {
+        "distinctCount": 6,
+        "subsetRatio": 0.2857,
+        "informationDensity": 1,
+        "sampleValues": [
+          "Dairy",
+          "Fruit",
+          "Meat"
+        ]
+      },
+      "ImportedFlag": {
+        "distinctCount": 2,
+        "subsetRatio": 0.1,
+        "informationDensity": 0.9524,
+        "sampleValues": [
+          "N",
+          "Y"
+        ]
+      }
+    }
+  },
+  "Products": {
+    "rowCount": 228,
+    "fields": {
+      "ID": {
+        "distinctCount": 228,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ]
+      },
+      "Product Code": {
+        "distinctCount": 228,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "5044",
+          "5108",
+          "5109"
+        ]
+      },
+      "Product Description": {
+        "distinctCount": 225,
+        "subsetRatio": 0.9868,
+        "informationDensity": 1,
+        "sampleValues": [
+          "Club Strawberry Yogurt",
+          "Club Low Fat Cottage Cheese",
+          "Even Better Low Fat Cottage Cheese"
+        ]
+      },
+      "Product Group ID": {
+        "distinctCount": 20,
+        "subsetRatio": 0.0877,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ]
+      }
+    }
+  },
+  "Sales": {
+    "rowCount": 77978,
+    "fields": {
+      "Order_ID": {
+        "distinctCount": 77978,
+        "subsetRatio": 1,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1",
+          "2",
+          "3"
+        ]
+      },
+      "Date_ID": {
+        "distinctCount": 1825,
+        "subsetRatio": 0.0234,
+        "informationDensity": 1,
+        "sampleValues": [
+          "10/3/2015",
+          "5/15/2011",
+          "12/15/2015"
+        ]
+      },
+      "Customer_ID": {
+        "distinctCount": 500,
+        "subsetRatio": 0.0064,
+        "informationDensity": 1,
+        "sampleValues": [
+          "401",
+          "21",
+          "313"
+        ]
+      },
+      "Product_ID": {
+        "distinctCount": 228,
+        "subsetRatio": 0.0029,
+        "informationDensity": 1,
+        "sampleValues": [
+          "164",
+          "228",
+          "93"
+        ]
+      },
+      "SalesMgr_ID": {
+        "distinctCount": 8,
+        "subsetRatio": 0.0001,
+        "informationDensity": 1,
+        "sampleValues": [
+          "2",
+          "5",
+          "4"
+        ]
+      },
+      "Quantity": {
+        "distinctCount": 14031,
+        "subsetRatio": 0.1799,
+        "informationDensity": 1,
+        "sampleValues": [
+          "2",
+          "2.35",
+          "457.3"
+        ]
+      },
+      "Unit Cost Price": {
+        "distinctCount": 120,
+        "subsetRatio": 0.0015,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1.05",
+          "2.55",
+          "9.4"
+        ]
+      },
+      "Unit Sales Price": {
+        "distinctCount": 142,
+        "subsetRatio": 0.0018,
+        "informationDensity": 1,
+        "sampleValues": [
+          "1.7",
+          "5",
+          "16.2"
+        ]
+      },
+      "Total Sales": {
+        "distinctCount": 35141,
+        "subsetRatio": 0.4507,
+        "informationDensity": 1,
+        "sampleValues": [
+          "3.4",
+          "11.75",
+          "7408.26"
+        ]
+      },
+      "Total Cost": {
+        "distinctCount": 32205,
+        "subsetRatio": 0.413,
+        "informationDensity": 1,
+        "sampleValues": [
+          "2.1",
+          "5.9925",
+          "4298.62"
+        ]
+      },
+      "Customer Group": {
+        "distinctCount": 2,
+        "subsetRatio": 0,
+        "informationDensity": 1,
+        "sampleValues": [
+          "Direct",
+          "Partner"
+        ]
+      },
+      "Sector": {
+        "distinctCount": 2,
+        "subsetRatio": 0,
+        "informationDensity": 1,
+        "sampleValues": [
+          "Wholesalers",
+          "Private"
+        ]
+      },
+      "ReturnFlag": {
+        "distinctCount": 2,
+        "subsetRatio": 0,
+        "informationDensity": 1,
+        "sampleValues": [
+          "N",
+          "Y"
+        ]
+      }
+    }
+  },
+  "SalesMgr": {
     "rowCount": 8,
     "fields": {
-      "categoryID": {
+      "ID": {
         "distinctCount": 8,
         "subsetRatio": 1,
         "informationDensity": 1,
@@ -72,156 +543,33 @@ Classify the following schema:
           "3"
         ]
       },
-      "categoryName": {
+      "Name": {
         "distinctCount": 8,
         "subsetRatio": 1,
         "informationDensity": 1,
         "sampleValues": [
-          "Beverages",
-          "Condiments",
-          "Confections"
-        ]
-      },
-      "description": {
-        "distinctCount": 8,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Soft drinks coffees teas beers and ales",
-          "Sweet and savory sauces relishes spreads and seasonings",
-          "Desserts candies and sweet breads"
-        ]
-      },
-      "picture": {
-        "distinctCount": 1,
-        "subsetRatio": 0.125,
-        "informationDensity": 1,
-        "sampleValues": [
-          "0x151C2F00020000000D000E0014002100FFFFFFFF4269746D617020496D616765005061696E742E5069637475726500010500000200000007000000504272757368000000000000000000A0290000424D98290000000000005600000028000000AC00000078000000010004000000000000000000880B0000880B0000080000"
+          "Patrick Dan",
+          "Marc Ronson",
+          "Jeroen Maroen"
         ]
       }
     }
   },
-  "customers": {
-    "rowCount": 91,
+  "Shipments": {
+    "rowCount": 32245,
     "fields": {
-      "customerID": {
-        "distinctCount": 91,
+      "Shipment_ID": {
+        "distinctCount": 32245,
         "subsetRatio": 1,
         "informationDensity": 1,
         "sampleValues": [
-          "ALFKI",
-          "ANATR",
-          "ANTON"
+          "16841",
+          "16843",
+          "16844"
         ]
       },
-      "companyName": {
-        "distinctCount": 91,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Alfreds Futterkiste",
-          "Ana Trujillo Emparedados y helados",
-          "Antonio Moreno Taquería"
-        ]
-      },
-      "contactName": {
-        "distinctCount": 91,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Maria Anders",
-          "Ana Trujillo",
-          "Antonio Moreno"
-        ]
-      },
-      "contactTitle": {
-        "distinctCount": 12,
-        "subsetRatio": 0.1319,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Sales Representative",
-          "Owner",
-          "Order Administrator"
-        ]
-      },
-      "address": {
-        "distinctCount": 91,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Obere Str. 57",
-          "Avda. de la Constitución 2222",
-          "Mataderos  2312"
-        ]
-      },
-      "city": {
-        "distinctCount": 70,
-        "subsetRatio": 0.7692,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Berlin",
-          "México D.F.",
-          "London"
-        ]
-      },
-      "region": {
-        "distinctCount": 19,
-        "subsetRatio": 0.2088,
-        "informationDensity": 1,
-        "sampleValues": [
-          "NULL",
-          "BC",
-          "SP"
-        ]
-      },
-      "postalCode": {
-        "distinctCount": 87,
-        "subsetRatio": 0.956,
-        "informationDensity": 1,
-        "sampleValues": [
-          "12209",
-          "05021",
-          "05023"
-        ]
-      },
-      "country": {
-        "distinctCount": 21,
-        "subsetRatio": 0.2308,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Germany",
-          "Mexico",
-          "UK"
-        ]
-      },
-      "phone": {
-        "distinctCount": 91,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "030-0074321",
-          "(5) 555-4729",
-          "(5) 555-3932"
-        ]
-      },
-      "fax": {
-        "distinctCount": 70,
-        "subsetRatio": 0.7692,
-        "informationDensity": 1,
-        "sampleValues": [
-          "030-0076545",
-          "(5) 555-3745",
-          "NULL"
-        ]
-      }
-    }
-  },
-  "employees": {
-    "rowCount": 9,
-    "fields": {
-      "employeeID": {
-        "distinctCount": 9,
+      "Order_ID": {
+        "distinctCount": 32245,
         "subsetRatio": 1,
         "informationDensity": 1,
         "sampleValues": [
@@ -230,721 +578,54 @@ Classify the following schema:
           "3"
         ]
       },
-      "lastName": {
-        "distinctCount": 9,
-        "subsetRatio": 1,
+      "Date_ID": {
+        "distinctCount": 1825,
+        "subsetRatio": 0.0566,
         "informationDensity": 1,
         "sampleValues": [
-          "Davolio",
-          "Fuller",
-          "Leverling"
+          "10/3/2015",
+          "5/15/2011",
+          "12/15/2015"
         ]
       },
-      "firstName": {
-        "distinctCount": 9,
-        "subsetRatio": 1,
+      "Customer_ID": {
+        "distinctCount": 500,
+        "subsetRatio": 0.0155,
         "informationDensity": 1,
         "sampleValues": [
-          "Nancy",
-          "Andrew",
-          "Janet"
+          "401",
+          "21",
+          "313"
         ]
       },
-      "title": {
+      "Product_ID": {
+        "distinctCount": 228,
+        "subsetRatio": 0.0071,
+        "informationDensity": 1,
+        "sampleValues": [
+          "164",
+          "228",
+          "93"
+        ]
+      },
+      "Quantity": {
+        "distinctCount": 7708,
+        "subsetRatio": 0.239,
+        "informationDensity": 1,
+        "sampleValues": [
+          "2",
+          "2.35",
+          "457.3"
+        ]
+      },
+      "UnitType": {
         "distinctCount": 4,
-        "subsetRatio": 0.4444,
+        "subsetRatio": 0.0001,
         "informationDensity": 1,
         "sampleValues": [
-          "Sales Representative",
-          "Vice President Sales",
-          "Sales Manager"
-        ]
-      },
-      "titleOfCourtesy": {
-        "distinctCount": 4,
-        "subsetRatio": 0.4444,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Ms.",
-          "Dr.",
-          "Mrs."
-        ]
-      },
-      "birthDate": {
-        "distinctCount": 9,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1948-12-08 00:00:00.000",
-          "1952-02-19 00:00:00.000",
-          "1963-08-30 00:00:00.000"
-        ]
-      },
-      "hireDate": {
-        "distinctCount": 8,
-        "subsetRatio": 0.8889,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1992-05-01 00:00:00.000",
-          "1992-08-14 00:00:00.000",
-          "1992-04-01 00:00:00.000"
-        ]
-      },
-      "address": {
-        "distinctCount": 9,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "507 20th Ave. E. Apt. 2A",
-          "908 W. Capital Way",
-          "722 Moss Bay Blvd."
-        ]
-      },
-      "city": {
-        "distinctCount": 5,
-        "subsetRatio": 0.5556,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Seattle",
-          "Tacoma",
-          "Kirkland"
-        ]
-      },
-      "region": {
-        "distinctCount": 2,
-        "subsetRatio": 0.2222,
-        "informationDensity": 1,
-        "sampleValues": [
-          "WA",
-          "NULL"
-        ]
-      },
-      "postalCode": {
-        "distinctCount": 9,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "98122",
-          "98401",
-          "98033"
-        ]
-      },
-      "country": {
-        "distinctCount": 2,
-        "subsetRatio": 0.2222,
-        "informationDensity": 1,
-        "sampleValues": [
-          "USA",
-          "UK"
-        ]
-      },
-      "homePhone": {
-        "distinctCount": 9,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "(206) 555-9857",
-          "(206) 555-9482",
-          "(206) 555-3412"
-        ]
-      },
-      "extension": {
-        "distinctCount": 9,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "5467",
-          "3457",
-          "3355"
-        ]
-      },
-      "photo": {
-        "distinctCount": 3,
-        "subsetRatio": 0.3333,
-        "informationDensity": 1,
-        "sampleValues": [
-          "0x151C2F00020000000D000E0014002100FFFFFFFF4269746D617020496D616765005061696E742E506963747572650001050000020000000700000050427275736800000000000000000020540000424D20540000000000007600000028000000C0000000DF0000000100040000000000A0530000CE0E0000D80E0000000000",
-          "0x151C2F00020000000D000E0014002100FFFFFFFF4269746D617020496D616765005061696E742E506963747572650001050000020000000700000050427275736800000000000000000080540000424D80540000000000007600000028000000C0000000E0000000010004000000000000540000CE0E0000D80E0000000000",
-          "0x151C2F00020000000D000E0014002100FFFFFFFF4269746D617020496D616765005061696E742E506963747572650001050000020000000700000050427275736800000000000000000020540000424D16540000000000007600000028000000C0000000DF0000000100040000000000A0530000CE0E0000D80E0000000000"
-        ]
-      },
-      "notes": {
-        "distinctCount": 9,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Education includes a BA in psychology from Colorado State University in 1970.  She also completed The Art of the Cold Call.  Nancy is a member of Toastmasters International.",
-          "Andrew received his BTS commercial in 1974 and a Ph.D. in international marketing from the University of Dallas in 1981.  He is fluent in French and Italian and reads German.  He joined the company as a sales representative was promoted to sales manager",
-          "Janet has a BS degree in chemistry from Boston College (1984). She has also completed a certificate program in food retailing management.  Janet was hired as a sales associate in 1991 and promoted to sales representative in February 1992."
-        ]
-      },
-      "reportsTo": {
-        "distinctCount": 3,
-        "subsetRatio": 0.3333,
-        "informationDensity": 1,
-        "sampleValues": [
-          "2",
-          "NULL",
-          "5"
-        ]
-      },
-      "photoPath": {
-        "distinctCount": 5,
-        "subsetRatio": 0.5556,
-        "informationDensity": 1,
-        "sampleValues": [
-          "http://accweb/emmployees/davolio.bmp",
-          "http://accweb/emmployees/fuller.bmp",
-          "http://accweb/emmployees/leverling.bmp"
-        ]
-      }
-    }
-  },
-  "employee_territories": {
-    "rowCount": 49,
-    "fields": {
-      "employeeID": {
-        "distinctCount": 9,
-        "subsetRatio": 0.1837,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1",
-          "2",
-          "3"
-        ]
-      },
-      "territoryID": {
-        "distinctCount": 49,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "06897",
-          "19713",
-          "01581"
-        ]
-      }
-    }
-  },
-  "orders": {
-    "rowCount": 830,
-    "fields": {
-      "orderID": {
-        "distinctCount": 830,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "10248",
-          "10249",
-          "10250"
-        ]
-      },
-      "customerID": {
-        "distinctCount": 89,
-        "subsetRatio": 0.1072,
-        "informationDensity": 1,
-        "sampleValues": [
-          "VINET",
-          "TOMSP",
-          "HANAR"
-        ]
-      },
-      "employeeID": {
-        "distinctCount": 9,
-        "subsetRatio": 0.0108,
-        "informationDensity": 1,
-        "sampleValues": [
-          "5",
-          "6",
-          "4"
-        ]
-      },
-      "orderDate": {
-        "distinctCount": 480,
-        "subsetRatio": 0.5783,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1996-07-04 00:00:00.000",
-          "1996-07-05 00:00:00.000",
-          "1996-07-08 00:00:00.000"
-        ]
-      },
-      "requiredDate": {
-        "distinctCount": 454,
-        "subsetRatio": 0.547,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1996-08-01 00:00:00.000",
-          "1996-08-16 00:00:00.000",
-          "1996-08-05 00:00:00.000"
-        ]
-      },
-      "shippedDate": {
-        "distinctCount": 388,
-        "subsetRatio": 0.4675,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1996-07-16 00:00:00.000",
-          "1996-07-10 00:00:00.000",
-          "1996-07-12 00:00:00.000"
-        ]
-      },
-      "shipVia": {
-        "distinctCount": 3,
-        "subsetRatio": 0.0036,
-        "informationDensity": 1,
-        "sampleValues": [
-          "3",
-          "1",
-          "2"
-        ]
-      },
-      "freight": {
-        "distinctCount": 799,
-        "subsetRatio": 0.9627,
-        "informationDensity": 1,
-        "sampleValues": [
-          "32.38",
-          "11.61",
-          "65.83"
-        ]
-      },
-      "shipName": {
-        "distinctCount": 90,
-        "subsetRatio": 0.1084,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Vins et alcools Chevalier",
-          "Toms Spezialitäten",
-          "Hanari Carnes"
-        ]
-      },
-      "shipAddress": {
-        "distinctCount": 89,
-        "subsetRatio": 0.1072,
-        "informationDensity": 1,
-        "sampleValues": [
-          "59 rue de l'Abbaye",
-          "Luisenstr. 48",
-          "Rua do Paço 67"
-        ]
-      },
-      "shipCity": {
-        "distinctCount": 70,
-        "subsetRatio": 0.0843,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Reims",
-          "Münster",
-          "Rio de Janeiro"
-        ]
-      },
-      "shipRegion": {
-        "distinctCount": 20,
-        "subsetRatio": 0.0241,
-        "informationDensity": 1,
-        "sampleValues": [
-          "NULL",
-          "RJ",
-          "SP"
-        ]
-      },
-      "shipPostalCode": {
-        "distinctCount": 85,
-        "subsetRatio": 0.1024,
-        "informationDensity": 1,
-        "sampleValues": [
-          "51100",
-          "44087",
-          "05454-876"
-        ]
-      },
-      "shipCountry": {
-        "distinctCount": 21,
-        "subsetRatio": 0.0253,
-        "informationDensity": 1,
-        "sampleValues": [
-          "France",
-          "Germany",
-          "Brazil"
-        ]
-      }
-    }
-  },
-  "order_details": {
-    "rowCount": 2155,
-    "fields": {
-      "orderID": {
-        "distinctCount": 830,
-        "subsetRatio": 0.3852,
-        "informationDensity": 1,
-        "sampleValues": [
-          "10248",
-          "10249",
-          "10250"
-        ]
-      },
-      "productID": {
-        "distinctCount": 77,
-        "subsetRatio": 0.0357,
-        "informationDensity": 1,
-        "sampleValues": [
-          "11",
-          "42",
-          "72"
-        ]
-      },
-      "unitPrice": {
-        "distinctCount": 116,
-        "subsetRatio": 0.0538,
-        "informationDensity": 1,
-        "sampleValues": [
-          "14.00",
-          "9.80",
-          "34.80"
-        ]
-      },
-      "quantity": {
-        "distinctCount": 55,
-        "subsetRatio": 0.0255,
-        "informationDensity": 1,
-        "sampleValues": [
-          "12",
-          "10",
-          "5"
-        ]
-      },
-      "discount": {
-        "distinctCount": 11,
-        "subsetRatio": 0.0051,
-        "informationDensity": 1,
-        "sampleValues": [
-          "0",
-          "0.15",
-          "0.05"
-        ]
-      }
-    }
-  },
-  "products": {
-    "rowCount": 77,
-    "fields": {
-      "productID": {
-        "distinctCount": 77,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1",
-          "2",
-          "3"
-        ]
-      },
-      "productName": {
-        "distinctCount": 77,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Chai",
-          "Chang",
-          "Aniseed Syrup"
-        ]
-      },
-      "supplierID": {
-        "distinctCount": 29,
-        "subsetRatio": 0.3766,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1",
-          "2",
-          "3"
-        ]
-      },
-      "categoryID": {
-        "distinctCount": 8,
-        "subsetRatio": 0.1039,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1",
-          "2",
-          "7"
-        ]
-      },
-      "quantityPerUnit": {
-        "distinctCount": 70,
-        "subsetRatio": 0.9091,
-        "informationDensity": 1,
-        "sampleValues": [
-          "10 boxes x 20 bags",
-          "24 - 12 oz bottles",
-          "12 - 550 ml bottles"
-        ]
-      },
-      "unitPrice": {
-        "distinctCount": 62,
-        "subsetRatio": 0.8052,
-        "informationDensity": 1,
-        "sampleValues": [
-          "18.00",
-          "19.00",
-          "10.00"
-        ]
-      },
-      "unitsInStock": {
-        "distinctCount": 51,
-        "subsetRatio": 0.6623,
-        "informationDensity": 1,
-        "sampleValues": [
-          "39",
-          "17",
-          "13"
-        ]
-      },
-      "unitsOnOrder": {
-        "distinctCount": 10,
-        "subsetRatio": 0.1299,
-        "informationDensity": 1,
-        "sampleValues": [
-          "0",
-          "40",
-          "70"
-        ]
-      },
-      "reorderLevel": {
-        "distinctCount": 7,
-        "subsetRatio": 0.0909,
-        "informationDensity": 1,
-        "sampleValues": [
-          "10",
-          "25",
-          "0"
-        ]
-      },
-      "discontinued": {
-        "distinctCount": 2,
-        "subsetRatio": 0.026,
-        "informationDensity": 1,
-        "sampleValues": [
-          "0",
-          "1"
-        ]
-      }
-    }
-  },
-  "regions": {
-    "rowCount": 4,
-    "fields": {
-      "regionID": {
-        "distinctCount": 4,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1",
-          "2",
-          "3"
-        ]
-      },
-      "regionDescription": {
-        "distinctCount": 4,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Eastern",
-          "Western",
-          "Northern"
-        ]
-      }
-    }
-  },
-  "shippers": {
-    "rowCount": 3,
-    "fields": {
-      "shipperID": {
-        "distinctCount": 3,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1",
-          "2",
-          "3"
-        ]
-      },
-      "companyName": {
-        "distinctCount": 3,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Speedy Express",
-          "United Package",
-          "Federal Shipping"
-        ]
-      },
-      "phone": {
-        "distinctCount": 3,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "(503) 555-9831",
-          "(503) 555-3199",
-          "(503) 555-9931"
-        ]
-      }
-    }
-  },
-  "suppliers": {
-    "rowCount": 29,
-    "fields": {
-      "supplierID": {
-        "distinctCount": 29,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1",
-          "2",
-          "3"
-        ]
-      },
-      "companyName": {
-        "distinctCount": 29,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Exotic Liquids",
-          "New Orleans Cajun Delights",
-          "Grandma Kelly's Homestead"
-        ]
-      },
-      "contactName": {
-        "distinctCount": 29,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Charlotte Cooper",
-          "Shelley Burke",
-          "Regina Murphy"
-        ]
-      },
-      "contactTitle": {
-        "distinctCount": 15,
-        "subsetRatio": 0.5172,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Purchasing Manager",
-          "Order Administrator",
-          "Sales Representative"
-        ]
-      },
-      "address": {
-        "distinctCount": 29,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "49 Gilbert St.",
-          "P.O. Box 78934",
-          "707 Oxford Rd."
-        ]
-      },
-      "city": {
-        "distinctCount": 29,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "London",
-          "New Orleans",
-          "Ann Arbor"
-        ]
-      },
-      "region": {
-        "distinctCount": 9,
-        "subsetRatio": 0.3103,
-        "informationDensity": 1,
-        "sampleValues": [
-          "NULL",
-          "LA",
-          "MI"
-        ]
-      },
-      "postalCode": {
-        "distinctCount": 29,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "EC1 4SD",
-          "70117",
-          "48104"
-        ]
-      },
-      "country": {
-        "distinctCount": 16,
-        "subsetRatio": 0.5517,
-        "informationDensity": 1,
-        "sampleValues": [
-          "UK",
-          "USA",
-          "Japan"
-        ]
-      },
-      "phone": {
-        "distinctCount": 29,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "(171) 555-2222",
-          "(100) 555-4822",
-          "(313) 555-5735"
-        ]
-      },
-      "fax": {
-        "distinctCount": 14,
-        "subsetRatio": 0.4828,
-        "informationDensity": 1,
-        "sampleValues": [
-          "NULL",
-          "(313) 555-3349",
-          "(03) 444-6588"
-        ]
-      },
-      "homePage": {
-        "distinctCount": 6,
-        "subsetRatio": 0.2069,
-        "informationDensity": 1,
-        "sampleValues": [
-          "NULL",
-          "#CAJUN.HTM#",
-          "Mayumi's (on the World Wide Web)#http://www.microsoft.com/accessdev/sampleapps/mayumi.htm#"
-        ]
-      }
-    }
-  },
-  "territories": {
-    "rowCount": 53,
-    "fields": {
-      "territoryID": {
-        "distinctCount": 53,
-        "subsetRatio": 1,
-        "informationDensity": 1,
-        "sampleValues": [
-          "01581",
-          "01730",
-          "01833"
-        ]
-      },
-      "territoryDescription": {
-        "distinctCount": 52,
-        "subsetRatio": 0.9811,
-        "informationDensity": 1,
-        "sampleValues": [
-          "Westboro",
-          "Bedford",
-          "Georgetow"
-        ]
-      },
-      "regionID": {
-        "distinctCount": 4,
-        "subsetRatio": 0.0755,
-        "informationDensity": 1,
-        "sampleValues": [
-          "1",
-          "3",
-          "4"
+          "KG",
+          "ml",
+          "Liter"
         ]
       }
     }

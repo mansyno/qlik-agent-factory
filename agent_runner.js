@@ -141,6 +141,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             }
             
             const metadata = profileResult.metadata;
+            const globalFieldValues = profileResult.globalFieldValues;
             broadcast('Architect', `Profiling complete. Found ${metadata.relationships.overlap.length} potential relationships.`, 'success');
 
             // ── Phase 1 → 2 gate ─────────────────────────────────────────────────
@@ -177,7 +178,12 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
 
             // Step 2: Relationship Detection & Normalization
             broadcast('Architect', `Step 2: Normalizing Relationships to prevent Synthetic Keys...`, 'info');
-            const relResult = determineRelationships(processedMetadata, processedClassifications);
+            const relResult = determineRelationships(processedMetadata, processedClassifications, globalFieldValues);
+            
+            // Memory Cleanup: The field value sets are no longer needed
+            if (globalFieldValues) {
+                Object.keys(globalFieldValues).forEach(key => delete globalFieldValues[key]);
+            }
             const normalizedData = relResult.normalizedData;
 
             if (!(await checkControl(ctrl, broadcast))) return;

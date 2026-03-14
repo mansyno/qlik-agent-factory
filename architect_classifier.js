@@ -20,9 +20,13 @@ const CLASSIFICATION_SCHEMA = {
                                 classification: {
                                     type: "string",
                                     enum: ["IDENTIFIER", "MEASURE", "DATE", "ATTRIBUTE", "SYSTEM_METADATA"]
+                                },
+                                semanticAlias: { 
+                                    type: "string", 
+                                    description: "Logical entity name for linking (e.g., 'Shipper' for both 'shipVia' and 'shipperID'). Use same value for synonymous keys." 
                                 }
                             },
-                            required: ["columnName", "classification"]
+                            required: ["columnName", "classification", "semanticAlias"]
                         }
                     }
                 },
@@ -98,10 +102,11 @@ Your output MUST be valid JSON mapping each Table to its Fields and their determ
     "CustomerName": "ATTRIBUTE"
   },
   "Orders.csv": {
-    "OrderID": "IDENTIFIER",
-    "CustomerID": "IDENTIFIER",
-    "OrderDate": "DATE",
-    "Amount": "MEASURE"
+    "OrderID": { "classification": "IDENTIFIER", "semanticAlias": "OrderID" },
+    "CustomerID": { "classification": "IDENTIFIER", "semanticAlias": "Customer" },
+    "shipVia": { "classification": "IDENTIFIER", "semanticAlias": "Shipper" },
+    "OrderDate": { "classification": "DATE", "semanticAlias": "OrderDate" },
+    "Amount": { "classification": "MEASURE", "semanticAlias": "Amount" }
   }
 }
 DO NOT RETURN MARKDOWN CODE BLOCKS. RETURN RAW JSON ONLY.`;
@@ -117,7 +122,10 @@ DO NOT RETURN MARKDOWN CODE BLOCKS. RETURN RAW JSON ONLY.`;
         responseData.tables.forEach(table => {
             llmClassifications[table.tableName] = {};
             table.columnClassifications.forEach(col => {
-                llmClassifications[table.tableName][col.columnName] = col.classification;
+                llmClassifications[table.tableName][col.columnName] = {
+                    classification: col.classification,
+                    semanticAlias: col.semanticAlias
+                };
             });
         });
     }
@@ -148,9 +156,13 @@ DO NOT RETURN MARKDOWN CODE BLOCKS. RETURN RAW JSON ONLY.`;
         let attributeCount = 0;
 
         Object.keys(tableStats.fields).forEach(fieldName => {
-            const llmType = llmTableData[fieldName] || 'ATTRIBUTE';
+            const llmEntry = llmTableData[fieldName] || { classification: 'ATTRIBUTE', semanticAlias: fieldName };
+            const llmType = llmEntry.classification;
+            const semanticAlias = llmEntry.semanticAlias || fieldName;
+
             fieldClassifications[fieldName] = {
                 type: llmType,
+                semanticAlias: semanticAlias,
                 ...tableStats.fields[fieldName]
             };
 

@@ -44,7 +44,7 @@ async function runPipeline(dataPath) {
 
         // Step 3: Relationship Detection & Normalization
         console.log("\n[PIPELINE] Phase 3: Relationship Detection and Normalization...");
-        const relResult = determineRelationships(metadata, classifications);
+        const relResult = determineRelationships(metadata, classifications, profileResult.globalFieldValues);
         const normalizedData = relResult.normalizedData;
 
         // Step 4: Structural Tester — proposes an initial strategy

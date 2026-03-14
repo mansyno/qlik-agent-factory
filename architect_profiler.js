@@ -41,8 +41,9 @@ async function profileAllData(dataDir, files, engineMetrics = {}) {
             Object.keys(tableStats.fields).forEach(fieldName => {
                 const uniqueKey = `${tableName}.${fieldName}`;
                 globalFieldValues[uniqueKey] = tableStats.fields[fieldName]._distinctSet;
-                // Delete the actual Set from the final output to avoid massive JSON dumps
-                delete tableStats.fields[fieldName]._distinctSet;
+                
+                // Note: We keep _distinctSet attached for late-binding in the detector,
+                // but we will manually clear them after Phase 2 to save memory.
             });
             
         } catch (err) {
@@ -50,10 +51,10 @@ async function profileAllData(dataDir, files, engineMetrics = {}) {
         }
     }
 
-    console.log(`[Profiler] Calculating cross-table relational metrics...`);
+    console.log(`[Profiler] Calculating initial cross-table relational metrics (Identical/Common names)...`);
     calculateRelationalMetrics(metadata, globalFieldValues);
     
-    return { success: true, metadata };
+    return { success: true, metadata, globalFieldValues };
 }
 
 function scanTable(filePath) {

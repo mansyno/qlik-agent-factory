@@ -42,10 +42,74 @@ function isTokenSubset(tokensA, tokensB) {
     return smaller.every(t => larger.includes(t));
 }
 
-function determineRelationships(metadata, classifications) {
+/**
+ * Calculates the intersection count between two Sets.
+ */
+function calculateSetIntersection(setA, setB) {
+    if (!setA || !setB) return 0;
+    let count = 0;
+    const smaller = setA.size < setB.size ? setA : setB;
+    const larger = setA.size < setB.size ? setB : setA;
+    for (const val of smaller) {
+        if (larger.has(val)) count++;
+    }
+    return count;
+}
+
+function determineRelationships(metadata, classifications, globalFieldValues = {}) {
     const relationships = metadata.relationships;
     const allLinks = [];
     const normalizedData = [];
+
+    // --- PHASE 0: LATE-BINDING SEMANTIC DISCOVERY ---
+    // If the AI nominated two fields as semantically equivalent (same semanticAlias)
+    // but the deterministic profiler skipped them (due to name filters), 
+    // we calculate the overlap now on-the-fly.
+    if (globalFieldValues && Object.keys(globalFieldValues).length > 0) {
+        const identifierFields = [];
+        classifications.forEach(table => {
+            Object.keys(table.fieldClassifications).forEach(col => {
+                const f = table.fieldClassifications[col];
+                if (f.type === 'IDENTIFIER' && f.semanticAlias) {
+                    identifierFields.push({
+                        qualifiedName: `${table.tableName}.${col}`,
+                        alias: f.semanticAlias,
+                        set: globalFieldValues[`${table.tableName}.${col}`]
+                    });
+                }
+            });
+        });
+
+        // Compare all AI-nominated identifiers
+        for (let i = 0; i < identifierFields.length; i++) {
+            for (let j = i + 1; j < identifierFields.length; j++) {
+                const fa = identifierFields[i];
+                const fb = identifierFields[j];
+
+                if (fa.alias === fb.alias && fa.qualifiedName.split('.')[0] !== fb.qualifiedName.split('.')[0]) {
+                    // Check if this relationship is already in the metadata
+                    const exists = relationships.overlap.some(r => 
+                        (r.fieldA === fa.qualifiedName && r.fieldB === fb.qualifiedName) ||
+                        (r.fieldA === fb.qualifiedName && r.fieldB === fa.qualifiedName)
+                    );
+
+                    if (!exists && fa.set && fb.set) {
+                        const intersection = calculateSetIntersection(fa.set, fb.set);
+                        if (intersection > 0) {
+                            relationships.overlap.push({
+                                fieldA: fa.qualifiedName,
+                                fieldB: fb.qualifiedName,
+                                intersectionCount: intersection,
+                                overlapRatioA: intersection / fa.set.size,
+                                overlapRatioB: intersection / fb.set.size,
+                                discoveredBy: 'AI_INTENT'
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // Phase 1: Build robust link dictionary from exact subsets and high overlaps
     relationships.overlap.forEach(rel => {
@@ -58,8 +122,12 @@ function determineRelationships(metadata, classifications) {
         const tableB = rel.fieldB.substring(0, lastDotB);
         const colB = rel.fieldB.substring(lastDotB + 1);
         
-        const classA = classifications.find(c => c.tableName === tableA)?.fieldClassifications[colA]?.type;
-        const classB = classifications.find(c => c.tableName === tableB)?.fieldClassifications[colB]?.type;
+        const fieldA = classifications.find(c => c.tableName === tableA)?.fieldClassifications[colA];
+        const fieldB = classifications.find(c => c.tableName === tableB)?.fieldClassifications[colB];
+        const classA = fieldA?.type;
+        const classB = fieldB?.type;
+        const aliasA = fieldA?.semanticAlias;
+        const aliasB = fieldB?.semanticAlias;
 
         if (tableA === tableB) return;
 
@@ -118,6 +186,12 @@ function determineRelationships(metadata, classifications) {
                 if (!areIdentical && (colA.toLowerCase() !== colB.toLowerCase()) && !isPerfectEntityA && !isPerfectEntityB) {
                     confidence -= 0.5; 
                 }
+            }
+
+            // --- SEMANTIC ALIAS BOOST (Intent-First) ---
+            // If the LLM assigned the same semantic entity (e.g. "Shipper"), boost if there's any data proof.
+            if (aliasA && aliasB && aliasA === aliasB && (rel.intersectionCount > 0)) {
+                confidence += 0.8;
             }
         }
 
@@ -190,11 +264,20 @@ function determineRelationships(metadata, classifications) {
         
         // Priority: Descriptive Name > Length > Generic
         arr.forEach(qualifiedName => {
-            const col = qualifiedName.split('.')[1];
+            const table = qualifiedName.substring(0, qualifiedName.lastIndexOf('.'));
+            const col = qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1);
+            const fieldInfo = classifications.find(c => c.tableName === table)?.fieldClassifications[col];
+            const alias = fieldInfo?.semanticAlias;
+            
             const isGeneric = /^(id|key|code|num|number)$/i.test(col);
             const currentIsGeneric = /^(id|key|code|num|number)$/i.test(bestName);
             
-            if (!isGeneric && (currentIsGeneric || col.length > bestName.length)) {
+            // Priority 1: Semantic Alias (if it's not the same as a generic original col)
+            if (alias && alias.toLowerCase() !== col.toLowerCase() && alias.length > 2) {
+                bestName = alias;
+            } 
+            // Priority 2: Not generic name
+            else if (!isGeneric && (currentIsGeneric || col.length > bestName.length)) {
                 bestName = col;
             }
         });

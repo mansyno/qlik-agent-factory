@@ -392,11 +392,10 @@ async function validateScript(global, scriptText, appOrDataPath) {
 
         Object.values(fieldToTables).forEach(tableList => {
             if (tableList.length > 1) {
-                for (let i = 0; i < tableList.length; i++) {
-                    for (let j = i + 1; j < tableList.length; j++) {
-                        adjacencyList[tableList[i]].add(tableList[j]);
-                        adjacencyList[tableList[j]].add(tableList[i]);
-                    }
+                // Use a CHAIN strategy: (T1-T2, T2-T3, ...)
+                for (let i = 0; i < tableList.length - 1; i++) {
+                    adjacencyList[tableList[i]].add(tableList[i + 1]);
+                    adjacencyList[tableList[i + 1]].add(tableList[i]);
                 }
             }
         });
@@ -424,11 +423,10 @@ async function validateScript(global, scriptText, appOrDataPath) {
                 }
             });
         } else {
-            componentCount = 1; // 0 real tables, fallback avoids false error
+            componentCount = 1;
         }
 
-        // Circular Reference Detection: In a tree, edges = nodes - 1.
-        // If there are more unique edges than that, the graph has a cycle.
+        // Circular Reference Detection
         let edgeCount = 0;
         const edgeSet = new Set();
         for (const [node, neighbors] of Object.entries(adjacencyList)) {
@@ -438,15 +436,20 @@ async function validateScript(global, scriptText, appOrDataPath) {
             }
         }
         edgeCount = edgeSet.size;
-        const hasCircularRefs = edgeCount > (realTables.length - 1);
+        const hasCircularRefs = edgeCount > (realTables.length - componentCount);
 
         const success = (synKeys === 0 && !hasCircularRefs);
         const errors = [];
+        
         if (synKeys > 0) errors.push(`Failed validation: Engine created ${synKeys} Synthetic Keys.`);
-        if (componentCount > 1) {
-            console.warn(`[VALIDATION WARNING] The data model contains ${componentCount} disconnected groups (sub-graphs). This is allowed, but may indicate unmapped foreign keys.`);
+        
+        if (hasCircularRefs) {
+            errors.push(`Failed validation: Circular references detected. The data model has ${edgeCount} unique table associations but only ${realTables.length} tables (tree limit: ${realTables.length - componentCount}).`);
         }
-        if (hasCircularRefs) errors.push(`Failed validation: Circular references detected. The data model has ${edgeCount} associations but only ${realTables.length} tables (expected max ${realTables.length - 1} associations for a tree).`);
+
+        if (componentCount > 1) {
+            console.warn(`[VALIDATION WARNING] The data model contains ${componentCount} disconnected groups.`);
+        }
 
         return {
             success: success,

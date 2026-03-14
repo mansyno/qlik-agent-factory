@@ -12,3 +12,7 @@ lorries/
 *.qvs
 *.log
 *.qvf
+.debug_classifications.json
+audit_log.json
+pipeline_debug.txt
+.debug_final_script.qvs
