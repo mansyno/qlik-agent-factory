@@ -49,7 +49,7 @@ async function runPipeline(dataPath) {
 
         // Step 4: Structural Tester — proposes an initial strategy
         console.log("\n[PIPELINE] Phase 4: Structural Test and Blueprint Generation...");
-        let { structuralBlueprint, finalDirectives } = generateBlueprint(normalizedData);
+        let { structuralBlueprint, directives: finalDirectives } = generateBlueprint(normalizedData);
 
         console.log(`  Initial Strategy Selected: ${structuralBlueprint.strategy}`);
 

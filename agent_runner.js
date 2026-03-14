@@ -151,7 +151,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
 
             const { classifyData } = require('./architect_classifier');
             const { determineRelationships } = require('./architect_relationship_detector');
-            const { generateBlueprint } = require('./architect_structural_tester');
+            const { generateBlueprint, findFactGroups } = require('./architect_structural_tester');
             const { generateQvsScript } = require('./architect_generator');
 
             // Step 1: Classify Tables
@@ -160,18 +160,31 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             const classifications = classResult.classifications;
             fs.writeFileSync(path.join(process.cwd(), '.debug_classifications.json'), JSON.stringify(classifications, null, 2));
 
+            // Identify Fact Groups IMMEDIATELY to ensure shared namespace
+            const factGroups = findFactGroups(metadata, classifications);
+            let processedMetadata = metadata;
+            let processedClassifications = classifications;
+
+            if (factGroups.length > 0) {
+                broadcast('Architect', `Identified ${factGroups.length} groups of fact tables for concatenation.`, 'info');
+                const { collapseFactGroups } = require('./architect_metadata_collapser');
+                const result = collapseFactGroups(metadata, classifications, factGroups);
+                processedMetadata = result.metadata;
+                processedClassifications = result.classifications;
+            }
+
             if (!(await checkControl(ctrl, broadcast))) return;
 
             // Step 2: Relationship Detection & Normalization
             broadcast('Architect', `Step 2: Normalizing Relationships to prevent Synthetic Keys...`, 'info');
-            const relResult = determineRelationships(metadata, classifications);
+            const relResult = determineRelationships(processedMetadata, processedClassifications);
             const normalizedData = relResult.normalizedData;
 
             if (!(await checkControl(ctrl, broadcast))) return;
 
             // Step 3: Structural Strategy & Compilation
             broadcast('Architect', `Step 3: Calculating Best Multi-Fact Strategy...`, 'info');
-            let { structuralBlueprint, finalDirectives } = generateBlueprint(normalizedData);
+            let { structuralBlueprint, directives: finalDirectives } = generateBlueprint(normalizedData, factGroups);
             broadcast('Architect', `Selected Base Strategy: ${structuralBlueprint.strategy}`, 'info');
 
             broadcast('Architect', 'Step 4: Real-time Qlik Engine Structural Validation...', 'info');

@@ -12,8 +12,12 @@
 /**
  * Identify fact tables that are highly similar and should be concatenated.
  */
-function findFactGroups(normalizedData) {
-    const factTables = normalizedData.filter(t => t.role === 'FACT');
+/**
+ * Identify fact tables that are highly similar and should be concatenated.
+ * Refactored to work on raw classifications and metadata before normalization.
+ */
+function findFactGroups(metadata, classifications) {
+    const factTables = classifications.filter(c => c.role === 'FACT');
     const groups = [];
     const processed = new Set();
 
@@ -24,19 +28,25 @@ function findFactGroups(normalizedData) {
         const group = [factTables[i].tableName];
         processed.add(factTables[i].tableName);
 
-        // Similarity check should use ORIGINAL fields (normalized for delimiters/casing)
-        // to detect structural identity before any table-specific aliasing occurs.
-        const fieldsI = new Set(factTables[i].originalFields.map(normalizeField));
+        // Get original fields from profile metadata
+        const tableMetadataI = metadata.tables[factTables[i].tableName];
+        if (!tableMetadataI) continue;
+
+        const fieldsI = new Set(Object.keys(tableMetadataI.fields).map(normalizeField));
 
         for (let j = i + 1; j < factTables.length; j++) {
             if (processed.has(factTables[j].tableName)) continue;
-            const fieldsJ = factTables[j].originalFields.map(normalizeField);
+            
+            const tableMetadataJ = metadata.tables[factTables[j].tableName];
+            if (!tableMetadataJ) continue;
+
+            const fieldsJ = Object.keys(tableMetadataJ.fields).map(normalizeField);
             
             let matchCount = 0;
             fieldsJ.forEach(f => { if (fieldsI.has(f)) matchCount++; });
 
             const similarity = matchCount / Math.max(fieldsI.size, fieldsJ.length);
-            // Re-relax to 0.7 to ensure HistorySales and Sales concatenate
+            // 0.7 threshold for concatenation
             if (similarity > 0.7) {
                 group.push(factTables[j].tableName);
                 processed.add(factTables[j].tableName);
@@ -91,20 +101,6 @@ function generateBlueprint(normalizedData) {
     let strategy = 'SINGLE_FACT';
     let needsDateBridge = false;
     
-    // 1. Identify Fact Groups for Concatenation
-    const factGroups = findFactGroups(normalizedData);
-    const hasConcatenation = factGroups.length > 0;
-
-    // 2. Conformance Stage: Unify names for concatenated fields
-    if (hasConcatenation) {
-        conformGroupFields(factGroups, normalizedData);
-    }
-    
-    if (hasConcatenation) {
-        strategy = 'CONCATENATE';
-        console.log(`[StructuralTester] Detected ${factGroups.length} groups of concatenatable fact tables.`);
-    }
-
     const allFactTables = normalizedData.filter(t => t.role === 'FACT').map(t => t.tableName);
     const dateFieldsList = [];
     
@@ -126,29 +122,17 @@ function generateBlueprint(normalizedData) {
         needsDateBridge = true;
     }
 
-    // Treat each concatenated group as a single logical fact table
-    const virtualFactTables = allFactTables.filter(ft => !factGroups.flat().includes(ft));
-    factGroups.forEach(g => virtualFactTables.push(g.join('_')));
-
     const sharedKeysSet = new Set();
     const keyPresenceInFacts = {};
 
-    if (virtualFactTables.length > 1) {
+    if (allFactTables.length > 1) {
         normalizedData.forEach(t => {
             const isFact = t.role === 'FACT';
-            const groupIdx = factGroups.findIndex(g => g.includes(t.tableName));
-            
-            if (isFact || groupIdx !== -1) {
-                const virtualName = groupIdx !== -1 ? factGroups[groupIdx].join('_') : t.tableName;
-                
+            if (isFact) {
                 t.normalizedFields.forEach(nf => {
-                    // BROADENED KEY DETECTION: Any field that isn't a measure and exists in 2+ fact clusters
-                    // must be moved to the LinkTable to prevent synthetic keys between measures/attributes.
-                    // IMPORTANT: We now include DATE fields because if two facts share a date AND both link 
-                    // to a LinkTable, keeping the date in the facts creates a loop (synthetic key).
                     if (nf.type !== 'MEASURE' && nf.normalizedName !== '%FactID') {
                         if (!keyPresenceInFacts[nf.normalizedName]) keyPresenceInFacts[nf.normalizedName] = new Set();
-                        keyPresenceInFacts[nf.normalizedName].add(virtualName);
+                        keyPresenceInFacts[nf.normalizedName].add(t.tableName);
                     }
                 });
             }
@@ -160,31 +144,22 @@ function generateBlueprint(normalizedData) {
             }
         });
 
-        // FORCE DATE INCLUSION: If needsDateBridge is true, all fact date fields MUST be in sharedKeysSet
-        // to ensure they are hubbed in the LinkTable.
         if (needsDateBridge) {
             dateFieldsList.forEach(df => {
-                if (df.isFactTable) {
-                    sharedKeysSet.add(df.fieldName);
-                }
+                if (df.isFactTable) sharedKeysSet.add(df.fieldName);
             });
         }
 
-        // Apply the 2+ shared key guard per spec Step 5
         if (sharedKeysSet.size >= 2) {
             strategy = 'LINK_TABLE';
-            console.log(`[StructuralTester] ${sharedKeysSet.size} shared conformed keys among virtual facts. Strategy: LINK_TABLE`);
-        } else if (strategy !== 'CONCATENATE') {
-            // 0-1 shared keys: star schema handles this fine, no link table needed
+        } else {
             strategy = 'MULTI_FACT_STAR';
-            console.log(`[StructuralTester] Only ${sharedKeysSet.size} shared key(s). Strategy: MULTI_FACT_STAR (no link table)`);
         }
     }
 
     const structuralBlueprint = {
         strategy: strategy,
         factTables: allFactTables.map(f => ({ tableName: f })),
-        factGroups: factGroups,
         dateBridgeRequired: needsDateBridge,
         dates: dateFieldsList
     };
@@ -197,26 +172,35 @@ function generateBlueprint(normalizedData) {
         };
     }
 
-    // Prepare final directives for QVS generation
-    const finalDirectives = normalizedData.map(n => {
-        // Support both structured grain and legacy string grain
-        let grainStr;
-        if (typeof n.grain === 'object' && n.grain !== null) {
-            grainStr = n.grain.grainDescription || n.grain.grainFields?.join(', ') || '';
-        } else {
-            grainStr = n.grain || '';
-        }
-
-        return {
+    const finalDirectives = [];
+    normalizedData.forEach(n => {
+        const baseDirective = {
             tableName: n.tableName,
-            notes: `Role: ${n.role}, Grain: ${grainStr} `,
+            notes: `Role: ${n.role}, Grain: ${n.grain} `,
             loadStatement: `LOAD * FROM [${n.tableName}]`
         };
+
+        if (n.constituentTables && n.constituentTables.length > 0) {
+            n.constituentTables.forEach(constituent => {
+                finalDirectives.push({
+                    ...baseDirective,
+                    originalFileName: constituent.originalFileName,
+                    sourceTableName: constituent.tableName,
+                    originalFields: constituent.originalFields // Passed from Collapser
+                });
+            });
+        } else {
+            finalDirectives.push(baseDirective);
+        }
     });
 
-    return { structuralBlueprint, finalDirectives };
+    return {
+        directives: finalDirectives,
+        structuralBlueprint
+    };
 }
 
 module.exports = {
-    generateBlueprint
+    generateBlueprint,
+    findFactGroups
 };

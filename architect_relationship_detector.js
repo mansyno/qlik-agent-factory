@@ -58,6 +58,9 @@ function determineRelationships(metadata, classifications) {
         const tableB = rel.fieldB.substring(0, lastDotB);
         const colB = rel.fieldB.substring(lastDotB + 1);
         
+        const classA = classifications.find(c => c.tableName === tableA)?.fieldClassifications[colA]?.type;
+        const classB = classifications.find(c => c.tableName === tableB)?.fieldClassifications[colB]?.type;
+
         if (tableA === tableB) return;
 
         // Exact same name gets high confidence boost
@@ -79,8 +82,6 @@ function determineRelationships(metadata, classifications) {
         }
 
         // --- ENTITY COMPOSITION BOOST ---
-        // Boosts confidence if the field name combined with the table name perfectly 
-        // describes the other field (e.g., Lorries.Type ↔ LorriesCost.Lorry_Type)
         const combinedA = new Set([...tokensA, ...tableTokensA]);
         const combinedB = new Set([...tokensB, ...tableTokensB]);
 
@@ -97,8 +98,6 @@ function determineRelationships(metadata, classifications) {
         }
 
         // --- IDENTIFIER GUARD ---
-        const classA = classifications.find(c => c.tableName === tableA)?.fieldClassifications[colA]?.type;
-        const classB = classifications.find(c => c.tableName === tableB)?.fieldClassifications[colB]?.type;
         const isIdA = classA === 'IDENTIFIER';
         const isIdB = classB === 'IDENTIFIER';
         
@@ -116,15 +115,17 @@ function determineRelationships(metadata, classifications) {
                 confidence += 0.4;
             } else {
                 // If they are both IDs but names/entities don't match (and NOT a perfect entity match), PENALIZE overlap confidence
-                if (!areIdentical && !isPerfectEntityA && !isPerfectEntityB) {
+                if (!areIdentical && (colA.toLowerCase() !== colB.toLowerCase()) && !isPerfectEntityA && !isPerfectEntityB) {
                     confidence -= 0.5; 
                 }
             }
         }
 
-        // --- MEASURE GUARD ---
-        if (classA !== 'IDENTIFIER' && classB !== 'IDENTIFIER' && !isPerfectEntityA && !isPerfectEntityB) {
-            confidence = 0; // Prevent linking purely on non-identifiers unless they are strong entity matches
+        // --- STRICT MEASURE/DIMENSION LOCKDOWN ---
+        // Measures and non-identifier attributes should NEVER link automatically.
+        // They must stay isolated to their respective tables to prevent circulars and 'salad' associations.
+        if (classA === 'MEASURE' || classB === 'MEASURE' || (classA !== 'IDENTIFIER' && classB !== 'IDENTIFIER')) {
+            confidence = 0;
         }
 
         if (confidence >= 0.7) {
@@ -135,22 +136,20 @@ function determineRelationships(metadata, classifications) {
     // Phase 2: Apply normalization mapping
     const normalizationMap = {}; // original qualified name -> normalized logical name
     
-    // Default: aliasing non-keys to include table names to prevent accidental synthetic keys
-    // We only want fields to have the same name if they are EXPLICITLY linked.
     classifications.forEach(c => {
         const cleanTableName = (c.tableName || "").replace(/[\[\]]/g, '');
+
         Object.keys(c.fieldClassifications || {}).forEach(col => {
             const qualifiedName = `${c.tableName}.${col}`;
-            const type = c.fieldClassifications[col].type;
+            const isId = c.fieldClassifications[col].type === 'IDENTIFIER';
             
-            // By default, every field is unique to its table to prevent "Measure Hijacking"
-            // (e.g. Parts.Cost and Lorries.Cost should stay separate)
-            // unless they are later explicitly unified.
-            normalizationMap[qualifiedName] = `${cleanTableName}_${col}`;
-            
-            // However, common descriptive attributes (Name, Desc) that aren't keys
-            // should usually keep their names if there's no collision, but we'll be safe
-            // and let the unification logic handle the "Global Name" decision.
+            // IDENTIFIERS: Use original name to allow automatic linking
+            // ALL OTHER FIELDS: Prefix with table name to isolate and prevent unintended associations/circulars
+            if (isId) {
+                normalizationMap[qualifiedName] = col;
+            } else {
+                normalizationMap[qualifiedName] = `${cleanTableName}_${col}`;
+            }
         });
     });
 
@@ -249,7 +248,8 @@ function determineRelationships(metadata, classifications) {
             
             let normalizedName = normalizationMap[qualifiedName];
             
-            // Specifically handling dates: Always prefix dates
+            // Specifically handling dates: Always prefix dates to ensure they can be bridged uniquely
+            // and don't create unintended links.
             if (isDate) {
                 normalizedName = `${tableName}_${col}`;
             }
@@ -284,7 +284,8 @@ function determineRelationships(metadata, classifications) {
             originalFields: originalFields,
             normalizedFields: normFields,
             role: c.role,
-            grain: grainStr
+            grain: grainStr,
+            constituentTables: c.constituentTables // PASS THROUGH
         });
     });
 

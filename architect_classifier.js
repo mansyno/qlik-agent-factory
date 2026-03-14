@@ -1,44 +1,46 @@
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
-const { GoogleGenAI } = require('@google/genai');
+const { generateJsonContent } = require('./brain');
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL_NAME = 'gemini-3-flash-preview';
+const CLASSIFICATION_SCHEMA = {
+    type: "object",
+    properties: {
+        tables: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    tableName: { type: "string" },
+                    columnClassifications: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                columnName: { type: "string" },
+                                classification: {
+                                    type: "string",
+                                    enum: ["IDENTIFIER", "MEASURE", "DATE", "ATTRIBUTE", "SYSTEM_METADATA"]
+                                }
+                            },
+                            required: ["columnName", "classification"]
+                        }
+                    }
+                },
+                required: ["tableName", "columnClassifications"]
+            }
+        }
+    },
+    required: ["tables"]
+};
 
 async function classifyWithLLM(systemPrompt, userPrompt) {
-    let retries = 3;
-    let lastError = null;
-
-    while (retries > 0) {
-        try {
-            console.log(`[CLASSIFIER] Requesting classification from ${MODEL_NAME} (Attempts remaining: ${retries})...`);
-            
-            const response = await ai.models.generateContent({
-                model: MODEL_NAME,
-                contents: userPrompt,
-                config: {
-                    systemInstruction: systemPrompt,
-                    temperature: 0.1 // very strict deterministic response
-                }
-            });
-
-            let text = response.text;
-            
-            // Clean up backticks in case LLM ignores "no markdown" instruction
-            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
-            const parsedJson = JSON.parse(text);
-            return parsedJson;
-
-        } catch (error) {
-            console.error(`[CLASSIFIER] Attempt failed: ${error.message}`);
-            lastError = error;
-            retries--;
-        }
+    try {
+        // Use the robust, unified LLM tool from brain.js
+        // This automatically handles retries (15s waits) and throttling.
+        return await generateJsonContent(userPrompt, CLASSIFICATION_SCHEMA, systemPrompt);
+    } catch (error) {
+        throw new Error(`[CLASSIFIER] FATAL: Failed to classify fields with LLM. Details: ${error.message}`);
     }
-
-    throw new Error(`[CLASSIFIER] FATAL: Failed to classify fields with LLM after 3 attempts. Last Error: ${lastError.message}`);
 }
 
 async function classifyData(profileMetadata) {
@@ -107,7 +109,18 @@ DO NOT RETURN MARKDOWN CODE BLOCKS. RETURN RAW JSON ONLY.`;
     const userPrompt = `Classify the following schema:\n\n${JSON.stringify(tablesToClassify, null, 2)}`;
 
     // 4. API Request Let's go!
-    const llmClassifications = await classifyWithLLM(systemPrompt, userPrompt);
+    const responseData = await classifyWithLLM(systemPrompt, userPrompt);
+    
+    // Map the array-based response back to the legacy map format for compatibility
+    const llmClassifications = {};
+    if (responseData.tables) {
+        responseData.tables.forEach(table => {
+            llmClassifications[table.tableName] = {};
+            table.columnClassifications.forEach(col => {
+                llmClassifications[table.tableName][col.columnName] = col.classification;
+            });
+        });
+    }
     
     // Write out the raw JSON for debugging purposes
     fs.writeFileSync(

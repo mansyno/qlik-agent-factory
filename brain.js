@@ -88,6 +88,30 @@ async function generateContent(prompt, systemInstruction = null) {
     }, 'LLM_General');
 }
 
+/**
+ * Structured JSON LLM call with retry logic.
+ */
+async function generateJsonContent(prompt, schema, systemInstruction = null) {
+    if (!API_KEY) throw new Error("GEMINI_API_KEY not configured.");
+    await throttle('LLM_General');
+
+    return await callWithRetry(async (modelName) => {
+        const modelInfo = { 
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            }
+        };
+        if (systemInstruction) modelInfo.systemInstruction = systemInstruction;
+
+        const model = genAI.getGenerativeModel(modelInfo);
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return JSON.parse(response.text());
+    }, 'LLM_General');
+}
+
 async function generateScript({ profiles, feedback, previousScript }) {
     if (!API_KEY) {
         throw new Error("GEMINI_API_KEY not configured.");
@@ -568,6 +592,7 @@ ${JSON.stringify(profileData, null, 2)}
 module.exports = { 
     generateScript, 
     generateContent, 
+    generateJsonContent,
     classifyTablesAndFields, 
     normalizeFields, 
     buildAssociationGraph, 
