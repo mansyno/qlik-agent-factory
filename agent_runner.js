@@ -457,7 +457,10 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                 // ignore the LLM's proposal for that same tool/target combo.
                 const llmPlan = (llmResult.plan || []).filter(llmTool => {
                     // Filter out tools with empty parameters immediately to prevent rejection logs
-                    if (!llmTool.parameters || Object.keys(llmTool.parameters).length === 0) return false;
+                    if (!llmTool.parameters || Object.keys(llmTool.parameters).length === 0) {
+                        console.warn(`[Enhancer] LLM proposed ${llmTool.toolId} with EMPTY parameters. Filtering out.`);
+                        return false;
+                    }
 
                     return !deterministicPlan.some(detTool => {
                         if (detTool.toolId !== llmTool.toolId) return false;

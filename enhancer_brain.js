@@ -26,10 +26,10 @@ Your job is to analyze the metadata of a Qlik Sense application and decide how t
 
 ## **1. The Decision Logic (Pick and Match)**
 - **Analyze Metadata:** Review field names, cardinality, and sample data.
-- **Focus on Probabilistic Patterns**:
+- **Formulate Optimal Selections**:
   - **[pareto_linked]**: Use this for ANY table with a Measure (e.g. Sales, Amount, Qty) and a significant Dimension (e.g. Customer, Product).
   - **[market_basket]**: Use this if you find a 1-to-many relationship (e.g. OrderID -> ProductID).
-- **PRIORITIZE CANDIDATES**: If "Pre-Flight Inspection Hints" provide a "Candidate", you MUST include it in your plan unless you have a strong architectural reason not to.
+- **Candidate Adoption**: If "Pre-Flight Inspection Hints" provide a "Candidate", incorporate its parameters into your plan.
 - **Standard Requirement**: Use 'CanonicalDate' and 'LinkTable' as your anchors whenever possible.
 
 ## **2. The Toolbox Manifest (Catalog - Tier 1)**
@@ -37,8 +37,7 @@ Prioritize these for reliability. Match the 'id' exactly and provide ALL require
 ${catalogStr}
 
 ## **3. The Output Contract (MANDATORY)**
-- You MUST provided a "plan" array of objects.
-- Each Catalog tool in the plan MUST have a "toolId" and a NON-EMPTY "parameters" object.
+- Each Catalog tool in the plan should have a "toolId" and a matching "parameters" object.
 - **EXAMPLE [as_of_table]**: { "toolId": "as_of_table", "parameters": { "dateField": "CanonicalDate" } }
 - **EXAMPLE [pareto_linked]**: { "toolId": "pareto_linked", "parameters": { "factTable": "Sales", "linkTable": "LinkTable", "keyField": "%Key_Sales", "dimensionField": "Customer", "measureField": "TotalSales" } }
 
@@ -63,14 +62,30 @@ async function generateEnrichmentPlan(markdownMetadata, baseScript, hints = []) 
     : "";
 
   const userPrompt = `
-Formulate the enrichment plan for this application metadata.
+Formulate the enrichment plan for this application metadata. 
+
+## **Pre-Flight Inspection Hints**
 ${hintsStr}
 
 --- START OF ANALYTICAL METADATA ---
 ${markdownMetadata}
 --- END OF ANALYTICAL METADATA ---
 
-Formulate the plan now. Return ONLY the JSON object.
+### **Process Instructions**:
+1. **Think**: Analyze the metadata and candidates provided. Identify which Catalog tools are most appropriate.
+2. **Plan**: Formulate the parameters for each tool (e.g. which measure, which dimension).
+3. **Response**: Return your result in the following JSON format:
+
+\`\`\`json
+{
+  "thought": "Briefly explains your architectural choices for this run",
+  "plan": [
+    { "tier": "catalog", "toolId": "...", "parameters": { ... } }
+  ]
+}
+\`\`\`
+
+Ensure all parameters identified in the Pre-Flight hints are included. Provide the final plan now.
     `;
 
   // Debug: Log the EXACT prompt to see what the AI sees
@@ -80,29 +95,18 @@ Formulate the plan now. Return ONLY the JSON object.
     logger.warn('EnhancerBrain', 'Failed to write debug prompt file');
   }
 
-  const planSchema = {
-    type: "object",
-    properties: {
-      plan: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            tier: { type: "string", enum: ["catalog", "forge"] },
-            toolId: { type: "string" },
-            parameters: { type: "object" },
-            description: { type: "string" }
-          },
-          required: ["tier", "toolId", "parameters"]
-        }
-      }
-    },
-    required: ["plan"]
-  };
-
   try {
-    // Correctly using systemInstruction for better focus
-    const plan = await generateJsonContent(userPrompt, planSchema, instructions);
+    // Switching to raw generateContent to allow for Chain of Thought and avoid schema-induced "laziness"
+    const rawResponse = await generateContent(userPrompt, instructions);
+    
+    // Extract JSON from potential markdown blocks
+    let cleanedResponse = rawResponse.trim();
+    const jsonMatch = cleanedResponse.match(/```json\n([\s\S]*?)\n```/) || cleanedResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanedResponse = jsonMatch[1] || jsonMatch[0];
+    }
+
+    const plan = JSON.parse(cleanedResponse);
     
     // Debug: Log the RESPONSE
     try {
@@ -111,10 +115,17 @@ Formulate the plan now. Return ONLY the JSON object.
       logger.warn('EnhancerBrain', 'Failed to write debug response file');
     }
 
+    if (plan.thought) {
+      logger.log('EnhancerBrain', `AI Thought: ${plan.thought}`);
+    }
+
     logger.log('EnhancerBrain', 'Enrichment Plan Formulation Complete');
     return plan;
   } catch (err) {
-    logger.error('EnhancerBrain', 'Failed to generate Enrichment Plan');
+    logger.error('EnhancerBrain', 'Failed to generate Enrichment Plan or Parse JSON');
+    if (err instanceof SyntaxError) {
+        console.error("[EnhancerBrain] Raw Response that failed to parse:", rawResponse);
+    }
     throw err;
   }
 }
