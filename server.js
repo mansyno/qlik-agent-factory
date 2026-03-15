@@ -49,7 +49,7 @@ app.post('/api/run', async (req, res) => {
     try {
         // Cache-bust agent modules so edits are picked up without server restart
         Object.keys(require.cache).forEach(key => {
-            if (key.includes('agent_runner') || key.includes('brain') || key.includes('deterministic_modeler') || key.includes('architect_generator')) {
+            if (key.includes('agent_runner') || key.includes('brain') || key.includes('enhancer') || key.includes('layout') || key.includes('deterministic_modeler') || key.includes('architect_generator')) {
                 delete require.cache[key];
             }
         });

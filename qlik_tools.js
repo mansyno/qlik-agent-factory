@@ -30,37 +30,38 @@ async function openSessionForApp(appName) {
     });
     const global = await session.open();
 
-    // --- Strategy 1: getDocList() name → GUID resolution ---
-    const docList = await global.getDocList();
-    console.log(`[openSessionForApp] getDocList returned ${docList.length} apps:`);
-    docList.forEach(d => console.log(`  qDocId=${d.qDocId}  qDocName=${d.qDocName}`));
-
-    const entry = docList.find(d =>
-        d.qDocName.toLowerCase() === appName.toLowerCase() ||
-        d.qDocName.replace(/\.qvf$/i, '').toLowerCase() === appName.toLowerCase() ||
-        d.qDocId === appName
-    );
-
-    if (entry) {
-        console.log(`[openSessionForApp] Matched via docList: ${entry.qDocId}`);
-        const appHandle = await global.openDoc(entry.qDocId);
-        return { session, global, appHandle };
-    }
-
-    // --- Strategy 2: direct openDoc by name (Qlik Desktop fallback) ---
-    // On Desktop, openDoc accepts the app name without .qvf if the app is saved.
-    console.log(`[openSessionForApp] Not in docList — trying openDoc('${appName}') directly...`);
+    // --- Strategy 1: Direct openDoc by name (Qlik Desktop / Already known GUID) ---
+    // This is the fastest way. Qlik Desktop accepts the app name or full path.
+    console.log(`[openSessionForApp] Attempting direct openDoc('${appName}')...`);
     try {
         const appHandle = await global.openDoc(appName);
+        console.log(`[openSessionForApp] Successfully opened '${appName}' directly.`);
         return { session, global, appHandle };
     } catch (directErr) {
-        // Clean up before rethrowing so the caller gets a useful message
-        try { await session.close(); } catch (_) { }
-        throw new Error(
-            `App '${appName}' could not be opened. ` +
-            `getDocList returned ${docList.length} apps (see server console). ` +
-            `Direct openDoc error: ${directErr.message}`
+        console.log(`[openSessionForApp] Direct openDoc failed: ${directErr.message}. Falling back to docList resolution...`);
+    }
+
+    // --- Strategy 2: getDocList() name → GUID resolution (Hub/Server fallback) ---
+    try {
+        const docList = await global.getDocList();
+        const entry = docList.find(d =>
+            d.qDocName.toLowerCase() === appName.toLowerCase() ||
+            d.qDocName.replace(/\.qvf$/i, '').toLowerCase() === appName.toLowerCase() ||
+            d.qDocId === appName
         );
+
+        if (entry) {
+            console.log(`[openSessionForApp] Matched via docList: ${entry.qDocId}`);
+            const appHandle = await global.openDoc(entry.qDocId);
+            return { session, global, appHandle };
+        }
+
+        // Clean up
+        await session.close();
+        throw new Error(`App '${appName}' not found in docList and direct open failed.`);
+    } catch (docListErr) {
+        try { await session.close(); } catch (_) { }
+        throw new Error(`App '${appName}' could not be opened. Error: ${docListErr.message}`);
     }
 }
 
@@ -518,6 +519,103 @@ async function createPersistentApp(global, appName) {
     }
 }
 
+async function getLiveMetadata(app) {
+    try {
+        console.log("[QLIK_TOOLS] Fetching Live Metadata (getTablesAndKeys)...");
+        const tableData = await app.getTablesAndKeys({ 
+            qWindowSize: { qcx: 0, qcy: 100 }, 
+            qNullSize: { qcx: 0, qcy: 0 }, 
+            qSyntheticMode: true 
+        });
+
+        const metadata = {
+            tables: {},
+            syntheticKeys: []
+        };
+
+        for (const t of tableData.qtr) {
+            if (t.qIsSynthetic) {
+                metadata.syntheticKeys.push(t.qName);
+                continue;
+            }
+
+            const fields = [];
+            for (const f of t.qFields) {
+                let cardinal = 0;
+                let samples = [];
+                
+                try {
+                    const fieldHandle = await app.getField(f.qName);
+                    cardinal = await fieldHandle.getCardinal();
+
+                    // Stable way to get samples: Create a temporary list object
+                    const sessionObj = await app.createSessionObject({
+                        qInfo: { qType: 'FieldValues' },
+                        qListObjectDef: {
+                            qDef: { qFieldDefs: [f.qName] },
+                            qInitialDataFetch: [{ qTop: 0, qLeft: 0, qWidth: 1, qHeight: 5 }]
+                        }
+                    });
+                    const layout = await sessionObj.getLayout();
+                    if (layout.qListObject.qDataPages && layout.qListObject.qDataPages.length > 0) {
+                        samples = layout.qListObject.qDataPages[0].qMatrix.map(m => m[0].qText);
+                    }
+                    await app.destroySessionObject(sessionObj.id);
+                } catch (fieldErr) {
+                    console.warn(`[QLIK_TOOLS] Warning: Could not fetch details for field ${f.qName}:`, fieldErr.message);
+                }
+
+                fields.push({
+                    name: f.qName,
+                    tags: f.qTags || [],
+                    isKey: f.qKeyType !== 'NOT_KEY' && f.qKeyType !== 0,
+                    distinctCount: cardinal,
+                    sampleValues: samples
+                });
+            }
+
+            metadata.tables[t.qName] = {
+                rowCount: t.qNoOfRows,
+                fields: fields
+            };
+        }
+
+        return metadata;
+    } catch (err) {
+        console.error("[QLIK_TOOLS] getLiveMetadata error:", err);
+        return { error: err.message };
+    }
+}
+
+/**
+ * Formats dense metadata object into a concise Markdown table for LLM consumption.
+ */
+function formatMetadataAsMarkdown(metadata) {
+    if (!metadata || metadata.error) return "Error: No metadata available.";
+
+    let md = "| Table | Field | Distinct | Tags | Samples |\n";
+    md += "| :--- | :--- | :--- | :--- | :--- |\n";
+
+    for (const [tableName, tableInfo] of Object.entries(metadata.tables)) {
+        for (const field of tableInfo.fields) {
+            const tags = (field.tags || []).join(', ');
+            // Truncate samples to save tokens
+            const samples = (field.sampleValues || [])
+                .map(v => String(v).substring(0, 20)) // Limit individual sample length
+                .slice(0, 3) // Limit number of samples
+                .join(', ');
+            
+            md += `| ${tableName} | ${field.name} | ${field.distinctCount} | ${tags} | ${samples} |\n`;
+        }
+    }
+
+    if (metadata.syntheticKeys && metadata.syntheticKeys.length > 0) {
+        md += `\n**Synthetic Keys Detected:** ${metadata.syntheticKeys.join(', ')}\n`;
+    }
+
+    return md;
+}
+
 module.exports = {
     openSession,
     openSessionForApp,
@@ -527,5 +625,7 @@ module.exports = {
     validateScript,
     createConnection,
     createPersistentApp,
-    getEngineMetrics
+    getEngineMetrics,
+    getLiveMetadata,
+    formatMetadataAsMarkdown
 };

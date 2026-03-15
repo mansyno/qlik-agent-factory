@@ -1,71 +1,24 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
 const logger = require('./.agent/utils/logger');
 const { throttle } = require('./.agent/utils/throttle');
+const { generateContent, generateJsonContent, getActiveModel } = require('./brain');
 
-// Load API Key
-require('dotenv').config();
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-  console.error("CRITICAL ERROR: GEMINI_API_KEY environment variable not set.");
-  process.exit(1);
-}
-const genAI = new GoogleGenerativeAI(apiKey);
-
-const MODELS = {
-  primary: 'gemini-3-flash-preview',
-  fallback: 'gemini-3-flash-lite'
-};
-let activeModel = MODELS.primary;
-
-/**
- * Wraps an async LLM call with retry logic for 503 and 429 errors.
- * Falls back to a secondary model on sustained quota errors.
- */
-async function callWithRetry(fn, callerName = 'EnhancerBrain', maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn(activeModel);
-    } catch (err) {
-      const msg = err.message || '';
-      const is503 = msg.includes('503') || msg.includes('Service Unavailable') || msg.includes('high demand');
-      const is429 = msg.includes('429') || msg.includes('Quota exceeded') || msg.includes('quota');
-
-      if (is503) {
-        if (attempt < maxRetries) {
-          logger.log(callerName, `503 Service Unavailable. Waiting 15s before retry ${attempt + 1}/${maxRetries}...`);
-          await new Promise(r => setTimeout(r, 15000));
-          continue;
-        }
-      } else if (is429) {
-        if (attempt < maxRetries) {
-          logger.log(callerName, `429 Quota Error. Waiting 60s before retry ${attempt + 1}/${maxRetries}...`);
-          await new Promise(r => setTimeout(r, 60000));
-          continue;
-        } else if (activeModel === MODELS.primary) {
-          logger.log(callerName, `Quota exhausted on '${activeModel}'. Switching to fallback model '${MODELS.fallback}'.`);
-          activeModel = MODELS.fallback;
-          return await fn(activeModel);
-        }
-      }
-
-      throw err;
-    }
-  }
-}
+// Models and retries are managed by brain.js
 
 /**
  * Builds the system prompt including the Toolbox Manifest
  */
 function buildSystemPrompt() {
   const catalogPath = path.join(__dirname, 'templates', 'catalog.json');
-  let catalogStr = '[]';
+  let catalog = [];
   try {
-    catalogStr = fs.readFileSync(catalogPath, 'utf8');
+    const catalogJson = fs.readFileSync(catalogPath, 'utf8');
+    catalog = JSON.parse(catalogJson);
   } catch (e) {
-    logger.error('EnhancerBrain', 'Failed to read catalog.json', e);
+    logger.error('EnhancerBrain', 'Failed to read or parse catalog.json', e);
   }
+  const catalogStr = catalog.map(t => `- [${t.id}]: ${t.description}\n  REQUIRED PARAMETERS: ${t.parameters.join(', ')}`).join('\n');
 
   return `
 You are the "Senior Qlik Architect" Intelligence for the Enhancer Phase (Agent 3).
@@ -73,43 +26,25 @@ Your job is to analyze the metadata of a Qlik Sense application and decide how t
 
 ## **1. The Decision Logic (Pick and Match)**
 - **Analyze Metadata:** Review field names, cardinality, and sample data.
-- **Strategy Selection:**
-  - **Tier 1 (Catalog):** Default choice for ALL structural improvements. Pick a Tool ID from the Manifest below and fill in the parameters. THIS IS ALWAYS PREFERRED.
-  - **Tier 2 (The Forge):** Used ONLY for truly unique, one-off logic with absolutely NO equivalent in the Catalog. This is a LAST RESORT.
-- **Pareto Requirement:** If you want to perform any 80/20 or Pareto segmentation, you MUST use the [pareto_linked] catalog tool.
-  - **Key Derivation**: Look at the metadata. If a `LinkTable` exists, the `keyField` for a fact table is usually `%Key_TableName`.
-  - **Source Awareness**: Be aware that if a `LinkTable` is present, conformed keys are DROPPED from original fact tables. Use the string "LinkTable" as the resident source for conformed identifiers.
-- **Dual Flag Injection**: You MUST specify the `targetTable`. Use the string "LinkTable" if it contains the field, otherwise use the specific dimension table name.
-- **Market Basket Rule:** You MAY suggest the [market_basket] catalog tool if you identify transactional fact data with both an ID/Header field and a Line Item/Product field. The execution engine will dynamically verify if a 1-to-many relationship actually exists before applying it.
+- **Focus on Probabilistic Patterns**:
+  - **[pareto_linked]**: Use this for ANY table with a Measure (e.g. Sales, Amount, Qty) and a significant Dimension (e.g. Customer, Product).
+  - **[market_basket]**: Use this if you find a 1-to-many relationship (e.g. OrderID -> ProductID).
+- **Standard Requirement**: Use 'CanonicalDate' and 'LinkTable' as your anchors whenever possible.
 
 ## **2. The Toolbox Manifest (Catalog - Tier 1)**
 Prioritize these for reliability. Match the 'id' exactly and provide ALL required parameters.
 ${catalogStr}
 
-## **3. The Forge: Syntax Guardrails (MANDATORY - "No SQL Thinking")**
-Your synthesized code MUST follow these rules or it WILL fail validation:
-1. **No SQL Aggregations in LOAD:** NEVER use Sum(), Count(), or Avg() in a LOAD statement without a GROUP BY on ALL non-aggregated fields.
-2. **Resident Only:** ALL transformation logic MUST use RESIDENT loads. Never load directly from a file in a Forge step.
-3. **Variable Pre-Calculation:** If a running total or denominator is needed, calculate it FIRST into a LET variable using Peek() on a separate aggregation table. NEVER use Sum(TOTAL ...) inside a non-aggregated LOAD.
-4. **DROP Temp Tables:** Always DROP any intermediate/temporary tables you create.
+## **3. The Output Contract (MANDATORY)**
+- You MUST provided a "plan" array of objects.
+- Each Catalog tool in the plan MUST have a "toolId" and a NON-EMPTY "parameters" object.
+- **EXAMPLE [as_of_table]**: { "toolId": "as_of_table", "parameters": { "dateField": "CanonicalDate" } }
+- **EXAMPLE [pareto_linked]**: { "toolId": "pareto_linked", "parameters": { "factTable": "Sales", "linkTable": "LinkTable", "keyField": "%Key_Sales", "dimensionField": "Customer", "measureField": "TotalSales" } }
 
 ## **Output Format (Raw JSON Only)**
-Return a JSON object matching this schema. Do NOT wrap in markdown.
+Return a JSON object matching this schema.
 {
-  "reasoningSummary": "Explanation of your analytical strategy.",
-  "plan": [
-    {
-      "tier": "catalog",
-      "toolId": "tool_id_from_manifest",
-      "parameters": { "param_name": "value" }
-    },
-    {
-      "tier": "forge",
-      "patternName": "Custom Pattern Name",
-      "description": "Why this pattern was chosen and why no Catalog tool fits.",
-      "script": "// Complete, self-contained Qlik script snippet"
-    }
-  ]
+  "plan": [ { "tier": "catalog", "toolId": "as_of_table", "parameters": { "dateField": "CanonicalDate" } } ]
 }
 `;
 }
@@ -117,52 +52,70 @@ Return a JSON object matching this schema. Do NOT wrap in markdown.
 /**
  * Sends metadata to Gemini to formulate an Enrichment Plan
  */
-async function generateEnrichmentPlan(metadata, baseScript) {
-  await throttle('EnhancerBrain');
-  logger.log('EnhancerBrain', `Generating Enrichment Plan with model: ${activeModel}`);
+async function generateEnrichmentPlan(markdownMetadata, baseScript, hints = []) {
+  logger.log('EnhancerBrain', `Generating Enrichment Plan with model: ${getActiveModel()}`);
 
-  const safeBaseScript = baseScript.length > 15000
-    ? baseScript.substring(0, 15000) + "\n... [TRUNCATED] ..."
-    : baseScript;
+  const instructions = buildSystemPrompt();
+  
+  const hintsStr = hints.length > 0 
+    ? `\n## **Pre-Flight Inspection Hints**\n${hints.map(h => `- ${h}`).join('\n')}`
+    : "";
 
   const userPrompt = `
-Metadata:
-${JSON.stringify(metadata, null, 2)}
+Formulate the enrichment plan for this application metadata.
+${hintsStr}
 
-Existing Script (Base):
-${safeBaseScript}
+--- START OF ANALYTICAL METADATA ---
+${markdownMetadata}
+--- END OF ANALYTICAL METADATA ---
 
-Formulate the Enrichment Plan.
+Formulate the plan now. Return ONLY the JSON object.
     `;
 
-  return await callWithRetry(async (modelName) => {
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      systemInstruction: buildSystemPrompt(),
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.1
+  // Debug: Log the EXACT prompt to see what the AI sees
+  try {
+    fs.writeFileSync(path.join(process.cwd(), '.debug_enhancer_prompt.txt'), `SYSTEM:\n${instructions}\n\nUSER:\n${userPrompt}`);
+  } catch (err) {
+    logger.warn('EnhancerBrain', 'Failed to write debug prompt file');
+  }
+
+  const planSchema = {
+    type: "object",
+    properties: {
+      plan: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            tier: { type: "string", enum: ["catalog", "forge"] },
+            toolId: { type: "string" },
+            parameters: { type: "object" },
+            description: { type: "string" }
+          },
+          required: ["tier", "toolId", "parameters"]
+        }
       }
-    });
-    const result = await model.generateContent(userPrompt);
-    const rawText = result.response.text();
+    },
+    required: ["plan"]
+  };
+
+  try {
+    // Correctly using systemInstruction for better focus
+    const plan = await generateJsonContent(userPrompt, planSchema, instructions);
     
+    // Debug: Log the RESPONSE
     try {
-      // Robust JSON extraction: look for the first '{' and last '}'
-      const jsonStart = rawText.indexOf('{');
-      const jsonEnd = rawText.lastIndexOf('}');
-      if (jsonStart === -1 || jsonEnd === -1) throw new Error("No JSON object found in response");
-      
-      const cleanJson = rawText.substring(jsonStart, jsonEnd + 1);
-      const plan = JSON.parse(cleanJson);
-      logger.log('EnhancerBrain', 'Enrichment Plan Formulation Complete');
-      logger.enhancement('Brain Reasoning', plan.reasoningSummary);
-      return plan;
-    } catch (parseErr) {
-      logger.error('EnhancerBrain', `Failed to parse plan JSON. Raw Response: ${rawText.substring(0, 500)}...`);
-      throw parseErr;
+      fs.writeFileSync(path.join(process.cwd(), '.debug_enhancer_response.json'), JSON.stringify(plan, null, 2));
+    } catch (err) {
+      logger.warn('EnhancerBrain', 'Failed to write debug response file');
     }
-  }, 'EnhancerBrain');
+
+    logger.log('EnhancerBrain', 'Enrichment Plan Formulation Complete');
+    return plan;
+  } catch (err) {
+    logger.error('EnhancerBrain', 'Failed to generate Enrichment Plan');
+    throw err;
+  }
 }
 
 /**
@@ -170,7 +123,6 @@ Formulate the Enrichment Plan.
  * Only used for Tier 2 (Forge) snippets.
  */
 async function attemptSelfHeal(script, error) {
-  await throttle('EnhancerBrain');
   logger.log('EnhancerBrain', `Attempting self-heal for failed Forge script...`);
 
   const systemInstruction = `You are a Qlik Script Debugger.
@@ -182,25 +134,21 @@ Follow ALL of these rules strictly:
 - DROP all temporary tables you use.
 Return ONLY the raw corrected script snippet. No markdown, no explanation.`;
 
-  const prompt = `
+  const combinedPrompt = `
+${systemInstruction}
+
+--- START OF FAIL DATA ---
 Failing Script:
 ${script}
 
 Error from Qlik Engine:
 ${error}
+--- END OF FAIL DATA ---
 
 Provide the corrected script snippet.
 `;
 
-  return await callWithRetry(async (modelName) => {
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      systemInstruction,
-      generationConfig: { temperature: 0.1 }
-    });
-    const result = await model.generateContent(prompt);
-    return result.response.text().replace(/```(qlik|json)?/gi, '').trim();
-  }, 'EnhancerBrain');
+  return await generateContent(combinedPrompt, null);
 }
 
 module.exports = { generateEnrichmentPlan, attemptSelfHeal };

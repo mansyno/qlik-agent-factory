@@ -4,9 +4,10 @@
         "id": "as_of_table",
         "description": "Creates a rolling-period mapping table for trend analysis using a high-performance WHILE loop.",
         "parameters": [
-            "dateField"
+            "dateField",
+            "sourceTable"
         ],
-        "template": "\n// --- AS-OF TABLE ---\n[Temp_AsOf_Dates]: \nLOAD DISTINCT [{{dateField}}] AS [AsOfDate] \nRESIDENT [MasterCalendar];\n\n[AsOf_Table]:\nLOAD \n    [AsOfDate] AS [AsOf Date], \n    [AsOfDate] AS [{{dateField}}], \n    'Current Day' AS [Period Type] \nRESIDENT [Temp_AsOf_Dates];\n\nCONCATENATE ([AsOf_Table])\nLOAD \n    [AsOfDate] AS [AsOf Date], \n    Date(AddMonths([AsOfDate], -IterNo()+1)) AS [{{dateField}}], \n    'Rolling 12 Months' AS [Period Type] \nRESIDENT [Temp_AsOf_Dates] \nWHILE IterNo() <= 12;\n\nDROP TABLE [Temp_AsOf_Dates];\n"
+        "template": "\n// --- AS-OF TABLE ---\n[Temp_AsOf_Dates]: \nLOAD DISTINCT [{{dateField}}] AS [AsOfDate] \nRESIDENT [{{sourceTable}}];\n\n[AsOf_Table]:\nLOAD \n    [AsOfDate] AS [AsOf Date], \n    [AsOfDate] AS [{{dateField}}], \n    'Current Day' AS [Period Type] \nRESIDENT [Temp_AsOf_Dates];\n\nCONCATENATE ([AsOf_Table])\nLOAD \n    [AsOfDate] AS [AsOf Date], \n    Date(AddMonths([AsOfDate], -IterNo()+1)) AS [{{dateField}}], \n    'Rolling 12 Months' AS [Period Type] \nRESIDENT [Temp_AsOf_Dates] \nWHILE IterNo() <= 12;\n\nDROP TABLE [Temp_AsOf_Dates];\n"
     },
     {
         "id": "pareto_linked",

@@ -26,11 +26,14 @@ function loadCatalog() {
  */
 function executeCatalogTool(toolDefinition, catalog) {
     const { toolId, parameters } = toolDefinition;
-    const templateDef = catalog.find(t => t.id === toolId);
 
+    if (!parameters || Object.keys(parameters).length === 0) {
+        return { error: 'Missing or empty parameters' };
+    }
+
+    const templateDef = catalog.find(t => t.id === toolId);
     if (!templateDef) {
-        logger.error('Composer', `Catalog tool '${toolId}' not found in manifest.`);
-        return null; // Signal failure
+        return { error: `Tool ID '${toolId}' not found in catalog` };
     }
 
     let script = templateDef.template;
@@ -42,12 +45,11 @@ function executeCatalogTool(toolDefinition, catalog) {
     // Detect any unreplaced {{placeholder}} — means LLM omitted required parameters
     const missing = [...script.matchAll(/{{(\w+)}}/g)].map(m => m[1]);
     if (missing.length > 0) {
-        logger.error('Composer', `Catalog tool '${toolId}' has unreplaced parameters: ${missing.join(', ')}`);
-        return null; // Signal failure with a clear reason via the caller's report
+        return { error: `Unreplaced parameters: ${missing.join(', ')}` };
     }
 
     logger.enhancement('Catalog Tool Executed', `Injected ${toolId}`);
-    return script;
+    return { script };
 }
 
 /**
@@ -116,31 +118,20 @@ async function composeEnrichment(plan, baseScript, sessionGlobal, sessionApp) {
         let proposedSnippet = "";
 
         try {
-            // --- STEP 0: Pre-validation for specific tools ---
-            if (toolIdentifier === 'market_basket' && tool.parameters) {
-                const { idField, itemField } = tool.parameters;
-                logger.log('Composer', `Checking 1-to-many viability for [${idField}] -> [${itemField}]...`);
-                const isViable = await checkOneToManyViability(sessionApp, idField, itemField);
-                if (!isViable) {
-                    enhancementReport.push({
-                        tool: toolIdentifier,
-                        tier: 'catalog',
-                        status: 'Rejected',
-                        reason: `Data does not support market basket (Max 1 distinct '${itemField}' per '${idField}')`
-                    });
-                    logger.error('Composer', `Basket rejected: No 1-to-many relationship found.`);
-                    appliedEnrichments += `\n// --- CATALOG TOOL: ${toolIdentifier} (REJECTED) ---\n// Reason: No 1-to-many relationship found for ${idField}->${itemField}\n`;
-                    continue;
-                }
-            }
-
             // --- STEP 1: Generate the snippet ---
             if (tool.tier === 'catalog') {
-                proposedSnippet = executeCatalogTool(tool, catalog);
-                if (!proposedSnippet) {
-                    enhancementReport.push({ tool: toolIdentifier, tier: 'catalog', status: 'Rejected', reason: 'Tool ID not found in catalog' });
+                const result = executeCatalogTool(tool, catalog);
+                if (result.error) {
+                    enhancementReport.push({ 
+                        tool: toolIdentifier, 
+                        tier: 'catalog', 
+                        status: 'Rejected', 
+                        reason: result.error 
+                    });
+                    logger.error('Composer', `Catalog tool '${toolIdentifier}' rejected: ${result.error}`);
                     continue;
                 }
+                proposedSnippet = result.script;
             } else if (tool.tier === 'forge') {
                 proposedSnippet = executeForgeTool(tool);
             } else {

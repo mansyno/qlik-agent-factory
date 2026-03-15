@@ -222,7 +222,12 @@ function determineRelationships(metadata, classifications, globalFieldValues = {
             if (isId) {
                 normalizationMap[qualifiedName] = col;
             } else {
-                normalizationMap[qualifiedName] = `${cleanTableName}_${col}`;
+                // Fix: Ensure % prefix stays at the very beginning for Qlik hidden fields
+                if (col.startsWith('%')) {
+                    normalizationMap[qualifiedName] = `%${cleanTableName}_${col.substring(1)}`;
+                } else {
+                    normalizationMap[qualifiedName] = `${cleanTableName}_${col}`;
+                }
             }
         });
     });
@@ -334,7 +339,11 @@ function determineRelationships(metadata, classifications, globalFieldValues = {
             // Specifically handling dates: Always prefix dates to ensure they can be bridged uniquely
             // and don't create unintended links.
             if (isDate) {
-                normalizedName = `${tableName}_${col}`;
+                if (col.startsWith('%')) {
+                    normalizedName = `%${tableName}_${col.substring(1)}`;
+                } else {
+                    normalizedName = `${tableName}_${col}`;
+                }
             }
 
             // COLLISION PREVENTION: Ensure the name is unique within this table

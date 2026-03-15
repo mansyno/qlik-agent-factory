@@ -45,8 +45,9 @@ async function callWithRetry(fn, callerName = 'ArchitectBrain', maxRetries = 3) 
             const msg = err.message || '';
             const is503 = msg.includes('503') || msg.includes('Service Unavailable') || msg.includes('high demand');
             const is429 = msg.includes('429') || msg.includes('Quota exceeded') || msg.includes('quota');
+            const isFetchFailed = msg.includes('fetch failed') || msg.includes('UND_ERR_CONNECT_TIMEOUT') || msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT');
 
-            if (is503) {
+            if (is503 || isFetchFailed) {
                 if (attempt < maxRetries) {
                     console.log(`[${callerName}] 503 Service Unavailable. Waiting 15s before retry ${attempt + 1}/${maxRetries}...`);
                     await new Promise(r => setTimeout(r, 15000));
@@ -108,7 +109,18 @@ async function generateJsonContent(prompt, schema, systemInstruction = null) {
         const model = genAI.getGenerativeModel(modelInfo);
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        return JSON.parse(response.text());
+        const text = response.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error(`[Brain] JSON Parse Error at pos ${e.message.match(/position (\d+)/)?.[1] || 'unknown'}`);
+            console.error(`[Brain] Fragment around error: ${text.substring(Math.max(0, text.length - 500))}`);
+            // If it's too big, it might have been cut off or repeated
+            if (text.length > 50000) {
+                console.error(`[Brain] Warning: Extremely large response detected (${text.length} chars). Possible AI loop.`);
+            }
+            throw e;
+        }
     }, 'LLM_General');
 }
 

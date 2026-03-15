@@ -57,6 +57,125 @@ async function fetchLiveBaseScript(appName, broadcastFn) {
     }
 }
 
+/**
+ * Executes "Tier 1" deterministic checks to automatically add tools to the plan
+ * without calling the LLM.
+ */
+function runDeterministicChecks(metadata, broadcast) {
+    const deterministicPlan = [];
+    
+    // 1. Check for as_of_table
+    let hasDate = false;
+    let dateField = 'CanonicalDate';
+    let sourceTable = 'MasterCalendar'; // Default fallback
+    
+    // First pass: look for CanonicalDate (preferred)
+    for (const [tableName, table] of Object.entries(metadata.tables)) {
+        if (table.fields.some(f => f.name === 'CanonicalDate')) {
+            hasDate = true;
+            dateField = 'CanonicalDate';
+            sourceTable = tableName;
+            break;
+        }
+    }
+    
+    // Second pass: if no CanonicalDate, find ANY date field
+    if (!hasDate) {
+        for (const [tableName, table] of Object.entries(metadata.tables)) {
+            const dateF = table.fields.find(f => f.tags && (f.tags.includes('$date') || f.tags.includes('$timestamp')));
+            if (dateF) {
+                hasDate = true;
+                dateField = dateF.name;
+                sourceTable = tableName;
+                break;
+            }
+        }
+    }
+    
+    if (hasDate) {
+        broadcast('Enhancer', `Deterministic Match: Added [as_of_table] for ${dateField} in ${sourceTable}`, 'info');
+        deterministicPlan.push({
+            tier: 'catalog',
+            toolId: 'as_of_table',
+            parameters: { 
+                dateField,
+                sourceTable
+            }
+        });
+    }
+    
+    // 2. Check for dual_flag_injector
+    for (const [tableName, table] of Object.entries(metadata.tables)) {
+        for (const field of table.fields) {
+            // Exclude % fields (hidden/keys) and SourceTable fields
+            if (field.name.startsWith('%') || field.name.includes('SourceTable')) continue;
+            
+            if (field.distinctCount === 2 && field.sampleValues && field.sampleValues.length === 2) {
+                broadcast('Enhancer', `Deterministic Match: Added [dual_flag_injector] for ${tableName}.${field.name}`, 'info');
+                // Format mappingPairs as "'Val1','Val2'"
+                const mappingPairs = field.sampleValues.map(v => `'${v}'`).join(',');
+                deterministicPlan.push({
+                    tier: 'catalog',
+                    toolId: 'dual_flag_injector',
+                    parameters: { 
+                        targetTable: tableName, 
+                        fieldName: field.name,
+                        mappingPairs
+                    }
+                });
+            }
+        }
+    }
+    
+    return deterministicPlan;
+}
+
+/**
+ * Stage A2: Pre-Flight Inspection
+ * Scans metadata for patterns like Pareto and Market Basket to provide hints to the LLM.
+ */
+function runPreFlightInspection(metadata) {
+    const hints = [];
+    const factTables = [];
+
+    // Identify Facts (tables with measures)
+    for (const [tableName, table] of Object.entries(metadata.tables)) {
+        if (tableName === 'LinkTable' || tableName === 'MasterCalendar' || tableName === 'CanonicalDateBridge') continue;
+        const hasMeasure = table.fields.some(f => f.tags && f.tags.includes('$numeric') && !f.name.startsWith('%') && !f.tags.includes('$key'));
+        if (hasMeasure) factTables.push(tableName);
+    }
+
+    // Pareto Hints (Fact + LinkTable + Dimension)
+    if (factTables.length > 0 && metadata.tables['LinkTable']) {
+        const linkFields = metadata.tables['LinkTable'].fields.map(f => f.name);
+        const dimensions = linkFields.filter(f => !f.startsWith('%') && f !== 'OrderID');
+
+        factTables.forEach(fact => {
+            const table = metadata.tables[fact];
+            const measure = table.fields.find(f => f.tags && f.tags.includes('$numeric') && !f.name.startsWith('%') && !f.tags.includes('$key'))?.name;
+            const key = `%Key_${fact}`;
+            
+            // Check if key exists in LinkTable
+            if (measure && linkFields.includes(key) && dimensions.length > 0) {
+                hints.push(`Candidate for [pareto_linked]: Dimension '${dimensions[0]}' by measure '${measure}' in table '${fact}' (joins via ${key}).`);
+            }
+        });
+    }
+
+    // Market Basket Hints (1-to-many on LinkTable)
+    if (metadata.tables['LinkTable']) {
+        const fields = metadata.tables['LinkTable'].fields;
+        const orderIdField = fields.find(f => f.name.toLowerCase().includes('orderid') || f.name.toLowerCase().includes('transid'))?.name;
+        const itemField = fields.find(f => f.name.toLowerCase().includes('product') || f.name.toLowerCase().includes('item'))?.name;
+        
+        if (orderIdField && itemField) {
+            hints.push(`Candidate for [market_basket]: Grouping '${itemField}' count within '${orderIdField}' on table 'LinkTable'.`);
+        }
+    }
+
+    return hints;
+}
+
 // ── Main Agent Runner ─────────────────────────────────────────────────────────
 async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer'], io, broadcastAgentState, agentControl }) {
     const broadcast = (typeof broadcastAgentState === 'function')
@@ -105,7 +224,16 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
         broadcast('System', 'Connected to Qlik Engine.', 'success');
         logger.log('System', 'Connected to Qlik Engine');
 
-        const workApp = await qlikGlobal.createSessionApp();
+        let workApp;
+        if (runArchitect) {
+            broadcast('System', 'Creating session app for architecture...', 'info');
+            workApp = await qlikGlobal.createSessionApp();
+        } else {
+            broadcast('System', `Opening persistent app '${appName}' for enrichment...`, 'info');
+            const appConn = await openSessionForApp(appName);
+            workApp = appConn.appHandle;
+        }
+
         try {
             await workApp.createConnection({
                 qName: 'SourceData',
@@ -280,13 +408,68 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
 
             let plan, enrichedScript, report;
 
+            const inspector = require('./.agent/skills/qlik-metadata-inspector/inspector.js');
+            // The original `const { generateEnrichmentPlan } = require('./enhancer_brain');` is moved inside the try block.
+
             // Stage A: Inspect + Plan
+            const stageStart = Date.now();
             try {
-                const inspector = require('./.agent/skills/qlik-metadata-inspector/inspector.js');
-                const metadata = await inspector.inspectMetadata(workApp);
+                // Clear cache to ensure fixes on disk are picked up if server is long-running
+                delete require.cache[require.resolve('./qlik_tools')];
+                delete require.cache[require.resolve('./enhancer_brain')];
+                
+                const { getLiveMetadata, formatMetadataAsMarkdown } = require('./qlik_tools');
                 const { generateEnrichmentPlan } = require('./enhancer_brain');
-                plan = await generateEnrichmentPlan(metadata, currentScript);
-                broadcast('Enhancer', plan.reasoningSummary, 'reasoning');
+                const { checkOneToManyViability } = require('./enhancer_composer');
+                
+                const metadata = await getLiveMetadata(workApp);
+                const mdMetadata = formatMetadataAsMarkdown(metadata);
+                
+                const metaSize = JSON.stringify(metadata).length;
+                const mdSize = mdMetadata.length;
+                console.log(`[PERF] Enhancer Live Metadata size: ${(metaSize / 1024).toFixed(1)} KB (MD Table: ${(mdSize / 1024).toFixed(1)} KB)`);
+
+                // Stage A1: Deterministic "Tier 1" logic
+                const deterministicPlan = runDeterministicChecks(metadata, broadcast);
+
+                // Stage A2: Pre-Flight Inspection (Hints)
+                const hints = runPreFlightInspection(metadata);
+                if (hints.length > 0) {
+                    broadcast('Enhancer', `Pre-Flight: Identified ${hints.length} potential patterns. Passing hints to LLM.`, 'info');
+                    hints.forEach(h => console.log(`[HINT] ${h}`));
+                }
+
+                const planStart = Date.now();
+                const llmResult = await generateEnrichmentPlan(mdMetadata, currentScript, hints);
+                const planTime = (Date.now() - planStart) / 1000;
+                console.log(`[PERF] Enhancer Planning took ${planTime.toFixed(1)}s`);
+
+                // Deduplicate: If deterministic logic already added a tool for a specific target, 
+                // ignore the LLM's proposal for that same tool/target combo.
+                const llmPlan = (llmResult.plan || []).filter(llmTool => {
+                    // Filter out tools with empty parameters immediately to prevent rejection logs
+                    if (!llmTool.parameters || Object.keys(llmTool.parameters).length === 0) return false;
+
+                    return !deterministicPlan.some(detTool => {
+                        if (detTool.toolId !== llmTool.toolId) return false;
+                        
+                        // Check if parameters match the key target fields
+                        if (detTool.toolId === 'as_of_table') return true; // Only ever one as_of per run usually
+                        if (detTool.toolId === 'dual_flag_injector') {
+                            return detTool.parameters.fieldName === llmTool.parameters.fieldName &&
+                                   detTool.parameters.targetTable === llmTool.parameters.targetTable;
+                        }
+                        return false; 
+                    });
+                });
+
+                // Merge Plans
+                plan = {
+                    plan: [...deterministicPlan, ...llmPlan],
+                    reasoningSummary: llmResult.reasoningSummary
+                };
+
+                broadcast('Enhancer', plan.reasoningSummary || 'Enrichment plan formulated.', 'reasoning');
             } catch (planErr) {
                 console.error('[Enhancer] Plan stage error:', planErr.stack || planErr);
                 broadcast('Enhancer', `Plan generation failed [${planErr.constructor?.name}]: ${planErr.message}`, 'error');
@@ -385,16 +568,14 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             // If we skipped Phase 4/5 (Layout Only mode), we need to open the existing app
             if (!persistentApp) {
                 broadcast('System', `Opening existing app '${appName}'...`, 'info');
-                if (session) { await closeSession(session); session = null; }
-                const conn3 = await openS();
-                session = conn3.session;
-
-                const docList = await conn3.global.getDocList();
-                const targetDoc = docList.find(d => d.qDocName === appName || d.qTitle === appName);
-                if (!targetDoc) {
-                    throw new Error(`Cannot run Layout Agent: App '${appName}' does not exist.`);
+                try {
+                    persistentApp = await qlikGlobal.openDoc(appName);
+                } catch (e) {
+                    // GUI-based resolution if direct fails
+                    const { openSessionForApp } = require('./qlik_tools');
+                    const connFallback = await openSessionForApp(appName);
+                    persistentApp = connFallback.appHandle;
                 }
-                persistentApp = await conn3.global.openDoc(targetDoc.qDocId);
             }
 
             broadcast('System', 'Synthesizing Dashboard Blueprint (Sub-Agent A & B)...', 'system');

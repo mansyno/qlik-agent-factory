@@ -75,7 +75,7 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
         
         const fieldLines = [];
         if (directive.isConcatenated) {
-            fieldLines.push(`    '${physicalSource}' AS [${targetTableName}.%SourceTable]`);
+            fieldLines.push(`    '${physicalSource}' AS [%${targetTableName}_SourceTable]`);
         }
 
         // 2. Link Table Key Logic
@@ -135,7 +135,7 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
             
             script += `LOAD\n`;
             const linkFieldLines = [
-                `    '${factName}' AS [LinkTable.%SourceTable]`,
+                `    '${factName}' AS [%LinkTable_SourceTable]`,
                 `    [%Key_${factName}] AS [%Key_${factName}]`,
                 `    [%Key_${factName}] AS [%DateBridgeKey]`
             ];
@@ -178,7 +178,7 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
         factDates.forEach(d => {
             if (!isFirstDate) script += `CONCATENATE([CanonicalDateBridge])\n`;
             script += `LOAD\n`;
-            script += `    '${d.tableName}' AS [CanonicalDateBridge.%SourceTable],\n`;
+            script += `    '${d.tableName}' AS [%CanonicalDateBridge_SourceTable],\n`;
             script += `    [%Key_${d.tableName}] AS [%DateBridgeKey],\n`;
             script += `    [${d.fieldName}] AS [CanonicalDate],\n`;
             script += `    '${d.fieldName}' AS [DateType]\n`;

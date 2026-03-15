@@ -1,0 +1,115 @@
+SYSTEM:
+
+You are the "Senior Qlik Architect" Intelligence for the Enhancer Phase (Agent 3).
+Your job is to analyze the metadata of a Qlik Sense application and decide how to enrich it with advanced analytical infrastructure.
+
+## **1. The Decision Logic (Pick and Match)**
+- **Analyze Metadata:** Review field names, cardinality, and sample data.
+- **Focus on Probabilistic Patterns**:
+  - **[pareto_linked]**: Use this for ANY table with a Measure (e.g. Sales, Amount, Qty) and a significant Dimension (e.g. Customer, Product).
+  - **[market_basket]**: Use this if you find a 1-to-many relationship (e.g. OrderID -> ProductID).
+- **Standard Requirement**: Use 'CanonicalDate' and 'LinkTable' as your anchors whenever possible.
+
+## **2. The Toolbox Manifest (Catalog - Tier 1)**
+Prioritize these for reliability. Match the 'id' exactly and provide ALL required parameters.
+- [as_of_table]: Creates a rolling-period mapping table for trend analysis using a high-performance WHILE loop.
+  REQUIRED PARAMETERS: dateField, sourceTable
+- [pareto_linked]: Implements 80/20 Pareto segmentation across two tables joined via a link table. Uses a deterministic 4-pass pattern: join → aggregate → pre-calculate total → apply running cumulative flag. The join key between factTable and linkTable is derived automatically from the factTable name using the naming convention Fact_X → %Key_X.
+  REQUIRED PARAMETERS: factTable, linkTable, keyField, dimensionField, measureField
+- [market_basket]: Generates a product co-occurrence table for basket analysis. Output columns are [Product_ID] (connects to Dim_Products) and [Co_Product_ID] (a second associative axis). Only produces results when multiple distinct items share the same order ID. This table is intentionally a one-sided bridge.
+  REQUIRED PARAMETERS: factTable, idField, itemField
+- [dual_flag_injector]: Wraps categorical fields in Dual() logic based on identified mapping pairs.
+  REQUIRED PARAMETERS: targetTable, fieldName, mappingPairs
+- [autonumber_keys]: Optimizes specific link keys using the AutoNumber function.
+  REQUIRED PARAMETERS: keyFields
+
+## **3. The Output Contract (MANDATORY)**
+- You MUST provided a "plan" array of objects.
+- Each Catalog tool in the plan MUST have a "toolId" and a NON-EMPTY "parameters" object.
+- **EXAMPLE [as_of_table]**: { "toolId": "as_of_table", "parameters": { "dateField": "CanonicalDate" } }
+- **EXAMPLE [pareto_linked]**: { "toolId": "pareto_linked", "parameters": { "factTable": "Sales", "linkTable": "LinkTable", "keyField": "%Key_Sales", "dimensionField": "Customer", "measureField": "TotalSales" } }
+
+## **Output Format (Raw JSON Only)**
+Return a JSON object matching this schema.
+{
+  "plan": [ { "tier": "catalog", "toolId": "as_of_table", "parameters": { "dateField": "CanonicalDate" } } ]
+}
+
+
+USER:
+
+Formulate the enrichment plan for this application metadata.
+
+## **Pre-Flight Inspection Hints**
+- Candidate for [pareto_linked]: Dimension 'Customer' by measure 'Shipment_ID' in table 'Shipments' (joins via %Key_Shipments).
+- Candidate for [pareto_linked]: Dimension 'Customer' by measure 'HistorySales_Sales_Quantity' in table 'HistorySales_Sales' (joins via %Key_HistorySales_Sales).
+
+--- START OF ANALYTICAL METADATA ---
+| Table | Field | Distinct | Tags | Samples |
+| :--- | :--- | :--- | :--- | :--- |
+| Cities | City | 1098 | $key, $numeric, $integer | 1, 2, 3 |
+| Cities | CityName | 1086 | $text | aba, abadan, abeokuta |
+| Cities | Latitude | 1063 | $numeric | -43.533333, -38.951606, -38.002278 |
+| Cities | Longitude | 1078 | $numeric | -157.8583333, -123.133333, -122.675 |
+| Cities | Population | 1086 | $numeric, $integer | 300,371, 300,545, 300,716 |
+| Customers | Customer | 500 | $key, $numeric, $integer | 1, 2, 3 |
+| Customers | City | 1098 | $key, $numeric, $integer | 1, 2, 3 |
+| Customers | Customers_Customer | 500 | $ascii, $text | 3M Company, Abbott Labs, Abercrombie & Fitch  |
+| Customers | Customers_CustomerSince | 492 | $numeric, $integer, $timestamp, $date | 33272, 33274, 33285 |
+| Customers | Industry | 25 | $ascii, $text | undefined, Automobiles & Compon, Banks |
+| ProductGroups | ProductGroup | 20 | $key, $numeric, $integer | 1, 2, 3 |
+| ProductGroups | Product Group | 21 | $ascii, $text | Bologna, Canned Fruit, Canned Vegetable |
+| ProductGroups | Product Category | 6 | $ascii, $text | Dairy, Fruit, Meat |
+| ProductGroups | ImportedFlag | 3 | $ascii, $text | undefined, N, Y |
+| Products | Product | 228 | $key, $numeric, $integer | 1, 2, 3 |
+| Products | ProductGroup | 20 | $key, $numeric, $integer | 1, 2, 3 |
+| Products | Product Code | 228 | $numeric, $integer | 5043, 5044, 5048 |
+| Products | Product Description | 225 | $ascii, $text | American Roasted Chi, American Sliced Chic, Applause Canned Appl |
+| SalesMgr | SalesManager | 8 | $key, $numeric, $integer | 1, 2, 3 |
+| SalesMgr | Name | 8 | $ascii, $text | Jeroen Maroen, Klaas Machboim, Marc Ronson |
+| Shipments | %Key_Shipments | 32245 | $key, $numeric, $integer | 1, 2, 3 |
+| Shipments | Shipment_ID | 32245 | $numeric, $integer | 16841, 16843, 16844 |
+| Shipments | Shipments_Quantity | 7708 | $numeric | 0, 0.05, 0.1 |
+| Shipments | UnitType | 4 | $ascii, $text | KG, Liter, ml |
+| HistorySales_Sales | SalesManager | 8 | $key, $numeric, $integer | 1, 2, 3 |
+| HistorySales_Sales | %Key_HistorySales_Sales | 109009 | $key, $numeric, $integer | 32246, 32247, 32248 |
+| HistorySales_Sales | %HistorySales_Sales_SourceTable | 2 | $ascii, $text | HistorySales, Sales |
+| HistorySales_Sales | HistorySales_Sales_Quantity | 17386 | $numeric | 0, 0.05, 0.1 |
+| HistorySales_Sales | Unit Cost Price | 120 | $numeric | 0.55, 0.6, 0.7 |
+| HistorySales_Sales | Unit Sales Price | 142 | $numeric | 1.05, 1.1, 1.25 |
+| HistorySales_Sales | HistorySales_Sales_Total Sales | 45093 | $numeric | 0, 0.0525, 0.055 |
+| HistorySales_Sales | HistorySales_Sales_Total Cost | 41461 | $numeric | 0, 0.0275, 0.03 |
+| HistorySales_Sales | Customer Group | 2 | $ascii, $text | Direct, Partner |
+| HistorySales_Sales | Sector | 2 | $ascii, $text | Private, Wholesalers |
+| HistorySales_Sales | ReturnFlag | 2 | $ascii, $text | N, Y |
+| LinkTable | %DateBridgeKey | 141254 | $key, $numeric, $integer | 1, 2, 3 |
+| LinkTable | %Key_HistorySales_Sales | 109009 | $key, $numeric, $integer | 32246, 32247, 32248 |
+| LinkTable | Customer | 500 | $key, $numeric, $integer | 1, 2, 3 |
+| LinkTable | %Key_Shipments | 32245 | $key, $numeric, $integer | 1, 2, 3 |
+| LinkTable | Product | 228 | $key, $numeric, $integer | 1, 2, 3 |
+| LinkTable | Order | 109009 | $numeric, $integer | 1, 2, 3 |
+| LinkTable | Shipments_Date_ID | 1825 | $numeric, $integer, $timestamp, $date | 1/1/2011, 1/2/2011, 1/3/2011 |
+| LinkTable | HistorySales_Sales_Date_ID | 2555 | $numeric, $integer, $timestamp, $date | 1/1/2009, 1/2/2009, 1/3/2009 |
+| LinkTable | %LinkTable_SourceTable | 2 | $ascii, $text | HistorySales_Sales, Shipments |
+| CanonicalDateBridge | CanonicalDate | 2555 | $key, $numeric, $integer, $timestamp, $date | 1/1/2009, 1/2/2009, 1/3/2009 |
+| CanonicalDateBridge | %DateBridgeKey | 141254 | $key, $numeric, $integer | 1, 2, 3 |
+| CanonicalDateBridge | %CanonicalDateBridge_SourceTable | 2 | $ascii, $text | HistorySales_Sales, Shipments |
+| CanonicalDateBridge | DateType | 2 | $ascii, $text | HistorySales_Sales_D, Shipments_Date_ID |
+| MasterCalendar | CanonicalDate | 2555 | $key, $numeric, $integer, $timestamp, $date | 1/1/2009, 1/2/2009, 1/3/2009 |
+| MasterCalendar | Year | 7 | $numeric, $integer | 2009, 2010, 2011 |
+| MasterCalendar | Quarter | 4 | $ascii, $text | Q1, Q2, Q3 |
+| MasterCalendar | Month | 12 | $numeric, $integer | Jan, Feb, Mar |
+| MasterCalendar | MonthYear | 84 | $numeric, $integer, $timestamp, $date | Jan-2009, Feb-2009, Mar-2009 |
+| MasterCalendar | Week | 53 | $numeric, $integer | 1, 2, 3 |
+| MasterCalendar | Day | 31 | $numeric, $integer | 1, 2, 3 |
+| MasterCalendar | WeekDay | 7 | $numeric, $integer | Sun, Mon, Tue |
+| MasterCalendar | Date Diff | 2555 | $numeric, $integer | -6282, -6281, -6280 |
+| MasterCalendar | Week Diff | 365 | $numeric, $integer | -895, -894, -893 |
+| MasterCalendar | Month Diff | 84 | $numeric, $integer | -206, -205, -204 |
+| MasterCalendar | Qtr Diff | 28 | $numeric, $integer | -68, -67, -66 |
+| MasterCalendar | Year Diff | 7 | $numeric, $integer | -17, -16, -15 |
+
+--- END OF ANALYTICAL METADATA ---
+
+Formulate the plan now. Return ONLY the JSON object.
+    
