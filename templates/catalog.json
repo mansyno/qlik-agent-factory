@@ -14,10 +14,11 @@
         "parameters": [
             "factTable",
             "linkTable",
+            "keyField",
             "dimensionField",
             "measureField"
         ],
-        "template": "\n// --- PARETO ANALYSIS ({{dimensionField}} by {{measureField}}) ---\nLET vParetoKey = '%Key_' & Mid('{{factTable}}', 6);\n\n[Temp_Pareto_Prep]:\nLOAD [$(vParetoKey)], [{{measureField}}] RESIDENT [{{factTable}}];\nLEFT JOIN ([Temp_Pareto_Prep])\nLOAD [$(vParetoKey)], [{{dimensionField}}] RESIDENT [{{linkTable}}];\n\n[Temp_Pareto_Agg]:\nLOAD [{{dimensionField}}], Sum([{{measureField}}]) AS _SumMeasure RESIDENT [Temp_Pareto_Prep] GROUP BY [{{dimensionField}}];\nDROP TABLE [Temp_Pareto_Prep];\n\n[Temp_Pareto_Total]: LOAD Sum(_SumMeasure) AS _Total RESIDENT [Temp_Pareto_Agg];\nLET vParetoTotal = Peek('_Total', 0, 'Temp_Pareto_Total');\nDROP TABLE [Temp_Pareto_Total];\n\n[Temp_Pareto_Sorted]:\nNOCONCATENATE\nLOAD [{{dimensionField}}], [_SumMeasure] RESIDENT [Temp_Pareto_Agg] ORDER BY [_SumMeasure] DESC;\nDROP TABLE [Temp_Pareto_Agg];\n\n[Pareto_{{dimensionField}}]:\nLOAD\n    [{{dimensionField}}],\n    If(RangeSum([_SumMeasure], Peek('_AccMeasure')) / $(vParetoTotal) <= 0.8, Dual('Top 80%', 1), Dual('Bottom 20%', 0)) AS [{{dimensionField}}_Pareto_Flag],\n    RangeSum([_SumMeasure], Peek('_AccMeasure')) AS _AccMeasure\nRESIDENT [Temp_Pareto_Sorted];\n\nDROP TABLE [Temp_Pareto_Sorted];\nDROP FIELD [_AccMeasure] FROM [Pareto_{{dimensionField}}];\n"
+        "template": "\n// --- PARETO ANALYSIS ({{dimensionField}} by {{measureField}}) ---\n[Temp_Pareto_Prep]:\nLOAD [{{keyField}}], [{{measureField}}] RESIDENT [{{factTable}}];\nLEFT JOIN ([Temp_Pareto_Prep])\nLOAD [{{keyField}}], [{{dimensionField}}] RESIDENT [{{linkTable}}];\n\n[Temp_Pareto_Agg]:\nLOAD [{{dimensionField}}], Sum([{{measureField}}]) AS _SumMeasure RESIDENT [Temp_Pareto_Prep] GROUP BY [{{dimensionField}}];\nDROP TABLE [Temp_Pareto_Prep];\n\n[Temp_Pareto_Total]: LOAD Sum(_SumMeasure) AS _Total RESIDENT [Temp_Pareto_Agg];\nLET vParetoTotal = Peek('_Total', 0, 'Temp_Pareto_Total');\nDROP TABLE [Temp_Pareto_Total];\n\n[Temp_Pareto_Sorted]:\nNOCONCATENATE\nLOAD [{{dimensionField}}], [_SumMeasure] RESIDENT [Temp_Pareto_Agg] ORDER BY [_SumMeasure] DESC;\nDROP TABLE [Temp_Pareto_Agg];\n\n[Pareto_{{dimensionField}}]:\nLOAD\n    [{{dimensionField}}],\n    If(RangeSum([_SumMeasure], Peek('_AccMeasure')) / $(vParetoTotal) <= 0.8, Dual('Top 80%', 1), Dual('Bottom 20%', 0)) AS [{{dimensionField}}_Pareto_Flag],\n    RangeSum([_SumMeasure], Peek('_AccMeasure')) AS _AccMeasure\nRESIDENT [Temp_Pareto_Sorted];\n\nDROP TABLE [Temp_Pareto_Sorted];\nDROP FIELD [_AccMeasure] FROM [Pareto_{{dimensionField}}];\n"
     },
     {
         "id": "market_basket",
@@ -33,10 +34,11 @@
         "id": "dual_flag_injector",
         "description": "Wraps categorical fields in Dual() logic based on identified mapping pairs.",
         "parameters": [
+            "targetTable",
             "fieldName",
             "mappingPairs"
         ],
-        "template": "\n// --- DUAL FLAG INJECTION ---\n[Temp_Dual_{{fieldName}}]:\nLOAD *, Dual([{{fieldName}}], Match([{{fieldName}}], {{mappingPairs}})) AS [{{fieldName}}_Dual]\nRESIDENT [LinkTable];\nDROP TABLE [LinkTable];\nRENAME TABLE [Temp_Dual_{{fieldName}}] TO [LinkTable];\n"
+        "template": "\n// --- DUAL FLAG INJECTION ---\n[Temp_Dual_{{fieldName}}]:\nLOAD *, Dual([{{fieldName}}], Match([{{fieldName}}], {{mappingPairs}})) AS [{{fieldName}}_Dual]\nRESIDENT [{{targetTable}}];\nDROP TABLE [{{targetTable}}];\nRENAME TABLE [Temp_Dual_{{fieldName}}] TO [{{targetTable}}];\n"
     },
     {
         "id": "autonumber_keys",
