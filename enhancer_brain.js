@@ -29,6 +29,7 @@ Your job is to analyze the metadata of a Qlik Sense application and decide how t
 - **Focus on Probabilistic Patterns**:
   - **[pareto_linked]**: Use this for ANY table with a Measure (e.g. Sales, Amount, Qty) and a significant Dimension (e.g. Customer, Product).
   - **[market_basket]**: Use this if you find a 1-to-many relationship (e.g. OrderID -> ProductID).
+- **PRIORITIZE CANDIDATES**: If "Pre-Flight Inspection Hints" provide a "Candidate", you MUST include it in your plan unless you have a strong architectural reason not to.
 - **Standard Requirement**: Use 'CanonicalDate' and 'LinkTable' as your anchors whenever possible.
 
 ## **2. The Toolbox Manifest (Catalog - Tier 1)**

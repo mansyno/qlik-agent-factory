@@ -157,7 +157,9 @@ function runPreFlightInspection(metadata) {
             
             // Check if key exists in LinkTable
             if (measure && linkFields.includes(key) && dimensions.length > 0) {
-                hints.push(`Candidate for [pareto_linked]: Dimension '${dimensions[0]}' by measure '${measure}' in table '${fact}' (joins via ${key}).`);
+                // Find a "good" dimension (not ID, not SourceTable)
+                const bestDim = dimensions.find(d => !d.toLowerCase().includes('source') && !d.toLowerCase().includes('id')) || dimensions[0];
+                hints.push(`Pareto Candidate: factTable='${fact}', linkTable='LinkTable', keyField='${key}', dimensionField='${bestDim}', measureField='${measure}'`);
             }
         });
     }
@@ -165,11 +167,18 @@ function runPreFlightInspection(metadata) {
     // Market Basket Hints (1-to-many on LinkTable)
     if (metadata.tables['LinkTable']) {
         const fields = metadata.tables['LinkTable'].fields;
-        const orderIdField = fields.find(f => f.name.toLowerCase().includes('orderid') || f.name.toLowerCase().includes('transid'))?.name;
-        const itemField = fields.find(f => f.name.toLowerCase().includes('product') || f.name.toLowerCase().includes('item'))?.name;
+        const orderIdField = fields.find(f => {
+            const n = f.name.toLowerCase();
+            return n.includes('order') || n.includes('trans') || n.includes('basket') || n.includes('header');
+        })?.name;
+        
+        const itemField = fields.find(f => {
+            const n = f.name.toLowerCase();
+            return n.includes('product') || n.includes('item') || n.includes('article');
+        })?.name;
         
         if (orderIdField && itemField) {
-            hints.push(`Candidate for [market_basket]: Grouping '${itemField}' count within '${orderIdField}' on table 'LinkTable'.`);
+            hints.push(`Market Basket Candidate: factTable='LinkTable', idField='${orderIdField}', itemField='${itemField}'`);
         }
     }
 
