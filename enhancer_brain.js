@@ -76,8 +76,6 @@ Your job is to analyze the metadata of a Qlik Sense application and decide how t
 - **Strategy Selection:**
   - **Tier 1 (Catalog):** Default choice for ALL structural improvements. Pick a Tool ID from the Manifest below and fill in the parameters. THIS IS ALWAYS PREFERRED.
   - **Tier 2 (The Forge):** Used ONLY for truly unique, one-off logic with absolutely NO equivalent in the Catalog. This is a LAST RESORT.
-- **Trend Analysis Requirement:** If you find a primary date field, you MUST suggest the [as_of_table] tool to generate a Master Calendar.
-  - **CRITICAL**: If the base script contains the field "CanonicalDate" (created by the Architect's Canonical Date Bridge), you MUST attach the Master Calendar EXCLUSIVELY to that "CanonicalDate" field. Do not create separate calendars for original dates like OrderDate if CanonicalDate exists.
 - **Pareto Requirement:** If you want to perform any 80/20 or Pareto segmentation, you MUST use the [pareto_linked] catalog tool. Do NOT forge a Pareto pattern.
 - **Market Basket Rule:** You MAY suggest the [market_basket] catalog tool if you identify transactional fact data with both an ID/Header field and a Line Item/Product field. The execution engine will dynamically verify if a 1-to-many relationship actually exists before applying it.
 

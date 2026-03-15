@@ -188,7 +188,22 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
 
         script += `\n// --- Master Calendar ---\n`;
         script += `[MasterCalendar]:\n`;
-        script += `LOAD\n    [CanonicalDate],\n    Year([CanonicalDate]) AS [Year],\n    Month([CanonicalDate]) AS [Month],\n    Day([CanonicalDate]) AS [Day],\n    'Q' & Ceil(Month([CanonicalDate])/3) AS [Quarter]\nRESIDENT [CanonicalDateBridge];\n`;
+        script += `LOAD\n`;
+        script += `    [CanonicalDate],\n`;
+        script += `    Year([CanonicalDate]) AS [Year],\n`;
+        script += `    'Q' & Ceil(Month([CanonicalDate])/3) AS [Quarter],\n`;
+        script += `    Month([CanonicalDate]) AS [Month],\n`;
+        script += `    Date(MonthStart([CanonicalDate]), 'MMM-YYYY') AS [MonthYear],\n`;
+        script += `    Week([CanonicalDate]) AS [Week],\n`;
+        script += `    Day([CanonicalDate]) AS [Day],\n`;
+        script += `    WeekDay([CanonicalDate]) AS [WeekDay],\n`;
+        script += `    // --- Relative Time Deltas (Added for Set Analysis) ---\n`;
+        script += `    [CanonicalDate] - Today() AS [Date Diff],\n`;
+        script += `    ((Year([CanonicalDate]) - Year(Today())) * 52) + (If(Num(Month([CanonicalDate])) = '1' And Week([CanonicalDate]) > 5, 0, Week([CanonicalDate])) - If(Num(Month(Today())) = '1' And Week(Today()) > 5, 0, Week(Today()))) AS [Week Diff],\n`;
+        script += `    ((Year([CanonicalDate]) - Year(Today())) * 12) + (Month([CanonicalDate]) - Month(Today())) AS [Month Diff],\n`;
+        script += `    ((Year([CanonicalDate]) - Year(Today())) * 4) + (Ceil(Num(Month([CanonicalDate])) / 3) - Ceil(Num(Month(Today())) / 3)) AS [Qtr Diff],\n`;
+        script += `    Year([CanonicalDate]) - Year(Today()) AS [Year Diff]\n`;
+        script += `RESIDENT [CanonicalDateBridge];\n`;
     }
 
     return script;
