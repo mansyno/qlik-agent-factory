@@ -78,8 +78,8 @@ Your job is to analyze the metadata of a Qlik Sense application and decide how t
   - **Tier 2 (The Forge):** Used ONLY for truly unique, one-off logic with absolutely NO equivalent in the Catalog. This is a LAST RESORT.
 - **Pareto Requirement:** If you want to perform any 80/20 or Pareto segmentation, you MUST use the [pareto_linked] catalog tool.
   - **Key Derivation**: Look at the metadata. If a `LinkTable` exists, the `keyField` for a fact table is usually `%Key_TableName`.
-  - **Source Awareness**: Be aware that if a `LinkTable` is present, conformed keys are DROPPED from original fact tables. Use the `LinkTable` as the resident source for conformed identifiers.
-- **Dual Flag Injection**: You MUST specify the `targetTable`. Use `LinkTable` if it contains the field, otherwise use the specific dimension table.
+  - **Source Awareness**: Be aware that if a `LinkTable` is present, conformed keys are DROPPED from original fact tables. Use the string "LinkTable" as the resident source for conformed identifiers.
+- **Dual Flag Injection**: You MUST specify the `targetTable`. Use the string "LinkTable" if it contains the field, otherwise use the specific dimension table name.
 - **Market Basket Rule:** You MAY suggest the [market_basket] catalog tool if you identify transactional fact data with both an ID/Header field and a Line Item/Product field. The execution engine will dynamically verify if a 1-to-many relationship actually exists before applying it.
 
 ## **2. The Toolbox Manifest (Catalog - Tier 1)**
@@ -145,10 +145,23 @@ Formulate the Enrichment Plan.
       }
     });
     const result = await model.generateContent(userPrompt);
-    const plan = JSON.parse(result.response.text());
-    logger.log('EnhancerBrain', 'Enrichment Plan Formulation Complete');
-    logger.enhancement('Brain Reasoning', plan.reasoningSummary);
-    return plan;
+    const rawText = result.response.text();
+    
+    try {
+      // Robust JSON extraction: look for the first '{' and last '}'
+      const jsonStart = rawText.indexOf('{');
+      const jsonEnd = rawText.lastIndexOf('}');
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("No JSON object found in response");
+      
+      const cleanJson = rawText.substring(jsonStart, jsonEnd + 1);
+      const plan = JSON.parse(cleanJson);
+      logger.log('EnhancerBrain', 'Enrichment Plan Formulation Complete');
+      logger.enhancement('Brain Reasoning', plan.reasoningSummary);
+      return plan;
+    } catch (parseErr) {
+      logger.error('EnhancerBrain', `Failed to parse plan JSON. Raw Response: ${rawText.substring(0, 500)}...`);
+      throw parseErr;
+    }
   }, 'EnhancerBrain');
 }
 
