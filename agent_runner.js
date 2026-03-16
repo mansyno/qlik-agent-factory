@@ -6,12 +6,22 @@
 
 const fs = require('fs');
 const path = require('path');
-const { openSession, openSessionForApp, closeSession, profileData, profileNativeRelationships, validateScript } = require('./qlik_tools');
+const { openSession, openSessionForApp, closeSession, profileData, profileNativeRelationships, validateScript, getEngineMetrics, getLiveMetadata, formatMetadataAsMarkdown, createPersistentApp } = require('./qlik_tools');
 const { classifyTablesAndFields } = require('./brain');
 const { resolveArchitecture } = require('./deterministic_modeler');
 const { generateQvsScript } = require('./architect_generator');
 const { generateLayoutPlan } = require('./layout_brain');
 const { composeLayout } = require('./layout_composer');
+
+const logger = require('./.agent/utils/logger.js');
+const { profileAllData } = require('./architect_profiler');
+const { classifyData } = require('./architect_classifier');
+const { determineRelationships } = require('./architect_relationship_detector');
+const { generateBlueprint, findFactGroups } = require('./architect_structural_tester');
+const { collapseFactGroups } = require('./architect_metadata_collapser');
+const inspector = require('./.agent/skills/qlik-metadata-inspector/inspector.js');
+const { generateEnrichmentPlan } = require('./enhancer_brain');
+const { composeEnrichment, checkOneToManyViability } = require('./enhancer_composer');
 
 const ENHANCER_MARKER = '// *** ENHANCER AGENT OUTPUT (Hybrid Model) ***';
 const CACHE_FILE = '.cache_base_script.qvs';
@@ -210,6 +220,8 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
 
     let session = null;
     let qlikGlobal = null;
+    let success = false;
+    let currentScript = '';
 
     // Determine pipeline flags early — needed before session opens
     const runArchitect = pipeline.includes('architect');

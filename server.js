@@ -11,6 +11,9 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
+const { runAgent } = require('./agent_runner');
+const { getActiveModel, MODELS, setActiveModel } = require('./brain');
+
 app.use(cors());
 app.use(express.json());
 
@@ -47,14 +50,6 @@ app.post('/api/run', async (req, res) => {
     io.emit('job-started', { dataDir, appName, pipeline });
 
     try {
-        // Cache-bust agent modules so edits are picked up without server restart
-        Object.keys(require.cache).forEach(key => {
-            if (key.includes('agent_runner') || key.includes('brain') || key.includes('enhancer') || key.includes('layout') || key.includes('deterministic_modeler') || key.includes('architect_generator')) {
-                delete require.cache[key];
-            }
-        });
-
-        const { runAgent } = require('./agent_runner');
         await runAgent({ dataDir, appName, pipeline, io, broadcastAgentState, agentControl });
     } catch (err) {
         // agent_runner already broadcasts the error — no double-emit needed
@@ -96,7 +91,6 @@ app.post('/api/resume', (req, res) => {
 
 // ─── API: Model Selection ──────────────────────────────────────────────────
 app.get('/api/model', (req, res) => {
-    const { getActiveModel, MODELS } = require('./brain');
     res.json({ 
         activeModel: getActiveModel(),
         options: MODELS
@@ -107,7 +101,6 @@ app.post('/api/model', (req, res) => {
     const { model } = req.body;
     if (!model) return res.status(400).json({ error: 'Model name is required.' });
     
-    const { setActiveModel } = require('./brain');
     setActiveModel(model);
     
     res.json({ status: 'success', activeModel: model });

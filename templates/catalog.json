@@ -29,7 +29,7 @@
             "idField",
             "itemField"
         ],
-        "template": "\n// --- MARKET BASKET ({{itemField}} co-occurrences within {{idField}}) ---\n[Basket_A]:\nLOAD [{{idField}}], [{{itemField}}] AS [{{itemField}}]\nRESIDENT [{{factTable}}];\n\n[Basket_B]:\nLOAD [{{idField}}], [{{itemField}}] AS [Co_{{itemField}}]\nRESIDENT [{{factTable}}];\n\nJOIN ([Basket_A])\nLOAD * RESIDENT [Basket_B];\nDROP TABLE [Basket_B];\n\n[Final_Market_Basket]:\nNOCONCATENATE\nLOAD\n    [{{itemField}}],\n    [Co_{{itemField}}],\n    Count([{{idField}}]) AS CoOccurrences\nRESIDENT [Basket_A]\nWHERE [{{itemField}}] < [Co_{{itemField}}]\nGROUP BY [{{itemField}}], [Co_{{itemField}}];\n\nDROP TABLE [Basket_A];\n"
+        "template": "\n// --- MARKET BASKET ({{itemField}} co-occurrences within {{idField}}) ---\n[Basket_A]:\nLOAD [{{idField}}], [{{itemField}}]\nRESIDENT [{{factTable}}];\n\nJOIN ([Basket_A])\nLOAD [{{idField}}], [{{itemField}}] AS [Co_{{itemField}}]\nRESIDENT [{{factTable}}];\n\n[Final_Market_Basket]:\nNOCONCATENATE\nLOAD\n    [{{itemField}}],\n    [Co_{{itemField}}],\n    Count([{{idField}}]) AS CoOccurrences\nRESIDENT [Basket_A]\nWHERE [{{itemField}}] <> [Co_{{itemField}}]\nGROUP BY [{{itemField}}], [Co_{{itemField}}];\n\nDROP TABLE [Basket_A];\n"
     },
     {
         "id": "dual_flag_injector",
