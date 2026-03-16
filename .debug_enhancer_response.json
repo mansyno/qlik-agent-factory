@@ -1,9 +1,0 @@
-{
-  "plan": [
-    {
-      "tier": "catalog",
-      "toolId": "as_of_table",
-      "parameters": {}
-    }
-  ]
-}
