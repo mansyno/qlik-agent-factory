@@ -117,22 +117,38 @@ function runDeterministicChecks(metadata, broadcast) {
     // 2. Check for dual_flag_injector
     for (const [tableName, table] of Object.entries(metadata.tables)) {
         for (const field of table.fields) {
-            // Exclude % fields (hidden/keys) and SourceTable fields
-            if (field.name.startsWith('%') || field.name.includes('SourceTable')) continue;
+            // Exclude % fields (hidden/keys)
+            if (field.name.startsWith('%')) continue;
+
+            // Exclude fields that are JUST metadata like 'SourceTable_XXXX' unless they are actual flags
+            if (field.name.includes('SourceTable') && !field.name.toLowerCase().includes('flag')) continue;
             
-            if (field.distinctCount === 2 && field.sampleValues && field.sampleValues.length === 2) {
-                broadcast('Enhancer', `Deterministic Match: Added [dual_flag_injector] for ${tableName}.${field.name}`, 'info');
-                // Format mappingPairs as "'Val1','Val2'"
-                const mappingPairs = field.sampleValues.map(v => `'${v}'`).join(',');
-                deterministicPlan.push({
-                    tier: 'catalog',
-                    toolId: 'dual_flag_injector',
-                    parameters: { 
-                        targetTable: tableName, 
-                        fieldName: field.name,
-                        mappingPairs
-                    }
-                });
+            const isCalendar = /^(Year|Month|Quarter|Week|Day|WeekDay|MonthYear|Date_Diff|Month_Diff|Year_Diff|Date|Time|Timestamp)$/i.test(field.name) || (field.tags && (field.tags.includes('$date') || field.tags.includes('$timestamp')));
+            if (isCalendar) continue;
+
+            const isKnownFlagName = /flag|status|yes|no|active|valid|binary|imported|return/i.test(field.name);
+            const hasTwoValues = field.distinctCount === 2 && field.sampleValues && field.sampleValues.length === 2;
+            
+            if (hasTwoValues) {
+                const valStr = field.sampleValues.map(v => String(v).toLowerCase());
+                const isFlagContent = valStr.some(v => 
+                    ['yes', 'no', 'y', 'n', '1', '0', 'true', 'false', 'active', 'inactive'].includes(v)
+                );
+
+                // HIGH CONFIDENCE -> Deterministic Plan
+                if (isKnownFlagName || isFlagContent) {
+                    broadcast('Enhancer', `Deterministic Match: Added [dual_flag_injector] for ${tableName}.${field.name}`, 'info');
+                    const mappingPairs = field.sampleValues.map(v => `'${v}'`).join(',');
+                    deterministicPlan.push({
+                        tier: 'catalog',
+                        toolId: 'dual_flag_injector',
+                        parameters: { 
+                            targetTable: tableName, 
+                            fieldName: field.name,
+                            mappingPairs
+                        }
+                    });
+                }
             }
         }
     }
@@ -147,36 +163,65 @@ function runDeterministicChecks(metadata, broadcast) {
 function runPreFlightInspection(metadata) {
     const hints = [];
     const factTables = [];
+    const linkTable = metadata.tables['LinkTable'] || metadata.tables['Link Table'];
 
-    // Identify Facts (tables with measures)
+    // Identify Facts and Potential Flags
     for (const [tableName, table] of Object.entries(metadata.tables)) {
         if (tableName === 'LinkTable' || tableName === 'MasterCalendar' || tableName === 'CanonicalDateBridge') continue;
+        
         const hasMeasure = table.fields.some(f => f.tags && f.tags.includes('$numeric') && !f.name.startsWith('%') && !f.tags.includes('$key'));
         if (hasMeasure) factTables.push(tableName);
+
+        // Ambiguous 2-value fields -> Hint for LLM to decide
+        table.fields.forEach(field => {
+            if (field.name.startsWith('%')) return;
+            const isCalendar = /^(Year|Month|Quarter|Week|Day|WeekDay|MonthYear|Date_Diff|Month_Diff|Year_Diff|Date|Time|Timestamp)$/i.test(field.name) || (field.tags && (field.tags.includes('$date') || field.tags.includes('$timestamp')));
+            if (isCalendar) return;
+
+            if (field.distinctCount === 2 && field.sampleValues && field.sampleValues.length === 2) {
+                const isKnownFlagName = /flag|status|yes|no|active|valid|binary|imported|return/i.test(field.name);
+                const valStr = field.sampleValues.map(v => String(v).toLowerCase());
+                const isFlagContent = valStr.some(v => ['yes', 'no', 'y', 'n', '1', '0', 'true', 'false'].includes(v));
+
+                // If NOT high confidence (deterministic), pass as a hint for LLM evaluation
+                if (!isKnownFlagName && !isFlagContent) {
+                    const values = field.sampleValues.join(', ');
+                    hints.push(`Dual Injection Candidate: table='${tableName}', field='${field.name}', values='${values}' (LLM: evaluate if this should be a toggleable dual flag)`);
+                }
+            }
+        });
     }
 
-    // Pareto Hints (Fact + LinkTable + Dimension)
-    if (factTables.length > 0 && metadata.tables['LinkTable']) {
-        const linkFields = metadata.tables['LinkTable'].fields.map(f => f.name);
-        const dimensions = linkFields.filter(f => !f.startsWith('%') && f !== 'OrderID');
-
+    // Pareto Hints (Fact + LinkTable/Direct + Dimension)
+    if (factTables.length > 0) {
         factTables.forEach(fact => {
             const table = metadata.tables[fact];
             const measure = table.fields.find(f => f.tags && f.tags.includes('$numeric') && !f.name.startsWith('%') && !f.tags.includes('$key'))?.name;
             const key = `%Key_${fact}`;
             
-            // Check if key exists in LinkTable
-            if (measure && linkFields.includes(key) && dimensions.length > 0) {
-                // Find a "good" dimension (not ID, not SourceTable)
-                const bestDim = dimensions.find(d => !d.toLowerCase().includes('source') && !d.toLowerCase().includes('id')) || dimensions[0];
-                hints.push(`Pareto Candidate: factTable='${fact}', linkTable='LinkTable', keyField='${key}', dimensionField='${bestDim}', measureField='${measure}'`);
+            // If LinkTable exists, use it
+            if (linkTable) {
+                const linkFields = linkTable.fields.map(f => f.name);
+                const dimensions = linkFields.filter(f => !f.startsWith('%') && f !== 'OrderID');
+                if (measure && linkFields.includes(key) && dimensions.length > 0) {
+                    const bestDim = dimensions.find(d => !d.toLowerCase().includes('source') && !d.toLowerCase().includes('id')) || dimensions[0];
+                    hints.push(`Pareto Candidate: factTable='${fact}', linkTable='${linkTable.tableName || 'LinkTable'}', keyField='${key}', dimensionField='${bestDim}', measureField='${measure}'`);
+                }
+            } else {
+                // Star Schema: Dimensions might be directly in the fact table or separate tables
+                // For now, look for high-cardinality attributes in the fact table itself as Pareto candidates
+                const dimensions = table.fields.filter(f => f.type === 'ATTRIBUTE' && f.distinctCount > 10 && !f.name.toLowerCase().includes('date') && !f.name.toLowerCase().includes('id'));
+                if (measure && dimensions.length > 0) {
+                    hints.push(`Pareto Candidate: factTable='${fact}', dimensionField='${dimensions[0].name}', measureField='${measure}' (Self-contained Pareto)`);
+                }
             }
         });
     }
 
-    // Market Basket Hints (1-to-many on LinkTable)
-    if (metadata.tables['LinkTable']) {
-        const fields = metadata.tables['LinkTable'].fields;
+    // Market Basket Hints (1-to-many on LinkTable or Fact)
+    const basketTarget = linkTable || metadata.tables[factTables[0]];
+    if (basketTarget) {
+        const fields = basketTarget.fields;
         const orderIdField = fields.find(f => {
             const n = f.name.toLowerCase();
             return n.includes('order') || n.includes('trans') || n.includes('basket') || n.includes('header');
@@ -188,7 +233,7 @@ function runPreFlightInspection(metadata) {
         })?.name;
         
         if (orderIdField && itemField) {
-            hints.push(`Market Basket Candidate: factTable='LinkTable', idField='${orderIdField}', itemField='${itemField}'`);
+            hints.push(`Market Basket Candidate: factTable='${basketTarget.tableName || 'LinkTable'}', idField='${orderIdField}', itemField='${itemField}'`);
         }
     }
 
@@ -202,7 +247,6 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
         : (agent, msg) => console.log(`[${agent}] ${msg}`);
     const ctrl = agentControl || null;
 
-    const logger = require('./.agent/utils/logger.js');
     logger.initialize();
     logger.log('System', 'Job Started', { dataDir, targetAppName: appName });
     broadcast('System', `Job Started — Data: ${dataDir} | App: ${appName}`, 'info');
@@ -274,9 +318,6 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             const oldFiles = fs.readdirSync(process.cwd()).filter(f => f.startsWith('.debug_') || f.endsWith('_script.qvs'));
             oldFiles.forEach(f => { try { fs.unlinkSync(path.join(process.cwd(), f)); } catch (_) { } });
 
-            const { profileAllData } = require('./architect_profiler');
-            const { getEngineMetrics } = require('./qlik_tools');
-
             broadcast('Architect', `Analyzing ${files.length} tables...`, 'info');
             
             // Step 0: Engine Native Profiling (for memory/symbol metrics)
@@ -299,11 +340,6 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             // ── Phase 2: Architectural Reasoning (Deterministic) ──────────────────────
             broadcast('Architect', '── Phase 2: Architectural Reasoning (Deterministic) ──', 'phase');
 
-            const { classifyData } = require('./architect_classifier');
-            const { determineRelationships } = require('./architect_relationship_detector');
-            const { generateBlueprint, findFactGroups } = require('./architect_structural_tester');
-            const { generateQvsScript } = require('./architect_generator');
-
             // Step 1: Classify Tables
             broadcast('Architect', `Step 1: Classifying Tables and Fields...`, 'info');
             const classResult = await classifyData(metadata);
@@ -317,7 +353,6 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
 
             if (factGroups.length > 0) {
                 broadcast('Architect', `Identified ${factGroups.length} groups of fact tables for concatenation.`, 'info');
-                const { collapseFactGroups } = require('./architect_metadata_collapser');
                 const result = collapseFactGroups(metadata, classifications, factGroups);
                 processedMetadata = result.metadata;
                 processedClassifications = result.classifications;
@@ -427,22 +462,15 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             broadcast('Enhancer', '── Phase 3: Enhancer Agent ──', 'phase');
             logger.log('Enhancer', 'Starting Enrichment Phase (Hybrid)');
 
-            let plan, enrichedScript, report;
-
-            const inspector = require('./.agent/skills/qlik-metadata-inspector/inspector.js');
-            // The original `const { generateEnrichmentPlan } = require('./enhancer_brain');` is moved inside the try block.
-
             // Stage A: Inspect + Plan
             const stageStart = Date.now();
             try {
-                // Clear cache to ensure fixes on disk are picked up if server is long-running
-                delete require.cache[require.resolve('./qlik_tools')];
-                delete require.cache[require.resolve('./enhancer_brain')];
-                
-                const { getLiveMetadata, formatMetadataAsMarkdown } = require('./qlik_tools');
-                const { generateEnrichmentPlan } = require('./enhancer_brain');
-                const { checkOneToManyViability } = require('./enhancer_composer');
-                
+                // Ensure Enhancer works on a FAST baseline to speed up validation loops
+                let fastBaseScript = currentScript;
+                if (!currentScript.includes('FIRST 1')) {
+                    fastBaseScript = currentScript.replace(/LOAD/g, 'FIRST 1\nLOAD');
+                }
+
                 const metadata = await getLiveMetadata(workApp);
                 const mdMetadata = formatMetadataAsMarkdown(metadata);
                 
@@ -478,7 +506,16 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                         if (detTool.toolId !== llmTool.toolId) return false;
                         
                         // Check if parameters match the key target fields
-                        if (detTool.toolId === 'as_of_table') return true; // Only ever one as_of per run usually
+                        if (detTool.toolId === 'as_of_table') {
+                            // For as_of_table, we consider it a duplicate if the target table is the same
+                            // or if the LLM proposes an as_of for a LinkTable when one is already deterministically planned.
+                            const detTarget = detTool.parameters.targetTable;
+                            const llmTarget = llmTool.parameters.targetTable;
+                            if (detTarget === llmTarget) return true;
+                            // If deterministic plan has an as_of for 'LinkTable' and LLM also proposes one, it's a duplicate.
+                            if (detTarget === 'LinkTable' && llmTarget === 'LinkTable') return true;
+                            return false;
+                        }
                         if (detTool.toolId === 'dual_flag_injector') {
                             return detTool.parameters.fieldName === llmTool.parameters.fieldName &&
                                    detTool.parameters.targetTable === llmTool.parameters.targetTable;
@@ -504,8 +541,9 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             // Stage B: Compose enrichments
             if (plan) {
                 try {
-                    const { composeEnrichment } = require('./enhancer_composer');
-                    ({ enrichedScript, report } = await composeEnrichment(plan, currentScript, qlikGlobal, workApp));
+                    const composerResult = await composeEnrichment(plan, fastBaseScript, qlikGlobal, workApp);
+                    enrichedScript = currentScript + composerResult.appliedEnrichments;
+                    report = composerResult.report;
 
                     report.forEach(r => {
                         const ok = r.status.startsWith('Applied');
@@ -548,9 +586,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
         }
 
         // ── Phase 4: Finalization ─────────────────────────────────────────────
-
         let persistentApp = null;
-        const { openSession: openS, createPersistentApp } = require('./qlik_tools');
 
         if (success && (runArchitect || runEnhancer)) {
             broadcast('System', '── Phase 4: Finalization ──', 'phase');
@@ -561,7 +597,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             broadcast('System', '── Phase 5: Promoting to Persistent App ──', 'phase');
             if (session) { await closeSession(session); session = null; }
 
-            const conn2 = await openS();
+            const conn2 = await openSession();
             session = conn2.session;
             const promoGlobal = conn2.global;
 
@@ -596,7 +632,6 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                     persistentApp = await qlikGlobal.openDoc(appName);
                 } catch (e) {
                     // GUI-based resolution if direct fails
-                    const { openSessionForApp } = require('./qlik_tools');
                     const connFallback = await openSessionForApp(appName);
                     persistentApp = connFallback.appHandle;
                 }

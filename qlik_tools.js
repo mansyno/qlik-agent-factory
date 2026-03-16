@@ -285,17 +285,21 @@ function cleanQlikError(logContent) {
     return null;
 }
 
-async function getLatestScriptLog() {
+async function getLatestScriptLog(afterTime = 0) {
     try {
         const logDir = 'd:\\Users\\Daniel\\Documents\\Qlik\\Sense\\Log\\Script';
         if (!fs.existsSync(logDir)) return null;
 
         const files = fs.readdirSync(logDir)
             .filter(f => f.endsWith('.log'))
-            .map(f => ({
-                name: f,
-                time: fs.statSync(path.join(logDir, f)).mtime.getTime()
-            }))
+            .map(f => {
+                const stat = fs.statSync(path.join(logDir, f));
+                return {
+                    name: f,
+                    time: stat.mtime.getTime()
+                };
+            })
+            .filter(f => f.time >= afterTime) // ONLY new logs
             .sort((a, b) => b.time - a.time);
 
         if (files.length === 0) return null;
@@ -344,6 +348,7 @@ async function validateScript(global, scriptText, appOrDataPath) {
     }
 
     try {
+        const startTime = Date.now();
         console.log(`[QLIK_TOOLS] Validating script (Version V5 - Physical Logs)...`);
         await app.setScript(scriptText);
 
@@ -353,13 +358,14 @@ async function validateScript(global, scriptText, appOrDataPath) {
             const engineError = reloadRes.qErrorDesc || "Unknown Script Error";
             console.error(`[QLIK_ENGINE_ERROR] ${engineError}`);
             
-            // Deterministic approach: Read the newest log file from disk
-            const physicalLog = await getLatestScriptLog();
+            // Wait a moment for engine to flush log to disk
+            await new Promise(r => setTimeout(r, 500));
+            const physicalLog = await getLatestScriptLog(startTime);
             
             let displayError = (physicalLog && physicalLog.coreError) ? physicalLog.coreError : `Reload Failed: ${engineError}`;
             let verboseDetails = (physicalLog && physicalLog.fullContext)
                 ? `\n--- RELOAD LOG CONTEXT ---\n${physicalLog.fullContext}`
-                : "No detailed engine logs found on disk.";
+                : "No detailed engine logs found for this specific failure.";
 
             return {
                 success: false,

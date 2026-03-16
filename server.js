@@ -34,6 +34,8 @@ function broadcastAgentState(agent, message, type = 'info', data = null) {
     io.emit('agent-log', entry);
 }
 
+const { runAgent } = require('./agent_runner');
+
 // ─── API: Run Job ──────────────────────────────────────────────────────────
 app.post('/api/run', async (req, res) => {
     if (agentRunning) {

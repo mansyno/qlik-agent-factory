@@ -203,7 +203,7 @@ async function composeEnrichment(plan, baseScript, sessionGlobal, sessionApp) {
     }
 
     const enrichedScript = cumulativeScript + appliedEnrichments;
-    return { enrichedScript, report: enhancementReport };
+    return { enrichedScript, appliedEnrichments, report: enhancementReport };
 }
 
 module.exports = { composeEnrichment };
