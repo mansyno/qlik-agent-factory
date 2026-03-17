@@ -70,7 +70,6 @@ async function generateLayoutPlan(dataModelExcerpt) {
     const cleaned = resultString.replace(/^```json\S*/mg, '').replace(/```\S*/g, '').trim();
     return JSON.parse(cleaned);
   } catch (error) {
-    console.error("DEBUG LayoutBrain LLM Error:", error);
     logger.error('LayoutBrain', 'Failed to generate layout blueprint from LLM', error);
     return null;
   }

@@ -3,6 +3,7 @@ const WebSocket = require('ws');
 const schema = require('enigma.js/schemas/12.170.2.json');
 const path = require('path');
 const fs = require('fs');
+const logger = require('./.agent/utils/logger.js');
 
 async function openSession(appId = 'engineData') {
     const session = enigma.create({
@@ -22,7 +23,6 @@ async function openSession(appId = 'engineData') {
  *      and getDocList() may return an empty list depending on engine/user context.
  */
 async function openSessionForApp(appName) {
-    // Generic engine connection (no specific app)
     const session = enigma.create({
         schema,
         url: `ws://localhost:4848/app/engineData`,
@@ -32,13 +32,13 @@ async function openSessionForApp(appName) {
 
     // --- Strategy 1: Direct openDoc by name (Qlik Desktop / Already known GUID) ---
     // This is the fastest way. Qlik Desktop accepts the app name or full path.
-    console.log(`[openSessionForApp] Attempting direct openDoc('${appName}')...`);
+    logger.info('QlikTools', `Attempting direct openDoc('${appName}')...`);
     try {
         const appHandle = await global.openDoc(appName);
-        console.log(`[openSessionForApp] Successfully opened '${appName}' directly.`);
+        logger.success('QlikTools', `Successfully opened '${appName}' directly.`);
         return { session, global, appHandle };
     } catch (directErr) {
-        console.log(`[openSessionForApp] Direct openDoc failed: ${directErr.message}. Falling back to docList resolution...`);
+        logger.info('QlikTools', `Direct openDoc failed: ${directErr.message}. Falling back to docList resolution...`);
     }
 
     // --- Strategy 2: getDocList() name → GUID resolution (Hub/Server fallback) ---
@@ -51,7 +51,7 @@ async function openSessionForApp(appName) {
         );
 
         if (entry) {
-            console.log(`[openSessionForApp] Matched via docList: ${entry.qDocId}`);
+            logger.info('QlikTools', `Matched via docList: ${entry.qDocId}`);
             const appHandle = await global.openDoc(entry.qDocId);
             return { session, global, appHandle };
         }
@@ -186,7 +186,7 @@ async function getEngineMetrics(global, dataDir, files, app = null) {
 
         return metrics;
     } catch (err) {
-        console.error("[QLIK_TOOLS] getEngineMetrics error:", err);
+        logger.error('QlikTools', "getEngineMetrics error", err);
         return {};
     } finally {
         if (createdApp && sessionApp) {
@@ -318,7 +318,7 @@ async function getLatestScriptLog(afterTime = 0) {
             fullContext: cleanedLines.join('\n')
         };
     } catch (err) {
-        console.error(`[QLIK_TOOLS] Failed to read physical log: ${err.message}`);
+        logger.error('QlikTools', `Failed to read physical log: ${err.message}`);
         return null;
     }
 }
@@ -349,14 +349,14 @@ async function validateScript(global, scriptText, appOrDataPath) {
 
     try {
         const startTime = Date.now();
-        console.log(`[QLIK_TOOLS] Validating script (Version V5 - Physical Logs)...`);
+        logger.info('QlikTools', "Validating script (Version V5 - Physical Logs)...");
         await app.setScript(scriptText);
 
         const reloadRes = await app.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
 
         if (!reloadRes.qSuccess) {
             const engineError = reloadRes.qErrorDesc || "Unknown Script Error";
-            console.error(`[QLIK_ENGINE_ERROR] ${engineError}`);
+            logger.error('QlikTools', `[QLIK_ENGINE_ERROR] ${engineError}`);
             
             // Wait a moment for engine to flush log to disk
             await new Promise(r => setTimeout(r, 500));
@@ -455,7 +455,7 @@ async function validateScript(global, scriptText, appOrDataPath) {
         }
 
         if (componentCount > 1) {
-            console.warn(`[VALIDATION WARNING] The data model contains ${componentCount} disconnected groups.`);
+            logger.warn('QlikTools', `The data model contains ${componentCount} disconnected groups. (Validation Warning)`);
         }
 
         return {
@@ -497,37 +497,38 @@ async function createConnection(app, name, pathStr) {
 }
 
 async function createPersistentApp(global, appName) {
+    // First: if the app already exists, delete it so we can recreate cleanly.
+    // This avoids "App already open" when the previous version is open in the Hub.
     try {
-        console.log(`Creating persistent app: ${appName}...`);
-        const newApp = await global.createApp(appName);
+        const docList = await global.getDocList();
+        const existing = docList.find(d =>
+            d.qDocName.toLowerCase() === appName.toLowerCase() ||
+            d.qDocName.replace(/\.qvf$/i, '').toLowerCase() === appName.toLowerCase()
+        );
+        if (existing) {
+            logger.info('QlikTools', `App '${appName}' already exists (ID: ${existing.qDocId}). Deleting before recreating...`);
+            await global.deleteApp(existing.qDocId);
+            logger.info('QlikTools', `Old app deleted.`);
+        }
+    } catch (listErr) {
+        logger.warn('QlikTools', `Could not check/delete existing app: ${listErr.message}. Proceeding with create...`);
+    }
 
-        // Open the app to get the handle
+    try {
+        logger.info('QlikTools', `Creating persistent app: ${appName}...`);
+        const newApp = await global.createApp(appName);
         const appHandle = await global.openDoc(newApp.qAppId);
-        console.log(`App created and opened. ID: ${newApp.qAppId}`);
+        logger.success('QlikTools', `App created and opened. ID: ${newApp.qAppId}`);
         return appHandle;
     } catch (err) {
-        // If app already exists, we might want to open it instead or delete/recreate
-        if (err.message.includes('already exists') || err.message.includes('App already open')) {
-            console.log(`App '${appName}' already exists/open. attempting to attach...`);
-            try {
-                const appHandle = await global.openDoc(appName);
-                return appHandle;
-            } catch (openErr) {
-                // If openDoc fails with "App already open", it usually means we need to getActiveDoc or it's open in another session?
-                // Actually, if openDoc fails, let's try getActiveDoc if we were in a browser, but here we are in a raw socket.
-                // In Qlik Sense Desktop, openDoc works even if open in Hub.
-                // But let's log specifically.
-                console.log("Could not open existing app: " + openErr.message);
-                throw openErr;
-            }
-        }
+        logger.error('QlikTools', `Failed to create app '${appName}': ${err.message}`);
         throw err;
     }
 }
 
 async function getLiveMetadata(app) {
     try {
-        console.log("[QLIK_TOOLS] Fetching Live Metadata (getTablesAndKeys)...");
+        logger.info('QlikTools', "Fetching Live Metadata (getTablesAndKeys)...");
         const tableData = await app.getTablesAndKeys({ 
             qWindowSize: { qcx: 0, qcy: 100 }, 
             qNullSize: { qcx: 0, qcy: 0 }, 
@@ -568,7 +569,7 @@ async function getLiveMetadata(app) {
                     }
                     await app.destroySessionObject(sessionObj.id);
                 } catch (fieldErr) {
-                    console.warn(`[QLIK_TOOLS] Warning: Could not fetch details for field ${f.qName}:`, fieldErr.message);
+                    logger.warn('QlikTools', `Could not fetch details for field ${f.qName}:`, fieldErr);
                 }
 
                 fields.push({
@@ -588,7 +589,7 @@ async function getLiveMetadata(app) {
 
         return metadata;
     } catch (err) {
-        console.error("[QLIK_TOOLS] getLiveMetadata error:", err);
+        logger.error('QlikTools', "getLiveMetadata error", err);
         return { error: err.message };
     }
 }

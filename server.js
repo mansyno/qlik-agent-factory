@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const logger = require('./.agent/utils/logger.js');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,15 +27,27 @@ function resetControl() {
     agentControl.resumeCallback = null;
 }
 
+// ─── Logger Integration ──────────────────────────────────────────────────────
+logger.addListener((entry) => {
+    if (io) {
+        io.emit('agent-log', {
+            agent: entry.agent,
+            message: entry.message,
+            type: (entry.level || 'info').toLowerCase(),
+            data: entry.details,
+            timestamp: entry.timestamp
+        });
+    }
+});
+
 // ─── Broadcast Helper ────────────────────────────────────────────────────────
-// Always logs to terminal AND emits to all connected UI clients.
 function broadcastAgentState(agent, message, type = 'info', data = null) {
-    const entry = { agent, message, type, data, timestamp: new Date().toISOString() };
-    console.log(`[${agent}] ${message}`);
-    io.emit('agent-log', entry);
+    const level = type.toUpperCase() === 'PHASE' ? 'PHASE' : 
+                  (type.toUpperCase() === 'ERROR' ? 'ERROR' : 
+                  (type.toUpperCase() === 'WARNING' ? 'WARNING' : 'INFO'));
+    logger.log(level, message, data, agent);
 }
 
-const { runAgent } = require('./agent_runner');
 
 // ─── API: Run Job ──────────────────────────────────────────────────────────
 app.post('/api/run', async (req, res) => {
@@ -110,7 +123,7 @@ app.post('/api/model', (req, res) => {
 
 // ─── WebSocket Connection ─────────────────────────────────────────────────
 io.on('connection', (socket) => {
-    console.log(`[Server] UI client connected: ${socket.id}`);
+    logger.info('Server', `UI client connected: ${socket.id}`);
     socket.emit('agent-log', {
         agent: 'Server', message: 'Connected to Qlik Agent Factory', type: 'info',
         timestamp: new Date().toISOString()
@@ -120,8 +133,8 @@ io.on('connection', (socket) => {
 // ─── Start Server ──────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-    console.log(`\n[Server] Agent Factory backend running on http://localhost:${PORT}`);
-    console.log('[Server] Waiting for UI connections...\n');
+    logger.info('Server', `Agent Factory backend running on http://localhost:${PORT}`);
+    logger.info('Server', 'Waiting for UI connections...');
 });
 
 module.exports = { io, broadcastAgentState };

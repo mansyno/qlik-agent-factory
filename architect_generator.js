@@ -1,4 +1,5 @@
 const path = require('path');
+const logger = require('./.agent/utils/logger.js');
 
 /**
  * Step 8: Deterministic QVS Script Generator (Pre-Concatenation Refactor)
@@ -56,7 +57,7 @@ SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:μ;-9:n;
         const tableInfo = tableLookup[targetTableName];
         
         if (!tableInfo) {
-            console.warn(`[Generator] Warning: No metadata found for table ${targetTableName}. Skipping.`);
+            logger.warn('Generator', `No metadata found for table ${targetTableName}. Skipping.`);
             return;
         }
         

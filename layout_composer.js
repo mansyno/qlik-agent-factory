@@ -206,7 +206,6 @@ async function composeLayout(sessionApp, layoutPlan) {
 
         return true;
     } catch (e) {
-        console.error("DEBUG LayoutComposer Error:", e);
         logger.error('LayoutComposer', 'Critical failure during Layout Assembly', e);
         return false;
     }

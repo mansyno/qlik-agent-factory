@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
+const logger = require('./.agent/utils/logger.js');
 
 const MAX_DISTINCT_VALUES = 100000; // Cap to prevent memory explosion
 
@@ -9,19 +10,19 @@ const MAX_DISTINCT_VALUES = 100000; // Cap to prevent memory explosion
  * Reads CSVs locally using streams and builds comprehensive statistics for AI Model mapping.
  */
 async function profileAllData(dataDir, files, engineMetrics = {}) {
-    console.log(`[Profiler] Starting local CSV profiling for ${files.length} tables...`);
+    logger.info('Profiler', `Starting local CSV profiling for ${files.length} tables...`);
     const metadata = { tables: {}, relationships: { overlap: [], subsets: [] } };
     const globalFieldValues = {}; // fieldName -> Set of values (for cross-table overlap)
 
     const commonPrefix = findCommonPrefix(files);
-    if (commonPrefix) console.log(`[Profiler] Detected common prefix to strip: "${commonPrefix}"`);
+    if (commonPrefix) logger.info('Profiler', `Detected common prefix to strip: "${commonPrefix}"`);
 
     for (const file of files) {
         const filePath = path.join(dataDir, file);
         const originalName = path.basename(file, path.extname(file));
         const tableName = commonPrefix ? originalName.replace(commonPrefix, '').trim() : originalName;
         
-        console.log(`[Profiler] Scanning table: ${tableName} (Source: ${file})`);
+        logger.info('Profiler', `Scanning table: ${tableName} (Source: ${file})`);
         
         try {
             const tableStats = await scanTable(filePath);
@@ -32,7 +33,7 @@ async function profileAllData(dataDir, files, engineMetrics = {}) {
             if (engineMetrics[originalName]) {
                 tableStats.engineMetrics = engineMetrics[originalName];
                 const mem = tableStats.engineMetrics.memorySize || 0;
-                console.log(`  Merged Engine Metrics for ${tableName}: ${Math.round(mem / 1024)} KB`);
+                logger.info('Profiler', `Merged Engine Metrics for ${tableName}: ${Math.round(mem / 1024)} KB`);
             }
 
             metadata.tables[tableName] = tableStats;
@@ -47,11 +48,11 @@ async function profileAllData(dataDir, files, engineMetrics = {}) {
             });
             
         } catch (err) {
-            console.error(`[Profiler] Error scanning ${tableName}:`, err);
+            logger.error('Profiler', `Error scanning ${tableName}:`, err);
         }
     }
-
-    console.log(`[Profiler] Calculating initial cross-table relational metrics (Identical/Common names)...`);
+ 
+    logger.info('Profiler', 'Calculating initial cross-table relational metrics (Identical/Common names)...');
     calculateRelationalMetrics(metadata, globalFieldValues);
     
     return { success: true, metadata, globalFieldValues };

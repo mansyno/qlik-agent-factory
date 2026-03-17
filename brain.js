@@ -1,10 +1,11 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config();
 const { throttle } = require('./.agent/utils/throttle');
+const logger = require('./.agent/utils/logger.js');
 
 const API_KEY = process.env.GEMINI_API_KEY;
 if (!API_KEY) {
-    console.error("Error: GEMINI_API_KEY is not set in .env file.");
+    logger.error('Brain', "GEMINI_API_KEY is not set in .env file.");
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY);
@@ -27,7 +28,7 @@ function setActiveModel(modelKeyOrName) {
     } else {
         activeModel = modelKeyOrName;
     }
-    console.log(`[Brain] Active model set to: ${activeModel}`);
+    logger.info('Brain', `Active model set to: ${activeModel}`);
 }
 
 /**
@@ -49,18 +50,18 @@ async function callWithRetry(fn, callerName = 'ArchitectBrain', maxRetries = 3) 
 
             if (is503 || isFetchFailed) {
                 if (attempt < maxRetries) {
-                    console.log(`[${callerName}] 503 Service Unavailable. Waiting 15s before retry ${attempt + 1}/${maxRetries}...`);
+                    logger.info(callerName, `503 Service Unavailable. Waiting 15s before retry ${attempt + 1}/${maxRetries}...`);
                     await new Promise(r => setTimeout(r, 15000));
                     continue;
                 }
             } else if (is429) {
                 if (attempt < maxRetries) {
-                    console.log(`[${callerName}] 429 Quota Error. Waiting 60s before retry ${attempt + 1}/${maxRetries}...`);
+                    logger.info(callerName, `429 Quota Error. Waiting 60s before retry ${attempt + 1}/${maxRetries}...`);
                     await new Promise(r => setTimeout(r, 60000));
                     continue;
                 } else if (activeModel === MODELS.primary) {
                     // Quota persists — fall back to secondary model
-                    console.warn(`[${callerName}] Quota exhausted on '${activeModel}'. Switching to fallback model '${MODELS.fallback}'.`);
+                    logger.warn(callerName, `Quota exhausted on '${activeModel}'. Switching to fallback model '${MODELS.fallback}'.`);
                     activeModel = MODELS.fallback;
                     return await fn(activeModel);
                 }
@@ -113,11 +114,10 @@ async function generateJsonContent(prompt, schema, systemInstruction = null) {
         try {
             return JSON.parse(text);
         } catch (e) {
-            console.error(`[Brain] JSON Parse Error at pos ${e.message.match(/position (\d+)/)?.[1] || 'unknown'}`);
-            console.error(`[Brain] Fragment around error: ${text.substring(Math.max(0, text.length - 500))}`);
+            logger.error('Brain', `JSON Parse Error at pos ${e.message.match(/position (\d+)/)?.[1] || 'unknown'}`, { fragment: text.substring(Math.max(0, text.length - 500)) });
             // If it's too big, it might have been cut off or repeated
             if (text.length > 50000) {
-                console.error(`[Brain] Warning: Extremely large response detected (${text.length} chars). Possible AI loop.`);
+                logger.warn('Brain', `Extremely large response detected (${text.length} chars). Possible AI loop.`);
             }
             throw e;
         }

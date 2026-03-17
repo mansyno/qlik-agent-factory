@@ -122,6 +122,10 @@ function runDeterministicChecks(metadata, broadcast) {
 
             // Exclude fields that are JUST metadata like 'SourceTable_XXXX' unless they are actual flags
             if (field.name.includes('SourceTable') && !field.name.toLowerCase().includes('flag')) continue;
+
+            // Exclude numeric/measure fields — dual flags are for text/categorical fields only
+            const isNumeric = field.tags && (field.tags.includes('$numeric') || field.tags.includes('$integer'));
+            if (isNumeric) continue;
             
             const isCalendar = /^(Year|Month|Quarter|Week|Day|WeekDay|MonthYear|Date_Diff|Month_Diff|Year_Diff|Date|Time|Timestamp)$/i.test(field.name) || (field.tags && (field.tags.includes('$date') || field.tags.includes('$timestamp')));
             if (isCalendar) continue;
@@ -138,7 +142,7 @@ function runDeterministicChecks(metadata, broadcast) {
                 // HIGH CONFIDENCE -> Deterministic Plan
                 if (isKnownFlagName || isFlagContent) {
                     broadcast('Enhancer', `Deterministic Match: Added [dual_flag_injector] for ${tableName}.${field.name}`, 'info');
-                    const mappingPairs = field.sampleValues.map(v => `'${v}'`).join(',');
+                    const mappingPairs = field.sampleValues.map(v => `'${v}'`).join(', ');
                     deterministicPlan.push({
                         tier: 'catalog',
                         toolId: 'dual_flag_injector',
@@ -175,6 +179,9 @@ function runPreFlightInspection(metadata) {
         // Ambiguous 2-value fields -> Hint for LLM to decide
         table.fields.forEach(field => {
             if (field.name.startsWith('%')) return;
+            // Exclude numeric fields — dual flags only apply to text/categorical fields
+            const isNumeric = field.tags && (field.tags.includes('$numeric') || field.tags.includes('$integer'));
+            if (isNumeric) return;
             const isCalendar = /^(Year|Month|Quarter|Week|Day|WeekDay|MonthYear|Date_Diff|Month_Diff|Year_Diff|Date|Time|Timestamp)$/i.test(field.name) || (field.tags && (field.tags.includes('$date') || field.tags.includes('$timestamp')));
             if (isCalendar) return;
 
@@ -244,11 +251,11 @@ function runPreFlightInspection(metadata) {
 async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer'], io, broadcastAgentState, agentControl }) {
     const broadcast = (typeof broadcastAgentState === 'function')
         ? broadcastAgentState
-        : (agent, msg) => console.log(`[${agent}] ${msg}`);
+        : (agent, msg, type) => logger.log(type?.toUpperCase() || 'INFO', msg, null, agent);
     const ctrl = agentControl || null;
 
     logger.initialize();
-    logger.log('System', 'Job Started', { dataDir, targetAppName: appName });
+    logger.info('System', 'Job Started', { dataDir, targetAppName: appName });
     broadcast('System', `Job Started — Data: ${dataDir} | App: ${appName}`, 'info');
 
     if (!fs.existsSync(dataDir)) {
@@ -284,10 +291,10 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
     try {
         broadcast('System', 'Connecting to Qlik Engine...', 'info');
         const connection = await openSession();
-        session = connection.session;
+        session = connection.session; // EXPLICIT ASSIGNMENT
         qlikGlobal = connection.global;
         broadcast('System', 'Connected to Qlik Engine.', 'success');
-        logger.log('System', 'Connected to Qlik Engine');
+        logger.info('System', 'Connected to Qlik Engine');
 
         let workApp;
         if (runArchitect) {
@@ -295,8 +302,17 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             workApp = await qlikGlobal.createSessionApp();
         } else {
             broadcast('System', `Opening persistent app '${appName}' for enrichment...`, 'info');
-            const appConn = await openSessionForApp(appName);
-            workApp = appConn.appHandle;
+            try {
+                workApp = await qlikGlobal.openDoc(appName);
+            } catch (e) {
+                // FALLBACK: Name resolution bridge
+                const appConn = await openSessionForApp(appName);
+                // CRITICAL: Close and replace the old session to avoid a "dangling" main session
+                if (session) { try { await session.close(); } catch (_) { } }
+                session = appConn.session;
+                qlikGlobal = appConn.global;
+                workApp = appConn.appHandle;
+            }
         }
 
         try {
@@ -312,7 +328,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
         // ── Phase 1: Profiling (Deterministic Streaming) ───────────────────
         if (runArchitect) {
             broadcast('Architect', '── Phase 1: Profiling Data (Local Streaming) ──', 'phase');
-            logger.log('Architect', 'Starting Deterministic Data Profiling');
+            logger.info('Architect', 'Starting Deterministic Data Profiling');
 
             // Cleanup OLD debug files to prevent user confusion
             const oldFiles = fs.readdirSync(process.cwd()).filter(f => f.startsWith('.debug_') || f.endsWith('_script.qvs'));
@@ -430,7 +446,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                 }
 
                 broadcast('Architect', `Proceeding with app creation despite validation failure to allow manual inspection in Qlik Hub.`, 'info');
-                logger.log('Architect', 'Validation Failed - Proceeding anyway', { synKeys: validation.synKeys, errors: validation.errors });
+                logger.warn('Architect', 'Validation Failed - Proceeding anyway', { synKeys: validation.synKeys, errors: validation.errors });
             }
 
             success = true;
@@ -460,13 +476,23 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
         // ── Phase 3: Enhancer ─────────────────────────────────────────────────
         if (success && runEnhancer) {
             broadcast('Enhancer', '── Phase 3: Enhancer Agent ──', 'phase');
-            logger.log('Enhancer', 'Starting Enrichment Phase (Hybrid)');
+            logger.info('Enhancer', 'Starting Enrichment Phase (Hybrid)');
+
+            let fastBaseScript = currentScript;
+            let plan = null;
+            let enrichedScript = null;
+            let report = null;
 
             // Stage A: Inspect + Plan
             const stageStart = Date.now();
             try {
-                // Ensure Enhancer works on a FAST baseline to speed up validation loops
-                let fastBaseScript = currentScript;
+                // Reload workApp with the FULL production script so cardinality counts are real.
+                // The previous state of workApp is from the FIRST 1 validation run — wrong data for inspection.
+                broadcast('Enhancer', 'Loading full dataset for metadata inspection...', 'info');
+                await workApp.setScript(currentScript);
+                await workApp.doReloadEx({ qMode: 0, qPartial: false, qDebug: false });
+
+                // Ensure Enhancer validation loops use a FAST (FIRST 1) baseline for speed
                 if (!currentScript.includes('FIRST 1')) {
                     fastBaseScript = currentScript.replace(/LOAD/g, 'FIRST 1\nLOAD');
                 }
@@ -485,21 +511,37 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                 const hints = runPreFlightInspection(metadata);
                 if (hints.length > 0) {
                     broadcast('Enhancer', `Pre-Flight: Identified ${hints.length} potential patterns. Passing hints to LLM.`, 'info');
-                    hints.forEach(h => console.log(`[HINT] ${h}`));
+                    hints.forEach(h => logger.debug('Enhancer', `PRE-FLIGHT HINT: ${h}`));
                 }
 
                 const planStart = Date.now();
                 const llmResult = await generateEnrichmentPlan(mdMetadata, currentScript, hints);
                 const planTime = (Date.now() - planStart) / 1000;
-                console.log(`[PERF] Enhancer Planning took ${planTime.toFixed(1)}s`);
+                logger.debug('Enhancer', `Planning took ${planTime.toFixed(1)}s`);
 
                 // Deduplicate: If deterministic logic already added a tool for a specific target, 
                 // ignore the LLM's proposal for that same tool/target combo.
                 const llmPlan = (llmResult.plan || []).filter(llmTool => {
                     // Filter out tools with empty parameters immediately to prevent rejection logs
                     if (!llmTool.parameters || Object.keys(llmTool.parameters).length === 0) {
-                        console.warn(`[Enhancer] LLM proposed ${llmTool.toolId} with EMPTY parameters. Filtering out.`);
+                        logger.warn('Enhancer', `LLM proposed ${llmTool.toolId} with EMPTY parameters. Filtering out.`);
                         return false;
+                    }
+
+                    // Sanitize mappingPairs if present (LLM often misses quotes or uses semicolons)
+                    if (llmTool.toolId === 'dual_flag_injector' && llmTool.parameters.mappingPairs) {
+                        let mp = String(llmTool.parameters.mappingPairs);
+                        // If it doesn't look like it has quotes, try to wrap the labels
+                        if (!mp.includes("'")) {
+                            // Replace semicolon with comma, then split by comma and try to quote strings
+                            mp = mp.replace(/;/g, ',');
+                            const parts = mp.split(',').map(p => {
+                                p = p.trim();
+                                return (isNaN(p) && !p.startsWith("'")) ? `'${p}'` : p;
+                            });
+                            llmTool.parameters.mappingPairs = parts.join(', ');
+                            logger.debug('Enhancer', `Sanitized mappingPairs for ${llmTool.parameters.fieldName}`);
+                        }
                     }
 
                     return !deterministicPlan.some(detTool => {
@@ -532,9 +574,8 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
 
                 broadcast('Enhancer', plan.reasoningSummary || 'Enrichment plan formulated.', 'reasoning');
             } catch (planErr) {
-                console.error('[Enhancer] Plan stage error:', planErr.stack || planErr);
+                logger.error('Enhancer', `Plan generation failed [${planErr.constructor?.name}]: ${planErr.message}`, planErr);
                 broadcast('Enhancer', `Plan generation failed [${planErr.constructor?.name}]: ${planErr.message}`, 'error');
-                logger.error('Enhancer', 'Plan Stage Error', planErr);
                 plan = null;
             }
 
@@ -553,9 +594,8 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                     });
                     logger.enhancement('Enhancement Report', report);
                 } catch (composeErr) {
-                    console.error('[Enhancer] Compose stage error:', composeErr.stack || composeErr);
+                    logger.error('Enhancer', `Compose failed [${composeErr.constructor?.name}]: ${composeErr.message}`, composeErr);
                     broadcast('Enhancer', `Compose failed [${composeErr.constructor?.name}]: ${composeErr.message}`, 'error');
-                    logger.error('Enhancer', 'Compose Stage Error', composeErr);
                     enrichedScript = null;
                 }
             }
@@ -576,7 +616,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                         }
                     }
                 } catch (valErr) {
-                    console.error('[Enhancer] Validate stage error:', valErr.stack || valErr);
+                    logger.error('Enhancer', `Final validation failed [${valErr.constructor?.name}]: ${valErr.message}`, valErr);
                     broadcast('Enhancer', `Final validation failed [${valErr.constructor?.name}]: ${valErr.message}`, 'error');
                 }
             }
@@ -592,14 +632,17 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             broadcast('System', '── Phase 4: Finalization ──', 'phase');
             fs.writeFileSync('final_script.qvs', currentScript);
             broadcast('System', 'Final script saved to final_script.qvs', 'success');
-            logger.log('System', 'Final Script Saved', { path: 'final_script.qvs' });
+            logger.info('System', 'Final Script Saved', { path: 'final_script.qvs' });
 
             broadcast('System', '── Phase 5: Promoting to Persistent App ──', 'phase');
-            if (session) { await closeSession(session); session = null; }
-
-            const conn2 = await openSession();
-            session = conn2.session;
-            const promoGlobal = conn2.global;
+            // IMPORTANT: Qlik Desktop only allows ONE active document per session.
+            // The session app from Phase 1 is still open. We MUST close this session
+            // and open a fresh one before we can create/open a persistent app.
+            await closeSession(session);
+            session = null;
+            const promoConn = await openSession();
+            session = promoConn.session;
+            const promoGlobal = promoConn.global;
 
             persistentApp = await createPersistentApp(promoGlobal, appName);
             try {
@@ -614,11 +657,11 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                 ? '✅ Success'
                 : `❌ Failed — ${reloadResult.qErrorDesc || 'no detail'} (code ${reloadResult.qErrorCode})`;
             broadcast('System', `Reload: ${reloadMsg}`, reloadOk ? 'success' : 'error');
-            logger.log('System', 'App Reload Finished', { success: reloadOk });
+            logger.info('System', 'App Reload Finished', { success: reloadOk });
 
             await persistentApp.doSave();
             broadcast('System', `App '${appName}' saved successfully.`, 'success');
-            logger.log('System', 'App Saved', { appName });
+            logger.info('System', 'App Saved', { appName });
         }
 
         // --- PHASE 6: UI LAYOUT GENERATION (AGENT 4) ---
@@ -631,14 +674,17 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                 try {
                     persistentApp = await qlikGlobal.openDoc(appName);
                 } catch (e) {
-                    // GUI-based resolution if direct fails
+                    // GUI-based resolution if direct fails - but capture the NEW session
                     const connFallback = await openSessionForApp(appName);
+                    if (session) await closeSession(session);
+                    session = connFallback.session;
+                    qlikGlobal = connFallback.global;
                     persistentApp = connFallback.appHandle;
                 }
             }
 
             broadcast('System', 'Synthesizing Dashboard Blueprint (Sub-Agent A & B)...', 'system');
-            logger.log('Runner', 'Starting Layout Agent generation sequence.');
+            logger.info('Runner', 'Starting Layout Agent generation sequence.');
 
             // Simplified summary of model for prompt
             const tableList = await persistentApp.getTablesAndKeys({ qWindowSize: { qcx: 100, qcy: 100 }, qNullSize: { qcx: 0, qcy: 0 }, qCellHeight: 0, qSyntheticMode: false, qIncludeSysVars: false });
@@ -679,7 +725,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
         if (session) {
             try { await closeSession(session); } catch (_) { /* ignore */ }
         }
-        logger.log('System', 'Process Terminated');
+        logger.info('System', 'Process Terminated');
         logger.save();
         broadcast('System', 'Agent process complete. Audit log saved.', 'info');
     }

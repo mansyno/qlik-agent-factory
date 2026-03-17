@@ -1,4 +1,5 @@
 const path = require('path');
+const logger = require('./.agent/utils/logger.js');
 
 function cleanEntityName(name) {
     // Remove variations of ID, Num, Number, Key, Code, common delimiters, and numeric suffixes
@@ -66,7 +67,7 @@ function resolveArchitecture(profileData, classifications) {
         // Filter out hallucinated keys: candidate keys MUST exist in the table
         c.candidateKeys = c.candidateKeys.filter(k => {
             const exists = physicalFields.includes(k);
-            if (!exists) console.log(`[Modeler] Ignoring hallucinated candidate key: ${c.tableName}.${k}`);
+            if (!exists) logger.warn('Modeler', `Ignoring hallucinated candidate key: ${c.tableName}.${k}`);
             return exists;
         });
 
@@ -74,7 +75,7 @@ function resolveArchitecture(profileData, classifications) {
         physicalFields.forEach(f => {
             if (nativeLinks[f] && nativeLinks[f].includes(c.tableName)) {
                 if (!c.candidateKeys.includes(f)) {
-                    console.log(`[Modeler] Injecting missed Native Link as Candidate Key: ${c.tableName}.${f}`);
+                    logger.info('Modeler', `Injecting missed Native Link as Candidate Key: ${c.tableName}.${f}`);
                     c.candidateKeys.push(f);
                 }
             }
@@ -200,7 +201,7 @@ function resolveArchitecture(profileData, classifications) {
     
     if (hasConcatenation) {
         strategy = 'CONCATENATE';
-        console.log(`[Modeler] Detected ${factGroups.length} groups of concatenatable fact tables.`);
+        logger.info('Modeler', `Detected ${factGroups.length} groups of concatenatable fact tables.`);
     }
 
     // Detect if we have engine-level Synthetic Keys
@@ -208,7 +209,7 @@ function resolveArchitecture(profileData, classifications) {
     const hasEngineSynKeys = engineSynKeys.length > 0;
 
     if (hasEngineSynKeys) {
-        console.log(`[Modeler] Qlik Engine detected ${engineSynKeys.length} Synthetic Keys. Forcing link table evaluation.`);
+        logger.warn('Modeler', `Qlik Engine detected ${engineSynKeys.length} Synthetic Keys. Forcing link table evaluation.`);
     }
 
     // Determine if we need a Link Table AFTER possible concatenation
@@ -237,7 +238,7 @@ function resolveArchitecture(profileData, classifications) {
         
         if (sharedKeys.length >= 2 || hasEngineSynKeys) {
             strategy = 'LINK_TABLE'; // Link Table takes precedence as it's more robust for poly-fact models
-            console.log(`[Modeler] ${sharedKeys.length} shared keys. Strategy: LINK_TABLE`);
+            logger.info('Modeler', `${sharedKeys.length} shared keys. Strategy: LINK_TABLE`);
         } else if (strategy !== 'CONCATENATE') {
             strategy = 'MULTI_FACT_STAR';
         }

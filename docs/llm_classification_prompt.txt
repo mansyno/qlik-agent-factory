@@ -399,7 +399,7 @@ Classify the following schema:
     }
   },
   "Sales": {
-    "rowCount": 77978,
+    "rowCount": 77979,
     "fields": {
       "Order_ID": {
         "distinctCount": 77978,
@@ -483,7 +483,7 @@ Classify the following schema:
       },
       "Total Sales": {
         "distinctCount": 35141,
-        "subsetRatio": 0.4507,
+        "subsetRatio": 0.4506,
         "informationDensity": 1,
         "sampleValues": [
           "3.4",

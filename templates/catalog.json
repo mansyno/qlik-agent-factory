@@ -1,5 +1,4 @@
 [
-
     {
         "id": "as_of_table",
         "description": "Creates a rolling-period mapping table for trend analysis using a high-performance WHILE loop.",
@@ -7,11 +6,11 @@
             "dateField",
             "sourceTable"
         ],
-        "template": "\n// --- AS-OF TABLE ---\n[Temp_AsOf_Dates]: \nLOAD DISTINCT [{{dateField}}] AS [AsOfDate] \nRESIDENT [{{sourceTable}}];\n\n[AsOf_Table]:\nLOAD \n    [AsOfDate] AS [AsOf Date], \n    [AsOfDate] AS [{{dateField}}], \n    'Current Day' AS [Period Type] \nRESIDENT [Temp_AsOf_Dates];\n\nCONCATENATE ([AsOf_Table])\nLOAD \n    [AsOfDate] AS [AsOf Date], \n    Date(AddMonths([AsOfDate], -IterNo()+1)) AS [{{dateField}}], \n    'Rolling 12 Months' AS [Period Type] \nRESIDENT [Temp_AsOf_Dates] \nWHILE IterNo() <= 12;\n\nDROP TABLE [Temp_AsOf_Dates];\n"
+        "template": "\n// --- AS-OF TABLE ---\n[Temp_AsOf_Dates]: \nLOAD DISTINCT [{{dateField}}] AS [AsOfDate] \nRESIDENT [{{sourceTable}}];\n\n[AsOf_Table]:\nNOCONCATENATE\nLOAD \n    [AsOfDate] AS [AsOf Date], \n    [AsOfDate] AS [{{dateField}}], \n    'Current Day' AS [Period Type] \nRESIDENT [Temp_AsOf_Dates];\n\nCONCATENATE ([AsOf_Table])\nLOAD \n    [AsOfDate] AS [AsOf Date], \n    Date(AddMonths([AsOfDate], -IterNo()+1)) AS [{{dateField}}], \n    'Rolling 12 Months' AS [Period Type] \nRESIDENT [Temp_AsOf_Dates] \nWHILE IterNo() <= 12;\n\nDROP TABLE [Temp_AsOf_Dates];\n"
     },
     {
         "id": "pareto_linked",
-        "description": "Implements 80/20 Pareto segmentation across two tables joined via a link table. Uses a deterministic 4-pass pattern: join → aggregate → pre-calculate total → apply running cumulative flag. The join key between factTable and linkTable is derived automatically from the factTable name using the naming convention Fact_X → %Key_X.",
+        "description": "Implements 80/20 Pareto segmentation across two tables joined via a link table.",
         "parameters": [
             "factTable",
             "linkTable",
@@ -19,11 +18,11 @@
             "dimensionField",
             "measureField"
         ],
-        "template": "\n// --- PARETO ANALYSIS ({{dimensionField}} by {{measureField}}) ---\n[Temp_Pareto_Prep]:\nLOAD [{{keyField}}], [{{measureField}}] RESIDENT [{{factTable}}];\nLEFT JOIN ([Temp_Pareto_Prep])\nLOAD [{{keyField}}], [{{dimensionField}}] RESIDENT [{{linkTable}}];\n\n[Temp_Pareto_Agg]:\nLOAD [{{dimensionField}}], Sum([{{measureField}}]) AS _SumMeasure RESIDENT [Temp_Pareto_Prep] GROUP BY [{{dimensionField}}];\nDROP TABLE [Temp_Pareto_Prep];\n\n[Temp_Pareto_Total]: LOAD Sum(_SumMeasure) AS _Total RESIDENT [Temp_Pareto_Agg];\nLET vParetoTotal = Peek('_Total', 0, 'Temp_Pareto_Total');\nDROP TABLE [Temp_Pareto_Total];\n\n[Temp_Pareto_Sorted]:\nNOCONCATENATE\nLOAD [{{dimensionField}}], [_SumMeasure] RESIDENT [Temp_Pareto_Agg] ORDER BY [_SumMeasure] DESC;\nDROP TABLE [Temp_Pareto_Agg];\n\n[Pareto_{{dimensionField}}]:\nLOAD\n    [{{dimensionField}}],\n    If(RangeSum([_SumMeasure], Peek('_AccMeasure')) / $(vParetoTotal) <= 0.8, Dual('Top 80%', 1), Dual('Bottom 20%', 0)) AS [{{dimensionField}}_Pareto_Flag],\n    RangeSum([_SumMeasure], Peek('_AccMeasure')) AS _AccMeasure\nRESIDENT [Temp_Pareto_Sorted];\n\nDROP TABLE [Temp_Pareto_Sorted];\nDROP FIELD [_AccMeasure] FROM [Pareto_{{dimensionField}}];\n"
+        "template": "\n// --- PARETO ANALYSIS ({{dimensionField}} by {{measureField}}) [Fact: {{factTable}}] ---\n[Temp_Pareto_Prep_{{factTable}}]:\nLOAD [{{keyField}}], [{{measureField}}] RESIDENT [{{factTable}}];\nLEFT JOIN ([Temp_Pareto_Prep_{{factTable}}])\nLOAD [{{keyField}}], [{{dimensionField}}] RESIDENT [{{linkTable}}];\n\n[Temp_Pareto_Agg_{{factTable}}]:\nNOCONCATENATE\nLOAD [{{dimensionField}}], Sum([{{measureField}}]) AS _SumMeasure RESIDENT [Temp_Pareto_Prep_{{factTable}}] GROUP BY [{{dimensionField}}];\nDROP TABLE [Temp_Pareto_Prep_{{factTable}}];\n\n[Temp_Pareto_Total_{{factTable}}]: LOAD Sum(_SumMeasure) AS _Total RESIDENT [Temp_Pareto_Agg_{{factTable}}];\nLET vParetoTotal_{{factTable}} = Peek('_Total', 0, 'Temp_Pareto_Total_{{factTable}}');\nDROP TABLE [Temp_Pareto_Total_{{factTable}}];\n\n[Temp_Pareto_Sorted_{{factTable}}]:\nNOCONCATENATE\nLOAD [{{dimensionField}}], [_SumMeasure] RESIDENT [Temp_Pareto_Agg_{{factTable}}] ORDER BY [_SumMeasure] DESC;\nDROP TABLE [Temp_Pareto_Agg_{{factTable}}];\n\n[Pareto_{{factTable}}_{{dimensionField}}]:\nNOCONCATENATE\nLOAD\n    [{{dimensionField}}],\n    If(RangeSum([_SumMeasure], Peek('_AccMeasure')) / $(vParetoTotal_{{factTable}}) <= 0.8, Dual('Top 80%', 1), Dual('Bottom 20%', 0)) AS [{{dimensionField}}_Pareto_{{factTable}}_Flag],\n    RangeSum([_SumMeasure], Peek('_AccMeasure')) AS _AccMeasure\nRESIDENT [Temp_Pareto_Sorted_{{factTable}}];\n\nDROP TABLE [Temp_Pareto_Sorted_{{factTable}}];\nDROP FIELD [_AccMeasure] FROM [Pareto_{{factTable}}_{{dimensionField}}];\n"
     },
     {
         "id": "market_basket",
-        "description": "Generates a product co-occurrence table for basket analysis. Output columns are [{{itemField}}] and [Co_{{itemField}}]. Only produces results when multiple distinct items share the same order ID.",
+        "description": "Generates a product co-occurrence table for basket analysis.",
         "parameters": [
             "factTable",
             "idField",
@@ -39,7 +38,7 @@
             "fieldName",
             "mappingPairs"
         ],
-        "template": "\n// --- DUAL FLAG INJECTION ---\n[Temp_Dual_{{fieldName}}]:\nLOAD *, Dual([{{fieldName}}], Match([{{fieldName}}], {{mappingPairs}})) AS [{{fieldName}}_Dual]\nRESIDENT [{{targetTable}}];\nDROP TABLE [{{targetTable}}];\nRENAME TABLE [Temp_Dual_{{fieldName}}] TO [{{targetTable}}];\n"
+        "template": "\n// --- DUAL FLAG INJECTION ---\n[Enrich_Temp_{{fieldName}}]:\nNOCONCATENATE\nLOAD *, Dual([{{fieldName}}], Match([{{fieldName}}], {{mappingPairs}})) AS [{{fieldName}}_Dual]\nRESIDENT [{{targetTable}}];\n\nDROP TABLE [{{targetTable}}];\nRENAME TABLE [Enrich_Temp_{{fieldName}}] TO [{{targetTable}}];\n"
     },
     {
         "id": "autonumber_keys",

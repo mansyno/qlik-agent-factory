@@ -11,7 +11,19 @@ function loadCatalog() {
     try {
         const catalogPath = path.join(__dirname, 'templates', 'catalog.json');
         const raw = fs.readFileSync(catalogPath, 'utf8');
-        return JSON.parse(raw);
+        try {
+            return JSON.parse(raw);
+        } catch (parseErr) {
+            logger.error('Composer', `JSON Syntax Error in catalog.json: ${parseErr.message}`);
+            // Provide context for where the error occurred
+            const pos = parseErr.message.match(/position (\d+)/);
+            if (pos) {
+                const index = parseInt(pos[1]);
+                const context = raw.substring(Math.max(0, index - 20), Math.min(raw.length, index + 20));
+                logger.error('Composer', `Context near error: "...${context}..."`);
+            }
+            throw parseErr;
+        }
     } catch (e) {
         logger.error('Composer', 'Failed to load catalog', e);
         return [];

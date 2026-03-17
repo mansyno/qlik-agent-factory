@@ -40,6 +40,8 @@ ${catalogStr}
 - Each Catalog tool in the plan should have a "toolId" and a matching "parameters" object.
 - **EXAMPLE [as_of_table]**: { "toolId": "as_of_table", "parameters": { "dateField": "CanonicalDate" } }
 - **EXAMPLE [pareto_linked]**: { "toolId": "pareto_linked", "parameters": { "factTable": "Sales", "linkTable": "LinkTable", "keyField": "%Key_Sales", "dimensionField": "Customer", "measureField": "TotalSales" } }
+- **EXAMPLE [dual_flag_injector]**: { "toolId": "dual_flag_injector", "parameters": { "targetTable": "Sales", "fieldName": "Status", "mappingPairs": "'Active', 1, 'Inactive', 0" } }
+  - **CRITICAL**: The "mappingPairs" parameter MUST be a comma-separated list where all string values are enclosed in SINGLE QUOTES (e.g., "'Direct', 1, 'Partner', 0").
 
 ## **Output Format (Raw JSON Only)**
 Return a JSON object matching this schema.
@@ -124,7 +126,7 @@ Ensure all parameters identified in the Pre-Flight hints are included. Provide t
   } catch (err) {
     logger.error('EnhancerBrain', 'Failed to generate Enrichment Plan or Parse JSON');
     if (err instanceof SyntaxError) {
-        console.error("[EnhancerBrain] Raw Response that failed to parse:", rawResponse);
+        logger.error('EnhancerBrain', "Raw Response that failed to parse", { rawResponse });
     }
     throw err;
   }

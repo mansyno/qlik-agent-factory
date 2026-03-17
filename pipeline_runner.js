@@ -6,11 +6,12 @@ const { generateBlueprint } = require('./architect_structural_tester');
 const { generateQvsScript } = require('./architect_generator');
 const path = require('path');
 const fs = require('fs');
+const logger = require('./.agent/utils/logger.js');
 
 async function runPipeline(dataPath) {
     let sessionData = null;
     try {
-        console.log("\n[PIPELINE] Initializing Qlik Engine Session...");
+        logger.log('PHASE', "Initializing Qlik Engine Session...", null, 'Pipeline');
         sessionData = await openSession();
         const globalObj = sessionData.global;
         const workApp = await globalObj.createSessionApp();
@@ -26,32 +27,32 @@ async function runPipeline(dataPath) {
         if (files.length === 0) throw new Error("No CSV files found in " + dataPath);
 
         // Step 0: Engine Native Profiling (for memory/symbol metrics)
-        console.log("[PIPELINE] Phase 0: Gathering Qlik Engine metrics...");
+        logger.log('PHASE', "Gathering Qlik Engine metrics...", null, 'Pipeline');
         const engineMetrics = await getEngineMetrics(globalObj, dataPath, files, workApp);
 
         // Step 1: Data Profiling (Local Streaming + Engine Metrics)
-        console.log("\n[PIPELINE] Phase 1: Profiling Data...");
+        logger.log('PHASE', "Profiling Data...", null, 'Pipeline');
         const profileResult = await profileAllData(dataPath, files, engineMetrics);
         if (profileResult.error) throw new Error(profileResult.error);
         const metadata = profileResult.metadata;
 
         // Step 2: Classification
-        console.log("\n[PIPELINE] Phase 2: Classifying Tables and Fields...");
+        logger.log('PHASE', "Classifying Tables and Fields...", null, 'Pipeline');
         const classResult = await classifyData(metadata);
         const classifications = classResult.classifications;
 
         fs.writeFileSync(path.join(__dirname, '.debug_classifications.json'), JSON.stringify(classifications, null, 2));
 
         // Step 3: Relationship Detection & Normalization
-        console.log("\n[PIPELINE] Phase 3: Relationship Detection and Normalization...");
+        logger.log('PHASE', "Relationship Detection and Normalization...", null, 'Pipeline');
         const relResult = determineRelationships(metadata, classifications, profileResult.globalFieldValues);
         const normalizedData = relResult.normalizedData;
 
         // Step 4: Structural Tester — proposes an initial strategy
-        console.log("\n[PIPELINE] Phase 4: Structural Test and Blueprint Generation...");
+        logger.log('PHASE', "Structural Test and Blueprint Generation...", null, 'Pipeline');
         let { structuralBlueprint, directives: finalDirectives } = generateBlueprint(normalizedData);
 
-        console.log(`  Initial Strategy Selected: ${structuralBlueprint.strategy}`);
+        logger.info('Pipeline', `Initial Strategy Selected: ${structuralBlueprint.strategy}`);
 
         // ===== Engine-First Strategy =====
         // Phase 4a: Generate a fast test script with the proposed strategy
@@ -59,16 +60,16 @@ async function runPipeline(dataPath) {
         
         fs.writeFileSync(path.join(__dirname, '.debug_final_script.qvs'), fastScript);
         
-        console.log("  Running Structural Test Load on Qlik Engine...");
+        logger.info('Pipeline', "Running Structural Test Load on Qlik Engine...");
         let validation = await validateScript(globalObj, fastScript, workApp);
 
         // Phase 4b: Engine-driven escalation/de-escalation
         if (validation.synKeys > 0) {
-            console.warn(`[PIPELINE] WARNING: Test load produced ${validation.synKeys} Synthetic Keys!`);
+            logger.warn('Pipeline', `Test load produced ${validation.synKeys} Synthetic Keys!`);
             
             // Escalate: current strategy produced synthetic keys, try link table
             if (structuralBlueprint.strategy !== 'LINK_TABLE') {
-                console.log(`  Escalating from ${structuralBlueprint.strategy} to LINK_TABLE to resolve synthetic keys.`);
+                logger.info('Pipeline', `Escalating from ${structuralBlueprint.strategy} to LINK_TABLE to resolve synthetic keys.`);
                 
                 structuralBlueprint.strategy = 'LINK_TABLE';
                 const sharedKeysSet = new Set();
@@ -95,7 +96,7 @@ async function runPipeline(dataPath) {
                     linkTableName: 'LinkTable',
                     sharedKeys: Array.from(sharedKeysSet)
                 };
-                console.log("[PIPELINE] Escalation LinkTable keys:", structuralBlueprint.linkTableBlueprint.sharedKeys);
+                logger.info('Pipeline', "Escalation LinkTable keys:", { sharedKeys: structuralBlueprint.linkTableBlueprint.sharedKeys });
 
                 fastScript = generateQvsScript(finalDirectives, normalizedData, dataPath, structuralBlueprint, true);
                 fs.writeFileSync(path.join(__dirname, '.debug_final_script.qvs'), fastScript);
@@ -105,10 +106,10 @@ async function runPipeline(dataPath) {
         }
 
         if (validation.success && validation.synKeys === 0) {
-            console.log("\n[PIPELINE] Validation SUCCESS: 0 Synthetic Keys, 0 Circular References.");
+            logger.success('Pipeline', "Validation SUCCESS: 0 Synthetic Keys, 0 Circular References.");
 
             // Step 5: Final Production Generation
-            console.log("\n[PIPELINE] Phase 5: Generating Final QVS Script...");
+            logger.log('PHASE', "Generating Final QVS Script...", null, 'Pipeline');
             const finalScript = generateQvsScript(finalDirectives, normalizedData, dataPath, structuralBlueprint, false);
 
             return {
@@ -117,7 +118,7 @@ async function runPipeline(dataPath) {
                 directives: finalDirectives
             };
         } else {
-            console.error("\n[PIPELINE] Validation FAILED Even with Fallback Strategy:", validation.errors);
+            logger.error('Pipeline', "Validation FAILED Even with Fallback Strategy", { errors: validation.errors });
             const errStr = `Qlik Compilation Failed:\n${validation.errors.join('\n')}\nSyn Keys: ${validation.synKeys}`;
             throw new Error(errStr);
         }

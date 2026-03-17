@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { generateJsonContent } = require('./brain');
+const logger = require('./.agent/utils/logger.js');
 
 const CLASSIFICATION_SCHEMA = {
     type: "object",
@@ -48,7 +49,7 @@ async function classifyWithLLM(systemPrompt, userPrompt) {
 }
 
 async function classifyData(profileMetadata) {
-    console.log("[CLASSIFIER] Preparing LLM Classification Prompt...");
+    logger.info('Classifier', "Preparing LLM Classification Prompt...");
 
     // 1. Load the semantic rules from the user's strategy document
     let strategyRules = '';
@@ -56,7 +57,7 @@ async function classifyData(profileMetadata) {
     try {
         strategyRules = fs.readFileSync(strategyPath, 'utf8');
     } catch (e) {
-        console.warn("[WARNING] Could not read docs/field_classification_strategy.md");
+        logger.warn('Classifier', "Could not read docs/field_classification_strategy.md");
         strategyRules = "Classify fields logically as IDENTIFIER, MEASURE, DATE, ATTRIBUTE, or SYSTEM_METADATA.";
     }
 
@@ -212,8 +213,8 @@ DO NOT RETURN MARKDOWN CODE BLOCKS. RETURN RAW JSON ONLY.`;
             fieldClassifications: fieldClassifications
         });
     });
-
-    console.log("[CLASSIFIER] LLM Classification successfully merged into internal schema.");
+ 
+    logger.success('Classifier', "LLM Classification successfully merged into internal schema.");
     return { success: true, classifications: finalClassifications };
 }
 

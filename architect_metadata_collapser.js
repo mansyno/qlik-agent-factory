@@ -1,8 +1,4 @@
-/**
- * Metadata Collapser Utility
- * Merges multiple tables (fact clusters) into a single virtual table in the metadata 
- * and classifications before relationship detection starts.
- */
+const logger = require('./.agent/utils/logger.js');
 
 function collapseFactGroups(metadata, classifications, factGroups) {
     if (!factGroups || factGroups.length === 0) return { metadata, classifications };
@@ -12,7 +8,7 @@ function collapseFactGroups(metadata, classifications, factGroups) {
 
     factGroups.forEach(group => {
         const consolidatedName = group.join('_');
-        console.log(`[Collapser] Unifying fact group [${group.join(', ')}] into virtual table [${consolidatedName}]...`);
+        logger.info('Collapser', `Unifying fact group [${group.join(', ')}] into virtual table [${consolidatedName}]...`);
 
         // 1. Get member info for reconstruction in the generator
         const constituents = group.map(tableName => {
