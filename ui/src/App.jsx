@@ -6,6 +6,7 @@ import ControlPanel from './components/ControlPanel'
 import ReasoningFeed from './components/ReasoningFeed'
 import ModelArtifacts from './components/ModelArtifacts'
 import ScriptForge from './components/ScriptForge'
+import DebugFileViewer from './components/DebugFileViewer'
 
 const socket = io('http://localhost:3001')
 
@@ -76,6 +77,8 @@ export default function App() {
             <ModelArtifacts profiles={artifacts} />
           </div>
         )}
+
+        <DebugFileViewer />
       </div>
     </div>
   )

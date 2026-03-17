@@ -63,6 +63,7 @@ YOUR FINAL DATA MODEL TO ANALYZE:
 async function generateLayoutPlan(dataModelExcerpt) {
   logger.log('LayoutBrain', 'Synthesizing Semantic & UI Blueprint...');
   const fullPrompt = LAYOUT_AGENT_PROMPT + '\n' + dataModelExcerpt;
+  fs.writeFileSync('.debug_layout_prompt.txt', fullPrompt);
 
   try {
     const resultString = await generateContent(fullPrompt);

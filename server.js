@@ -121,6 +121,32 @@ app.post('/api/model', (req, res) => {
     res.json({ status: 'success', activeModel: model });
 });
 
+// ─── API: Debug Files ─────────────────────────────────────────────────────
+app.get('/api/debug-files', (req, res) => {
+    const fs = require('fs');
+    const files = fs.readdirSync(process.cwd())
+        .filter(f => f.startsWith('.debug_') || f === 'final_script.qvs' || f === 'audit_log.json');
+    res.json(files);
+});
+
+app.get('/api/debug-files/:name', (req, res) => {
+    const fs = require('fs');
+    const fileName = req.params.name;
+    const safeFiles = fs.readdirSync(process.cwd())
+        .filter(f => f.startsWith('.debug_') || f === 'final_script.qvs' || f === 'audit_log.json');
+
+    if (!safeFiles.includes(fileName)) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    try {
+        const content = fs.readFileSync(path.join(process.cwd(), fileName), 'utf8');
+        res.send(content);
+    } catch (e) {
+        res.status(404).json({ error: 'File not found' });
+    }
+});
+
 // ─── WebSocket Connection ─────────────────────────────────────────────────
 io.on('connection', (socket) => {
     logger.info('Server', `UI client connected: ${socket.id}`);
