@@ -43,6 +43,12 @@ ${catalogStr}
 - **EXAMPLE [dual_flag_injector]**: { "toolId": "dual_flag_injector", "parameters": { "targetTable": "Sales", "fieldName": "Status", "mappingPairs": "'Active', 1, 'Inactive', 0" } }
   - **CRITICAL**: The "mappingPairs" parameter MUST be a comma-separated list where all string values are enclosed in SINGLE QUOTES (e.g., "'Direct', 1, 'Partner', 0").
 
+## **4. ABSOLUTE FIELD NAME RULE (NEVER VIOLATE)**
+- **ONLY use table names and field names that appear VERBATIM in the metadata table below.**
+- **DO NOT invent, guess, abbreviate, or generalize field names.** If you cannot find a field in the metadata, do NOT include that tool in the plan.
+- If a "Pre-Flight Hint" provides exact field names, use those names EXACTLY as given.
+- A tool with a field name that does not exist in the metadata WILL FAIL. It is better to skip the tool than to hallucinate a field name.
+
 ## **Output Format (Raw JSON Only)**
 Return a JSON object matching this schema.
 {

@@ -482,6 +482,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             let plan = null;
             let enrichedScript = null;
             let report = null;
+            let metadata = null; // hoisted so Stage B can use it for reference validation
 
             // Stage A: Inspect + Plan
             const stageStart = Date.now();
@@ -497,7 +498,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                     fastBaseScript = currentScript.replace(/LOAD/g, 'FIRST 1\nLOAD');
                 }
 
-                const metadata = await getLiveMetadata(workApp);
+                metadata = await getLiveMetadata(workApp);
                 const mdMetadata = formatMetadataAsMarkdown(metadata);
                 
                 const metaSize = JSON.stringify(metadata).length;
@@ -582,7 +583,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             // Stage B: Compose enrichments
             if (plan) {
                 try {
-                    const composerResult = await composeEnrichment(plan, fastBaseScript, qlikGlobal, workApp);
+                    const composerResult = await composeEnrichment(plan, fastBaseScript, qlikGlobal, workApp, metadata);
                     enrichedScript = currentScript + composerResult.appliedEnrichments;
                     report = composerResult.report;
 

@@ -104,6 +104,43 @@ async function checkOneToManyViability(sessionApp, idField, itemField) {
 }
 
 /**
+ * Validates that field and table name parameters in a tool call actually exist
+ * in the live metadata. Returns null if valid, or an error string if not.
+ */
+function validateParametersAgainstMetadata(toolDefinition, metadata) {
+    if (!metadata || !metadata.tables) return null; // no metadata available, skip check
+
+    const { toolId, parameters } = toolDefinition;
+    if (!parameters) return null;
+
+    const knownTables = new Set(Object.keys(metadata.tables));
+    const knownFields = new Set();
+    for (const tableInfo of Object.values(metadata.tables)) {
+        for (const field of tableInfo.fields) {
+            knownFields.add(field.name);
+        }
+    }
+
+    // Parameters that are expected to be table names
+    const tableParams = ['factTable', 'linkTable', 'sourceTable', 'targetTable'];
+    // Parameters that are expected to be field names
+    const fieldParams = ['dateField', 'keyField', 'dimensionField', 'measureField', 'fieldName', 'idField', 'itemField'];
+
+    for (const param of tableParams) {
+        if (parameters[param] && !knownTables.has(parameters[param])) {
+            return `Parameter '${param}' = '${parameters[param]}' is not a known table. Known tables: ${[...knownTables].join(', ')}`;
+        }
+    }
+    for (const param of fieldParams) {
+        if (parameters[param] && !knownFields.has(parameters[param])) {
+            return `Parameter '${param}' = '${parameters[param]}' is not a known field.`;
+        }
+    }
+
+    return null;
+}
+
+/**
  * Composes the final enrichment script based on the AI's plan.
  * - Tier 1 (Catalog): Validated in sandbox. If it fails, skip and log. No LLM self-heal.
  * - Tier 2 (Forge): Validated in sandbox. If it fails, one LLM self-heal attempt is made.
@@ -112,9 +149,10 @@ async function checkOneToManyViability(sessionApp, idField, itemField) {
  * @param {String} baseScript - The Architect's script
  * @param {Object} sessionGlobal - From openSession()
  * @param {Object} sessionApp - The active Qlik session app
+ * @param {Object} metadata - Live metadata object for reference validation
  * @returns {Promise<Object>} { enrichedScript, report: Array }
  */
-async function composeEnrichment(plan, baseScript, sessionGlobal, sessionApp) {
+async function composeEnrichment(plan, baseScript, sessionGlobal, sessionApp, metadata) {
     if (!plan || !plan.plan) {
         logger.error('Composer', 'Invalid Enrichment Plan format received');
         return { enrichedScript: baseScript, report: [] };
@@ -132,6 +170,14 @@ async function composeEnrichment(plan, baseScript, sessionGlobal, sessionApp) {
         try {
             // --- STEP 1: Generate the snippet ---
             if (tool.tier === 'catalog') {
+                // PRE-CHECK: Validate all parameter references against live metadata
+                const refError = validateParametersAgainstMetadata(tool, metadata);
+                if (refError) {
+                    enhancementReport.push({ tool: toolIdentifier, tier: 'catalog', status: 'Rejected', reason: `Invalid reference: ${refError}` });
+                    logger.warn('Composer', `Catalog tool '${toolIdentifier}' rejected (bad reference): ${refError}`);
+                    continue;
+                }
+
                 const result = executeCatalogTool(tool, catalog);
                 if (result.error) {
                     enhancementReport.push({ 
