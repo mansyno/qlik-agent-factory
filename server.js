@@ -14,6 +14,8 @@ const io = new Server(server, {
 
 const { runAgent } = require('./agent_runner');
 const { getActiveModel, MODELS, setActiveModel } = require('./brain');
+const { listProjects, listRuns, readRunConfig, getRunFolder } = require('./path_manager');
+const fs = require('fs');
 
 app.use(cors());
 app.use(express.json());
@@ -48,24 +50,23 @@ function broadcastAgentState(agent, message, type = 'info', data = null) {
     logger.log(level, message, data, agent);
 }
 
-
 // ─── API: Run Job ──────────────────────────────────────────────────────────
 app.post('/api/run', async (req, res) => {
     if (agentRunning) {
         return res.status(409).json({ error: 'Agent is already running.' });
     }
-    const { dataDir, appName, pipeline = ['architect', 'enhancer'] } = req.body;
-    if (!dataDir || !appName) {
-        return res.status(400).json({ error: 'dataDir and appName are required.' });
+    const { projectName = 'test', dataDir, appName, pipeline = ['architect', 'enhancer'] } = req.body;
+    if (!dataDir || !appName || !projectName) {
+        return res.status(400).json({ error: 'projectName, dataDir and appName are required.' });
     }
 
     res.json({ status: 'started' });
     agentRunning = true;
     resetControl();
-    io.emit('job-started', { dataDir, appName, pipeline });
+    io.emit('job-started', { projectName, dataDir, appName, pipeline });
 
     try {
-        await runAgent({ dataDir, appName, pipeline, io, broadcastAgentState, agentControl });
+        await runAgent({ projectName, dataDir, appName, pipeline, io, broadcastAgentState, agentControl });
     } catch (err) {
         // agent_runner already broadcasts the error — no double-emit needed
     } finally {
@@ -73,6 +74,22 @@ app.post('/api/run', async (req, res) => {
         agentControl.paused = false;
         io.emit('job-complete');
     }
+});
+
+// ─── API: Workspace Management ──────────────────────────────────────────
+app.get('/api/projects', (req, res) => {
+    res.json(listProjects());
+});
+
+app.get('/api/projects/:project/runs', (req, res) => {
+    res.json(listRuns(req.params.project));
+});
+
+app.get('/api/projects/:project/runs/:run/config', (req, res) => {
+    const actualRunFolder = path.join(process.cwd(), 'projects', req.params.project, req.params.run);
+    const config = readRunConfig(actualRunFolder);
+    if (!config) return res.status(404).json({ error: 'Run config not found.' });
+    res.json(config);
 });
 
 // ─── API: Stop Job ────────────────────────────────────────────────────────
@@ -123,27 +140,33 @@ app.post('/api/model', (req, res) => {
 
 // ─── API: Debug Files ─────────────────────────────────────────────────────
 app.get('/api/debug-files', (req, res) => {
-    const fs = require('fs');
-    const files = fs.readdirSync(process.cwd())
+    const { projectName, dataDir, appName } = req.query;
+    if (!projectName || !dataDir || !appName) return res.json([]);
+
+    const runFolder = getRunFolder(projectName, dataDir, appName);
+    if (!fs.existsSync(runFolder)) return res.json([]);
+
+    const files = fs.readdirSync(runFolder)
         .filter(f => f.startsWith('.debug_') || f === 'final_script.qvs' || f === 'audit_log.json');
     res.json(files);
 });
 
 app.get('/api/debug-files/:name', (req, res) => {
-    const fs = require('fs');
+    const { projectName, dataDir, appName } = req.query;
     const fileName = req.params.name;
-    const safeFiles = fs.readdirSync(process.cwd())
-        .filter(f => f.startsWith('.debug_') || f === 'final_script.qvs' || f === 'audit_log.json');
+    
+    if (!projectName || !dataDir || !appName) return res.status(400).json({ error: 'Target context missing' });
 
-    if (!safeFiles.includes(fileName)) {
-        return res.status(403).json({ error: 'Access denied' });
-    }
+    const runFolder = getRunFolder(projectName, dataDir, appName);
+    const fullPath = path.join(runFolder, fileName);
+
+    if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'File not found' });
 
     try {
-        const content = fs.readFileSync(path.join(process.cwd(), fileName), 'utf8');
+        const content = fs.readFileSync(fullPath, 'utf8');
         res.send(content);
     } catch (e) {
-        res.status(404).json({ error: 'File not found' });
+        res.status(500).json({ error: 'Read error' });
     }
 });
 

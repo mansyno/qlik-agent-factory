@@ -33,8 +33,8 @@ export default function App() {
     return () => socket.off()
   }, [])
 
-  const handleRun = async (dataDir, appName, pipeline) => {
-    await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataDir, appName, pipeline }) })
+  const handleRun = async (dataDir, appName, pipeline, projectName) => {
+    await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectName, dataDir, appName, pipeline }) })
   }
   const handleStop = () => fetch('/api/stop', { method: 'POST' })
   const handlePause = () => fetch('/api/pause', { method: 'POST' })

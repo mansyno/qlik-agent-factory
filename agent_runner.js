@@ -248,15 +248,20 @@ function runPreFlightInspection(metadata) {
 }
 
 // ── Main Agent Runner ─────────────────────────────────────────────────────────
-async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer'], io, broadcastAgentState, agentControl }) {
+async function runAgent({ projectName, dataDir, appName, pipeline = ['architect', 'enhancer'], io, broadcastAgentState, agentControl }) {
     const broadcast = (typeof broadcastAgentState === 'function')
         ? broadcastAgentState
         : (agent, msg, type) => logger.log(type?.toUpperCase() || 'INFO', msg, null, agent);
     const ctrl = agentControl || null;
 
+    // ── Resolve & create run folder ──────────────────────────────────────────
+    const runFolder = ensureRunFolder(projectName, dataDir, appName);
+    writeRunConfig(runFolder, projectName, dataDir, appName);
+
+    logger.setRunFolder(runFolder);
     logger.initialize();
-    logger.info('System', 'Job Started', { dataDir, targetAppName: appName });
-    broadcast('System', `Job Started — Data: ${dataDir} | App: ${appName}`, 'info');
+    logger.info('System', 'Job Started', { projectName, dataDir, targetAppName: appName, runFolder });
+    broadcast('System', `Job Started — Project: ${projectName} | Data: ${dataDir} | App: ${appName}`, 'info');
 
     if (!fs.existsSync(dataDir)) {
         broadcast('System', `Directory ${dataDir} does not exist.`, 'error');
@@ -360,7 +365,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             broadcast('Architect', `Step 1: Classifying Tables and Fields...`, 'info');
             const classResult = await classifyData(metadata);
             const classifications = classResult.classifications;
-            fs.writeFileSync(path.join(process.cwd(), '.debug_classifications.json'), JSON.stringify(classifications, null, 2));
+            fs.writeFileSync(path.join(runFolder, '.debug_classifications.json'), JSON.stringify(classifications, null, 2));
 
             // Identify Fact Groups IMMEDIATELY to ensure shared namespace
             const factGroups = findFactGroups(metadata, classifications);
@@ -430,7 +435,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
                 validation = await validateScript(qlikGlobal, finalFastScript, workApp);
             }
 
-            fs.writeFileSync(path.join(process.cwd(), '.debug_final_script.qvs'), finalFastScript);
+            fs.writeFileSync(path.join(runFolder, '.debug_final_script.qvs'), finalFastScript);
 
             if (validation.success && (validation.synKeys === 0 || validation.synKeys === undefined)) {
                 broadcast('Architect', `✅ Final strategy validated. Model is clean (0 Syn Keys).`, 'success');
@@ -450,9 +455,8 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
             }
 
             success = true;
-            // Generate the FINAL production script regardless of validation success
             currentScript = generateQvsScript(finalDirectives, normalizedData, dataDir, structuralBlueprint, false);
-            fs.writeFileSync(CACHE_FILE, currentScript);
+            fs.writeFileSync(path.join(runFolder, CACHE_FILE), currentScript);
             if (io) io.emit('script-update', { phase: 'architect', script: currentScript });
 
         } else if (runEnhancer || runLayout) {
@@ -631,7 +635,7 @@ async function runAgent({ dataDir, appName, pipeline = ['architect', 'enhancer']
 
         if (success && (runArchitect || runEnhancer)) {
             broadcast('System', '── Phase 4: Finalization ──', 'phase');
-            fs.writeFileSync('final_script.qvs', currentScript);
+            fs.writeFileSync(path.join(runFolder, 'final_script.qvs'), currentScript);
             broadcast('System', 'Final script saved to final_script.qvs', 'success');
             logger.info('System', 'Final Script Saved', { path: 'final_script.qvs' });
 
