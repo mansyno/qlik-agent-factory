@@ -68,7 +68,8 @@ app.post('/api/run', async (req, res) => {
     try {
         await runAgent({ projectName, dataDir, appName, pipeline, io, broadcastAgentState, agentControl });
     } catch (err) {
-        // agent_runner already broadcasts the error — no double-emit needed
+        console.error('Unhandled run error:', err);
+        // agent_runner ideally broadcasts logical errors, but log this just in case
     } finally {
         agentRunning = false;
         agentControl.paused = false;

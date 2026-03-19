@@ -12,6 +12,7 @@ const { resolveArchitecture } = require('./deterministic_modeler');
 const { generateQvsScript } = require('./architect_generator');
 const { generateLayoutPlan } = require('./layout_brain');
 const { composeLayout } = require('./layout_composer');
+const { ensureRunFolder, writeRunConfig } = require('./path_manager');
 
 const logger = require('./.agent/utils/logger.js');
 const { profileAllData } = require('./architect_profiler');
