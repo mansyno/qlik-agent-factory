@@ -34,7 +34,24 @@ export default function App() {
   }, [])
 
   const handleRun = async (dataDir, appName, pipeline, projectName) => {
-    await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectName, dataDir, appName, pipeline }) })
+    console.log('[UI App] Calling handleRun:', { projectName, dataDir, appName, pipeline });
+    try {
+        const res = await fetch('/api/run', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ projectName, dataDir, appName, pipeline }) 
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            console.error('[UI App] Server responded with error:', err);
+            alert(`Server Error: ${err.error || res.statusText}`);
+        } else {
+            console.log('[UI App] Request sent successfully');
+        }
+    } catch (err) {
+        console.error('[UI App] Fetch failed entirely:', err);
+        alert(`Network/Fetch Error: ${err.message}`);
+    }
   }
   const handleStop = () => fetch('/api/stop', { method: 'POST' })
   const handlePause = () => fetch('/api/pause', { method: 'POST' })

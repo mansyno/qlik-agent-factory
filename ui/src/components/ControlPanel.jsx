@@ -108,10 +108,18 @@ export default function ControlPanel({ onRun, isRunning }) {
 
     const isReady = !isRunning && dataDir && finalProject && finalRun && pipeline.length > 0;
 
-    const handleSubmit = (e) => {
-        e.preventDefault()
-        if (isReady) {
-            onRun(dataDir, finalRun, pipeline, finalProject)
+    const handleSubmit = async (e) => {
+        try {
+            e.preventDefault()
+            if (isReady) {
+                console.log("[UI ControlPanel] Submitting:", { dataDir, finalRun, pipeline, finalProject });
+                await onRun(dataDir, finalRun, pipeline, finalProject)
+            } else {
+                console.warn("[UI ControlPanel] Clicked submit but isReady is false");
+            }
+        } catch (err) {
+            console.error("[UI ControlPanel] Error in handleSubmit:", err);
+            alert("Frontend Error: " + err.message);
         }
     }
 

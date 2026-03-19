@@ -52,11 +52,14 @@ function broadcastAgentState(agent, message, type = 'info', data = null) {
 
 // ─── API: Run Job ──────────────────────────────────────────────────────────
 app.post('/api/run', async (req, res) => {
+    console.log('[DEBUG] Received POST /api/run:', req.body);
     if (agentRunning) {
+        console.log('[DEBUG] Agent is already running');
         return res.status(409).json({ error: 'Agent is already running.' });
     }
     const { projectName = 'test', dataDir, appName, pipeline = ['architect', 'enhancer'] } = req.body;
     if (!dataDir || !appName || !projectName) {
+        console.log('[DEBUG] Missing required payload', req.body);
         return res.status(400).json({ error: 'projectName, dataDir and appName are required.' });
     }
 
