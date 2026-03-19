@@ -1,14 +1,20 @@
+# Dependencies
 node_modules/
 ui/node_modules/
+
+# Secrets & Environment
 .env
-jobs/
-data/
-data2/
+
+# Data & Projects (Physical Storage)
+projects/
 DATA/
+data2/
+lorries/
+jobs/
 northwind/
 adventureworks/
-lorries/
-.agent/
+
+# Legacy / Residue cleanup
 *.qvs
 *.log
 *.qvf
