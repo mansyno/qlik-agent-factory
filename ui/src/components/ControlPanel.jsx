@@ -34,7 +34,7 @@ export default function ControlPanel({ onRun, isRunning }) {
             .catch(e => console.error("Failed to load projects", e))
     }, [])
 
-    // Fetch runs when project changes
+    // Fetch runs when project changes or job completes
     useEffect(() => {
         if (!selectedProject || selectedProject === '_new_') {
             setRuns([])
@@ -45,11 +45,19 @@ export default function ControlPanel({ onRun, isRunning }) {
             .then(r => r.json())
             .then(data => {
                 setRuns(data)
-                if (data.length > 0) setSelectedRun(data[0])
-                else setSelectedRun('_new_')
+                
+                // If the currently selected run no longer exists in the list (e.g. was deleted or this is first load)
+                if (data.length > 0) {
+                    setSelectedRun(prev => {
+                        if (data.find(d => d.name === prev)) return prev;
+                        return data[0].name;
+                    })
+                } else {
+                    setSelectedRun('_new_')
+                }
             })
             .catch(e => console.error("Failed to load runs", e))
-    }, [selectedProject])
+    }, [selectedProject, isRunning])
 
     // Fetch dataDir config when an existing run is selected
     useEffect(() => {
@@ -105,6 +113,20 @@ export default function ControlPanel({ onRun, isRunning }) {
     const parsedAppName = selectedRun === '_new_' ? newRunName : (selectedRun.includes('_') ? selectedRun.substring(selectedRun.indexOf('_') + 1) : selectedRun);
     
     const finalRun = parsedAppName;
+
+    const selectedRunObj = runs.find(r => r.name === selectedRun);
+    const isCurrentAppMissing = selectedRunObj ? !selectedRunObj.appExists : false;
+
+    // Enforce architect phase if app is missing
+    useEffect(() => {
+        if (isCurrentAppMissing && !pipeline.includes('architect')) {
+            setPipeline(prev => {
+                const next = ['architect', ...prev.filter(p => p !== 'architect')];
+                next.sort((a, b) => ALL_PHASES.findIndex(p => p.id === a) - ALL_PHASES.findIndex(p => p.id === b));
+                return next;
+            });
+        }
+    }, [isCurrentAppMissing, pipeline])
 
     const isReady = !isRunning && dataDir && finalProject && finalRun && pipeline.length > 0;
 
@@ -202,7 +224,7 @@ export default function ControlPanel({ onRun, isRunning }) {
                                 style={{ ...inputStyle, paddingLeft: 12, flex: 1 }}
                              >
                                  <option value="_new_">+ Create New App...</option>
-                                 {runs.map(r => <option key={r} value={r}>{r}</option>)}
+                                 {runs.map(r => <option key={r.name} value={r.name}>{r.name} {!r.appExists ? '⚠️ (App Missing)' : ''}</option>)}
                              </select>
                              {selectedRun === '_new_' && (
                                  <input 
@@ -227,7 +249,8 @@ export default function ControlPanel({ onRun, isRunning }) {
                         {ALL_PHASES.map((phase, idx) => {
                             const isChecked = pipeline.includes(phase.id);
                             const missingInputs = !dataDir || !finalProject || !finalRun;
-                            const isDisabled = isRunning || missingInputs;
+                            const forceArchitect = phase.id === 'architect' && isCurrentAppMissing;
+                            const isDisabled = isRunning || missingInputs || forceArchitect;
                             return (
                                 <div key={phase.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <div 
@@ -254,7 +277,21 @@ export default function ControlPanel({ onRun, isRunning }) {
                         })}
                      </div>
 
-                    {warnsOverwrite && (
+                    {isCurrentAppMissing && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '8px 12px', borderRadius: 6, marginBottom: 14,
+                            background: 'rgba(248,81,73,0.08)',
+                            border: '1px solid rgba(248,81,73,0.25)',
+                            fontSize: 12, color: 'var(--color-error)',
+                            maxWidth: 500
+                        }}>
+                            <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                            The Qlik app for this run was deleted from the Hub. You must run the Architect phase to rebuild it.
+                        </div>
+                    )}
+
+                    {warnsOverwrite && !isCurrentAppMissing && (
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 8,
                             padding: '8px 12px', borderRadius: 6, marginBottom: 14,

@@ -66,12 +66,12 @@ function determineRelationships(metadata, classifications, globalFieldValues = {
     // but the deterministic profiler skipped them (due to name filters), 
     // we calculate the overlap now on-the-fly.
     if (globalFieldValues && Object.keys(globalFieldValues).length > 0) {
-        const identifierFields = [];
+        const semanticFields = [];
         classifications.forEach(table => {
             Object.keys(table.fieldClassifications).forEach(col => {
                 const f = table.fieldClassifications[col];
-                if (f.type === 'IDENTIFIER' && f.semanticAlias) {
-                    identifierFields.push({
+                if (['IDENTIFIER', 'ATTRIBUTE'].includes(f.type) && f.semanticAlias) {
+                    semanticFields.push({
                         qualifiedName: `${table.tableName}.${col}`,
                         alias: f.semanticAlias,
                         set: globalFieldValues[`${table.tableName}.${col}`]
@@ -80,11 +80,11 @@ function determineRelationships(metadata, classifications, globalFieldValues = {
             });
         });
 
-        // Compare all AI-nominated identifiers
-        for (let i = 0; i < identifierFields.length; i++) {
-            for (let j = i + 1; j < identifierFields.length; j++) {
-                const fa = identifierFields[i];
-                const fb = identifierFields[j];
+        // Compare all AI-nominated semantic fields
+        for (let i = 0; i < semanticFields.length; i++) {
+            for (let j = i + 1; j < semanticFields.length; j++) {
+                const fa = semanticFields[i];
+                const fb = semanticFields[j];
 
                 if (fa.alias === fb.alias && fa.qualifiedName.split('.')[0] !== fb.qualifiedName.split('.')[0]) {
                     // Check if this relationship is already in the metadata

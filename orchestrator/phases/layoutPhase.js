@@ -33,7 +33,7 @@ async function runLayoutPhase(context) {
         }
     }
 
-    const blueprint = await generateLayoutPlan(modelExcerpt);
+    const blueprint = await generateLayoutPlan(modelExcerpt, context.runFolder);
 
     if (blueprint) {
         context.emit('System', 'Building App Dashboard using JSON Vaccines (Sub-Agent C)...', 'system');

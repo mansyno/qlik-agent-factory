@@ -50,7 +50,7 @@ async function runEnhancerPhase(context) {
         }
 
         const planStart = Date.now();
-        const llmResult = await generateEnrichmentPlan(mdMetadata, context.currentScript, hints);
+        const llmResult = await generateEnrichmentPlan(mdMetadata, context.currentScript, hints, context.runFolder);
         const planTime = (Date.now() - planStart) / 1000;
         logger.debug('Enhancer', `Planning took ${planTime.toFixed(1)}s`);
 

@@ -8,11 +8,12 @@
     },
     "qHyperCubeDef": {
         "qDimensions": [
+            {{#each resolvedDimensions}}
             {
-                "qLibraryId": "{{DIMENSION_1}}",
+                "qLibraryId": "{{id}}",
                 "qNullSuppression": true,
                 "qDef": {
-                    "cId": "{{DIMENSION_1_CID}}",
+                    "cId": "{{cid}}",
                     "autoSort": true,
                     "qSortCriterias": [
                         {
@@ -29,13 +30,15 @@
                         "type": "text"
                     }
                 }
-            }
+            }{{#unless @last}},{{/unless}}
+            {{/each}}
         ],
         "qMeasures": [
+            {{#each resolvedMeasures}}
             {
-                "qLibraryId": "{{MEASURE_1}}",
+                "qLibraryId": "{{id}}",
                 "qDef": {
-                    "cId": "{{MEASURE_1_CID}}",
+                    "cId": "{{cid}}",
                     "autoSort": true,
                     "textAlign": {
                         "auto": true,
@@ -49,35 +52,18 @@
                     "qSortByNumeric": -1,
                     "qSortByLoadOrder": 1
                 }
-            }
+            }{{#unless @last}},{{/unless}}
+            {{/each}}
         ],
         "qSuppressZero": false,
         "qSuppressMissing": true,
-        "qInterColumnSortOrder": [
-            0,
-            1
-        ],
-        "qColumnOrder": [
-            0,
-            1
-        ],
-        "columnOrder": [
-            0,
-            1
-        ],
-        "columnWidths": [
-            -1,
-            -1
-        ]
+        "qInterColumnSortOrder": {{{qInterColumnSortOrder}}},
+        "qColumnOrder": {{{qColumnOrder}}},
+        "columnOrder": {{{qColumnOrder}}},
+        "columnWidths": {{{columnWidths}}}
     },
-    "columnOrder": [
-        0,
-        1
-    ],
-    "columnWidths": [
-        -1,
-        -1
-    ],
+    "columnOrder": {{{qColumnOrder}}},
+    "columnWidths": {{{columnWidths}}},
     "showTitles": true,
     "title": "{{TITLE}}",
     "subtitle": "",

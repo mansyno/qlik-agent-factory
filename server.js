@@ -85,8 +85,36 @@ app.get('/api/projects', (req, res) => {
     res.json(listProjects());
 });
 
-app.get('/api/projects/:project/runs', (req, res) => {
-    res.json(listRuns(req.params.project));
+const { openSession, closeSession } = require('./qlik_tools');
+
+app.get('/api/projects/:project/runs', async (req, res) => {
+    const runNames = listRuns(req.params.project);
+    
+    try {
+        const { session, global } = await openSession();
+        const docList = await global.getDocList();
+        await closeSession(session);
+
+        const runsWithStatus = runNames.map(run => {
+            const runFolder = path.join(process.cwd(), 'projects', req.params.project, run);
+            const config = readRunConfig(runFolder);
+            const appName = config ? config.appName : run.split('_').slice(1).join('_');
+            
+            const appExists = docList.some(d => 
+                d.qDocName.toLowerCase() === appName.toLowerCase() ||
+                d.qDocName.replace(/\.qvf$/i, '').toLowerCase() === appName.toLowerCase() ||
+                d.qDocId === appName
+            );
+
+            return { name: run, appExists };
+        });
+
+        res.json(runsWithStatus);
+    } catch (error) {
+        logger.error('API', `Failed to verify apps for project ${req.params.project}: ${error.message}`);
+        // Fallback: assume all exist to not break UI if engine is offline
+        res.json(runNames.map(run => ({ name: run, appExists: true })));
+    }
 });
 
 app.get('/api/projects/:project/runs/:run/config', (req, res) => {

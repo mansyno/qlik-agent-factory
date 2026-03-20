@@ -60,7 +60,7 @@ Return a JSON object matching this schema.
 /**
  * Sends metadata to Gemini to formulate an Enrichment Plan
  */
-async function generateEnrichmentPlan(markdownMetadata, baseScript, hints = []) {
+async function generateEnrichmentPlan(markdownMetadata, baseScript, hints = [], runFolder = null) {
   logger.log('EnhancerBrain', `Generating Enrichment Plan with model: ${getActiveModel()}`);
 
   const instructions = buildSystemPrompt();
@@ -98,7 +98,8 @@ Ensure all parameters identified in the Pre-Flight hints are included. Provide t
 
   // Debug: Log the EXACT prompt to see what the AI sees
   try {
-    fs.writeFileSync(path.join(process.cwd(), '.debug_enhancer_prompt.txt'), `SYSTEM:\n${instructions}\n\nUSER:\n${userPrompt}`);
+    const debugPath = runFolder || process.cwd();
+    fs.writeFileSync(path.join(debugPath, '.debug_enhancer_prompt.txt'), `SYSTEM:\n${instructions}\n\nUSER:\n${userPrompt}`);
   } catch (err) {
     logger.warn('EnhancerBrain', 'Failed to write debug prompt file');
   }
@@ -118,7 +119,8 @@ Ensure all parameters identified in the Pre-Flight hints are included. Provide t
     
     // Debug: Log the RESPONSE
     try {
-      fs.writeFileSync(path.join(process.cwd(), '.debug_enhancer_response.json'), JSON.stringify(plan, null, 2));
+      const debugPath = runFolder || process.cwd();
+      fs.writeFileSync(path.join(debugPath, '.debug_enhancer_response.json'), JSON.stringify(plan, null, 2));
     } catch (err) {
       logger.warn('EnhancerBrain', 'Failed to write debug response file');
     }

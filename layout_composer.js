@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('./.agent/utils/logger');
+const Handlebars = require('handlebars');
 
 function loadTemplate(templateId) {
     try {
@@ -74,13 +75,18 @@ async function injectAndCreateObject(sessionApp, sheetObj, widgetDef) {
     const rawTemplate = loadTemplate(widgetDef.templateId);
     if (!rawTemplate) return null;
 
-    // String Replacement Strategy (JSON Vaccine)
-    let injected = rawTemplate
-        .replace(/\{\{MEASURE_1\}\}/g, widgetDef.masterMeasureId || '')
-        .replace(/\{\{MEASURE_1_CID\}\}/g, widgetDef.masterMeasureCid || '')
-        .replace(/\{\{DIMENSION_1\}\}/g, widgetDef.masterDimensionId || '')
-        .replace(/\{\{DIMENSION_1_CID\}\}/g, widgetDef.masterDimensionCid || '')
-        .replace(/\{\{TITLE\}\}/g, widgetDef.title || 'Untitled');
+    // Ensure backwards compatibility properties exist for legacy templates
+    const templateData = {
+        ...widgetDef,
+        MEASURE_1: (widgetDef.resolvedMeasures && widgetDef.resolvedMeasures.length > 0 ? widgetDef.resolvedMeasures[0].id : ''),
+        MEASURE_1_CID: (widgetDef.resolvedMeasures && widgetDef.resolvedMeasures.length > 0 ? widgetDef.resolvedMeasures[0].cid : ''),
+        DIMENSION_1: (widgetDef.resolvedDimensions && widgetDef.resolvedDimensions.length > 0 ? widgetDef.resolvedDimensions[0].id : ''),
+        DIMENSION_1_CID: (widgetDef.resolvedDimensions && widgetDef.resolvedDimensions.length > 0 ? widgetDef.resolvedDimensions[0].cid : ''),
+        TITLE: widgetDef.title || 'Untitled'
+    };
+
+    const template = Handlebars.compile(rawTemplate);
+    let injected = template(templateData);
 
     const jsonProps = JSON.parse(injected);
     // DO NOT interact with Engine API yet! Just generate a random ID and return the raw properties.
@@ -128,16 +134,28 @@ async function composeLayout(sessionApp, layoutPlan) {
 
         // Apply true IDs and CIDs to blueprint
         for (const widget of layoutPlan.blueprint) {
-            let dimId = widget.masterDimensionId || (widget.dimensions && widget.dimensions[0]) || fallbackDimId;
-            let msrId = widget.masterMeasureId || (widget.measures && widget.measures[0]) || fallbackMsrId;
+            // Support both old and new formats by forcing into arrays
+            const rawDims = widget.dimensions || (widget.masterDimensionId ? [widget.masterDimensionId] : (fallbackDimId ? [fallbackDimId] : []));
+            const rawMsrs = widget.measures || (widget.masterMeasureId ? [widget.masterMeasureId] : (fallbackMsrId ? [fallbackMsrId] : []));
 
-            if (dimId && idMap[dimId]) {
-                widget.masterDimensionId = idMap[dimId];
-                widget.masterDimensionCid = cidMap[dimId];
-            }
-            if (msrId && idMap[msrId]) {
-                widget.masterMeasureId = idMap[msrId];
-                widget.masterMeasureCid = cidMap[msrId];
+            widget.resolvedDimensions = rawDims.filter(id => idMap[id]).map(id => ({
+                id: idMap[id],
+                cid: cidMap[id]
+            }));
+
+            widget.resolvedMeasures = rawMsrs.filter(id => idMap[id]).map(id => ({
+                id: idMap[id],
+                cid: cidMap[id]
+            }));
+
+            // Generate order arrays for table template dynamically
+            if (widget.templateId === 'table') {
+                const totalColumns = widget.resolvedDimensions.length + widget.resolvedMeasures.length;
+                const seq = Array.from({length: totalColumns}, (_, i) => i);
+                const widths = Array.from({length: totalColumns}, () => -1);
+                widget.qInterColumnSortOrder = JSON.stringify(seq);
+                widget.qColumnOrder = JSON.stringify(seq);
+                widget.columnWidths = JSON.stringify(widths);
             }
         }
 
