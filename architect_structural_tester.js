@@ -201,7 +201,39 @@ function generateBlueprint(normalizedData) {
     };
 }
 
+function escalateToLinkTableStrategy(structuralBlueprint, normalizedData) {
+    structuralBlueprint.strategy = 'LINK_TABLE';
+    const sharedKeysSet = new Set();
+    const factTables = structuralBlueprint.factTables.map(f => f.tableName);
+    const keyPresenceInFacts = {}; 
+    
+    factTables.forEach(fName => {
+        const tableNorms = normalizedData.find(n => n.tableName === fName);
+        if (tableNorms && tableNorms.normalizedFields) {
+            tableNorms.normalizedFields.forEach(nf => {
+                if (nf.type === 'IDENTIFIER') {
+                    if (!keyPresenceInFacts[nf.normalizedName]) keyPresenceInFacts[nf.normalizedName] = new Set();
+                    keyPresenceInFacts[nf.normalizedName].add(fName);
+                }
+            });
+        }
+    });
+
+    Object.keys(keyPresenceInFacts).forEach(k => {
+        if (keyPresenceInFacts[k].size > 1) sharedKeysSet.add(k);
+    });
+
+    structuralBlueprint.linkTableRequired = true;
+    structuralBlueprint.linkTableBlueprint = {
+        linkTableName: 'LinkTable',
+        sharedKeys: Array.from(sharedKeysSet)
+    };
+
+    return structuralBlueprint;
+}
+
 module.exports = {
     generateBlueprint,
-    findFactGroups
+    findFactGroups,
+    escalateToLinkTableStrategy
 };
