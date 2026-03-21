@@ -60,44 +60,72 @@ export default function App() {
   const btnBase = { display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 7, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s' }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', overflow: 'hidden' }}>
       <Header isRunning={isRunning} connected={connected} />
 
-      <div style={{ maxWidth: 1600, margin: '0 auto', padding: '0 24px 40px' }}>
-        <ControlPanel onRun={handleRun} isRunning={isRunning} />
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '320px 1fr', 
+        flex: 1, 
+        overflow: 'hidden',
+        background: 'var(--color-bg)' 
+      }}>
+        {/* Left Sidebar */}
+        <aside style={{ 
+          background: 'var(--color-surface)', 
+          borderRight: '1px solid var(--color-border)', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          overflowY: 'auto',
+          padding: '16px',
+          gap: '20px'
+        }}>
+          <ControlPanel onRun={handleRun} isRunning={isRunning} />
 
-        {/* Job control bar — visible only while running */}
-        {isRunning && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 12, justifyContent: 'flex-end' }}>
-            {isPaused ? (
-              <button onClick={handleResume} style={{ ...btnBase, background: 'rgba(63,185,80,0.15)', color: 'var(--color-success)', border: '1px solid rgba(63,185,80,0.3)' }}>
-                <Play size={13} /> Resume
+          {/* Job control bar — visible only while running */}
+          {isRunning && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              {isPaused ? (
+                <button onClick={handleResume} style={{ ...btnBase, flex: 1, justifyContent: 'center', background: 'rgba(63,185,80,0.15)', color: 'var(--color-success)', border: '1px solid rgba(63,185,80,0.3)' }}>
+                  <Play size={13} /> Resume
+                </button>
+              ) : (
+                <button onClick={handlePause} style={{ ...btnBase, flex: 1, justifyContent: 'center', background: 'rgba(210,153,34,0.15)', color: 'var(--color-warning)', border: '1px solid rgba(210,153,34,0.3)' }}>
+                  <Pause size={13} /> Pause
+                </button>
+              )}
+              <button onClick={handleStop} style={{ ...btnBase, flex: 1, justifyContent: 'center', background: 'rgba(248,81,73,0.12)', color: 'var(--color-error)', border: '1px solid rgba(248,81,73,0.3)' }}>
+                <Square size={13} /> Stop
               </button>
-            ) : (
-              <button onClick={handlePause} style={{ ...btnBase, background: 'rgba(210,153,34,0.15)', color: 'var(--color-warning)', border: '1px solid rgba(210,153,34,0.3)' }}>
-                <Pause size={13} /> Pause
-              </button>
-            )}
-            <button onClick={handleStop} style={{ ...btnBase, background: 'rgba(248,81,73,0.12)', color: 'var(--color-error)', border: '1px solid rgba(248,81,73,0.3)' }}>
-              <Square size={13} /> Stop
-            </button>
+            </div>
+          )}
+        </aside>
+
+        {/* Main Content Area */}
+        <main style={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          padding: '20px', 
+          overflowY: 'auto', 
+          gap: 20 
+        }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, minHeight: 0, flex: 1 }}>
+            <ReasoningFeed logs={logs} isRunning={isRunning} />
+            <ScriptForge script={script} phase={scriptPhase} />
           </div>
-        )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 12 }}>
-          <div style={{ minWidth: 0 }}><ReasoningFeed logs={logs} isRunning={isRunning} /></div>
-          <div style={{ minWidth: 0 }}><ScriptForge script={script} phase={scriptPhase} /></div>
-        </div>
+          {artifacts && (
+            <div style={{ flexShrink: 0 }}>
+              <ModelArtifacts profiles={artifacts} />
+            </div>
+          )}
 
-        {artifacts && (
-          <div style={{ marginTop: 20 }}>
-            <ModelArtifacts profiles={artifacts} />
+          <div style={{ flexShrink: 0 }}>
+            <DebugFileViewer />
           </div>
-        )}
-
-        <DebugFileViewer />
+        </main>
       </div>
     </div>
   )
 }
-

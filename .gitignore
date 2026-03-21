@@ -5,8 +5,10 @@ ui/node_modules/
 # Secrets & Environment
 .env
 
-# Data & Projects (Physical Storage)
+# Projects & Benchmarks
 projects/
+benchmarks/
+docs/
 DATA/
 data2/
 lorries/

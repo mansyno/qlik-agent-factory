@@ -33,7 +33,7 @@ export default function ReasoningFeed({ logs, isRunning }) {
             borderRadius: 12,
             display: 'flex',
             flexDirection: 'column',
-            height: 500,
+            height: '100%',
         }}>
             {/* Header */}
             <div style={{
