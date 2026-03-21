@@ -88,18 +88,24 @@ async function injectAndCreateObject(sessionApp, sheetObj, widgetDef) {
     const template = Handlebars.compile(rawTemplate);
     let injected = template(templateData);
 
-    const jsonProps = JSON.parse(injected);
-    // DO NOT interact with Engine API yet! Just generate a random ID and return the raw properties.
-    const uniqueId = 'AgentObj_' + Math.random().toString(36).substring(2, 8);
-    jsonProps.qInfo.qId = uniqueId;
+    try {
+        const jsonProps = JSON.parse(injected);
+        // DO NOT interact with Engine API yet! Just generate a random ID and return the raw properties.
+        const uniqueId = 'AgentObj_' + Math.random().toString(36).substring(2, 8);
+        jsonProps.qInfo.qId = uniqueId;
 
-    logger.log('LayoutComposer', `Prepared ${widgetDef.templateId} chart properties: ${uniqueId}`);
+        logger.log('LayoutComposer', `Prepared ${widgetDef.templateId} chart properties: ${uniqueId}`);
 
-    return {
-        id: uniqueId,
-        properties: jsonProps,
-        grid: widgetDef.grid
-    };
+        return {
+            id: uniqueId,
+            properties: jsonProps,
+            grid: widgetDef.grid
+        };
+    } catch (parseErr) {
+        logger.error('LayoutComposer', `Failed to parse injected JSON for ${widgetDef.templateId}: ${parseErr.message}`);
+        logger.debug('LayoutComposer', `Injected content: ${injected}`);
+        throw parseErr;
+    }
 }
 
 async function composeLayout(sessionApp, layoutPlan) {
@@ -148,14 +154,17 @@ async function composeLayout(sessionApp, layoutPlan) {
                 cid: cidMap[id]
             }));
 
-            // Generate order arrays for table template dynamically
-            if (widget.templateId === 'table') {
+            // Generate order arrays for table, linechart, and barchart templates dynamically
+            if (['table', 'linechart', 'barchart'].includes(widget.templateId)) {
                 const totalColumns = widget.resolvedDimensions.length + widget.resolvedMeasures.length;
                 const seq = Array.from({length: totalColumns}, (_, i) => i);
-                const widths = Array.from({length: totalColumns}, () => -1);
                 widget.qInterColumnSortOrder = JSON.stringify(seq);
                 widget.qColumnOrder = JSON.stringify(seq);
-                widget.columnWidths = JSON.stringify(widths);
+                
+                if (widget.templateId === 'table') {
+                    const widths = Array.from({length: totalColumns}, () => -1);
+                    widget.columnWidths = JSON.stringify(widths);
+                }
             }
         }
 

@@ -7,11 +7,12 @@
     },
     "qHyperCubeDef": {
         "qDimensions": [
+            {{#each resolvedDimensions}}
             {
-                "qLibraryId": "{{DIMENSION_1}}",
+                "qLibraryId": "{{id}}",
                 "qNullSuppression": true,
                 "qDef": {
-                    "cId": "{{DIMENSION_1_CID}}",
+                    "cId": "{{cid}}",
                     "autoSort": true,
                     "qSortCriterias": [
                         {
@@ -21,28 +22,38 @@
                         }
                     ]
                 }
-            }
+            }{{#unless @last}},{{/unless}}
+            {{/each}}
         ],
         "qMeasures": [
+            {{#each resolvedMeasures}}
             {
-                "qLibraryId": "{{MEASURE_1}}",
+                "qLibraryId": "{{id}}",
                 "qDef": {
-                    "cId": "{{MEASURE_1_CID}}",
+                    "cId": "{{cid}}",
                     "autoSort": true
                 },
                 "qSortBy": {
                     "qSortByNumeric": -1,
                     "qSortByLoadOrder": 1
                 }
-            }
+            }{{#unless @last}},{{/unless}}
+            {{/each}}
         ],
         "qSuppressZero": false,
-        "qSuppressMissing": false,
-        "qInterColumnSortOrder": [
-            0,
-            1
+        "qSuppressMissing": true,
+        "qInterColumnSortOrder": {{{qInterColumnSortOrder}}},
+        "qColumnOrder": {{{qColumnOrder}}},
+        "qInitialDataFetch": [
+            {
+                "qLeft": 0,
+                "qTop": 0,
+                "qWidth": 17,
+                "qHeight": 500
+            }
         ],
-        "qColumnOrder": []
+        "qReductionMode": "N",
+        "qMode": "S"
     },
     "showTitles": true,
     "title": "{{TITLE}}",
