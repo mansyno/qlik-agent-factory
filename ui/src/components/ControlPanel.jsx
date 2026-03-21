@@ -145,6 +145,18 @@ export default function ControlPanel({ onRun, isRunning }) {
         }
     }
 
+    const handleBrowse = async () => {
+        try {
+            const res = await fetch('http://localhost:3001/api/utils/browse-folder');
+            const data = await res.json();
+            if (data.path) {
+                setDataDir(data.path);
+            }
+        } catch (err) {
+            console.error("Failed to open folder browser", err);
+        }
+    };
+
     const inputStyle = {
         background: 'var(--color-surface2)',
         border: '1px solid var(--color-border)',
@@ -181,9 +193,29 @@ export default function ControlPanel({ onRun, isRunning }) {
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                     <div style={{ flex: 1, minWidth: 220 }}>
                         <label style={{ fontSize: 12, color: 'var(--color-muted)', display: 'block', marginBottom: 6 }}>1. Data Source Directory</label>
-                        <div style={{ position: 'relative' }}>
-                            <FolderOpen size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)' }} />
-                            <input value={dataDir} onChange={e => setDataDir(e.target.value)} style={inputStyle} placeholder="./data2" disabled={isRunning} />
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ position: 'relative', flex: 1 }}>
+                                <FolderOpen size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)' }} />
+                                <input value={dataDir} onChange={e => setDataDir(e.target.value)} style={inputStyle} placeholder="./data2" disabled={isRunning} />
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={handleBrowse}
+                                disabled={isRunning}
+                                style={{
+                                    padding: '0 16px',
+                                    background: 'var(--color-surface2)',
+                                    border: '1px solid var(--color-border)',
+                                    borderRadius: 8,
+                                    color: 'var(--color-text)',
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    cursor: isRunning ? 'not-allowed' : 'pointer',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                Browse...
+                            </button>
                         </div>
                     </div>
 

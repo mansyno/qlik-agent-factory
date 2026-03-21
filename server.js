@@ -80,6 +80,23 @@ app.post('/api/run', async (req, res) => {
     }
 });
 
+const { exec } = require('child_process');
+
+// ─── API: Utils ──────────────────────────────────────────────────────────
+app.get('/api/utils/browse-folder', (req, res) => {
+    // PowerShell command to open a folder browser dialog
+    const command = `powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; if ($f.ShowDialog() -eq 'OK') { $f.SelectedPath }"`;
+    
+    exec(command, (error, stdout, stderr) => {
+        if (error) {
+            logger.error('API', `Folder browser error: ${error.message}`);
+            return res.status(500).json({ error: 'Failed to open folder browser.' });
+        }
+        const selectedPath = stdout.trim();
+        res.json({ path: selectedPath });
+    });
+});
+
 // ─── API: Workspace Management ──────────────────────────────────────────
 app.get('/api/projects', (req, res) => {
     res.json(listProjects());

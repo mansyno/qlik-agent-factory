@@ -1,6 +1,6 @@
 const logger = require('../../.agent/utils/logger.js');
 const { generateLayoutPlan } = require('../../layout_brain');
-const { composeLayout } = require('../../layout_composer');
+const { composeLayout, getExistingMasterItems } = require('../../layout_composer');
 
 async function runLayoutPhase(context) {
     const { appName, qlikGlobal } = context;
@@ -18,6 +18,9 @@ async function runLayoutPhase(context) {
         }
     }
 
+    context.emit('System', 'Fetching existing Master Items for context...', 'system');
+    const existingItems = await getExistingMasterItems(context.persistentApp);
+
     context.emit('System', 'Synthesizing Dashboard Blueprint (Sub-Agent A & B)...', 'system');
     logger.info('Runner', 'Starting Layout Agent generation sequence.');
 
@@ -33,11 +36,11 @@ async function runLayoutPhase(context) {
         }
     }
 
-    const blueprint = await generateLayoutPlan(modelExcerpt, context.runFolder);
+    const blueprint = await generateLayoutPlan(modelExcerpt, existingItems, context.runFolder);
 
     if (blueprint) {
         context.emit('System', 'Building App Dashboard using JSON Vaccines (Sub-Agent C)...', 'system');
-        const layoutSuccess = await composeLayout(context.persistentApp, blueprint);
+        const layoutSuccess = await composeLayout(context.persistentApp, blueprint, existingItems);
         if (layoutSuccess) {
             await context.persistentApp.doSave();
             context.emit('System', 'Executive Dashboard successfully mounted and saved in .qvf.', 'success');

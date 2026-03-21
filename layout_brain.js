@@ -67,9 +67,18 @@ YOUR FINAL DATA MODEL TO ANALYZE:
 /**
  * Runs the Layout planner (Agent 4) logic to determine UI and Master Items.
  */
-async function generateLayoutPlan(dataModelExcerpt, runFolder = null) {
+async function generateLayoutPlan(dataModelExcerpt, existingItems = null, runFolder = null) {
   logger.log('LayoutBrain', 'Synthesizing Semantic & UI Blueprint...');
-  const fullPrompt = LAYOUT_AGENT_PROMPT + '\n' + dataModelExcerpt;
+  
+  let existingItemsText = "";
+  if (existingItems && (existingItems.dimensions.length > 0 || existingItems.measures.length > 0)) {
+      existingItemsText = "\nEXISTING MASTER ITEMS IN APP (Use these if they match your needs):\n";
+      existingItems.dimensions.forEach(d => existingItemsText += `- Dimension: "${d.title}" (Expression: ${d.expression})\n`);
+      existingItems.measures.forEach(m => existingItemsText += `- Measure: "${m.title}" (Expression: ${m.expression})\n`);
+      existingItemsText += "\nINSTRUCTION: If an existing Master Item matches the logic you need, do NOT create a new one in 'masterItems'. Just use the existing Title as the ID in your 'blueprint'.\n";
+  }
+
+  const fullPrompt = LAYOUT_AGENT_PROMPT + '\n' + dataModelExcerpt + '\n' + existingItemsText;
   
   const debugPath = runFolder || process.cwd();
   try {

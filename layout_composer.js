@@ -14,12 +14,29 @@ function loadTemplate(templateId) {
     }
 }
 
-async function findMasterItem(sessionApp, type, id) {
+/**
+ * Creates a "Logic Fingerprint" of a Qlik expression by stripping all 
+ * syntax noise (brackets, spaces, casing) to compare mathematical intent.
+ */
+function normalizeExpression(expr) {
+    if (!expr) return '';
+    return expr
+        .replace(/[\[\]]/g, '')      // Remove brackets: [Sales] -> Sales
+        .replace(/\s+/g, '')         // Remove all spaces
+        .replace(/["']/g, '')        // Remove quotes
+        .trim()
+        .toLowerCase();
+}
+
+async function findMasterItem(sessionApp, type, id, title, expression) {
     const listDef = {
         qInfo: { qType: type === 'measure' ? 'MeasureList' : 'DimensionList' },
         [type === 'measure' ? 'qMeasureListDef' : 'qDimensionListDef']: {
             qType: type,
-            qData: { description: '/qMetaDef/description' }
+            qData: { 
+                description: '/qMetaDef/description',
+                title: '/qMetaDef/title'
+            }
         }
     };
     const sessionObj = await sessionApp.createSessionObject(listDef);
@@ -27,19 +44,42 @@ async function findMasterItem(sessionApp, type, id) {
     const items = type === 'measure' ? layout.qMeasureList.qItems : layout.qDimensionList.qItems;
     await sessionApp.destroySessionObject(layout.qInfo.qId);
 
+    const targetFingerprint = normalizeExpression(expression);
+
+    // Stage 1: ID Match (Legacy/Consistency support)
     for (const item of items) {
         const desc = (item.qData && item.qData.description) || (item.qMeta && item.qMeta.description);
         if (desc === `Agent generated ${type}: ${id}`) {
+            logger.log('LayoutComposer', `Found item by ID match: ${item.qInfo.qId}`);
             return item.qInfo.qId;
         }
     }
+
+    // Stage 2: Logic First (Expression Match)
+    // If the math is the same, reuse it, regardless of the Title or virtual ID.
+    for (const item of items) {
+        try {
+            const handle = await (type === 'measure' ? sessionApp.getMeasure(item.qInfo.qId) : sessionApp.getDimension(item.qInfo.qId));
+            const props = await handle.getProperties();
+            const existingExpr = type === 'measure' ? props.qMeasure.qDef : props.qDim.qFieldDefs[0];
+            
+            if (normalizeExpression(existingExpr) === targetFingerprint) {
+                const existingTitle = (item.qData && item.qData.title) || (item.qMeta && item.qMeta.title);
+                logger.log('LayoutComposer', `Expression Match! Reusing '${existingTitle}' (${item.qInfo.qId}) for logic: ${expression}`);
+                return item.qInfo.qId;
+            }
+        } catch (err) {
+            logger.debug('LayoutComposer', `Skipping unreadable item ${item.qInfo.qId}`);
+        }
+    }
+
     return null;
 }
 
 async function createMasterItem(sessionApp, type, id, title, expression) {
-    const existingId = await findMasterItem(sessionApp, type, id);
+    const existingId = await findMasterItem(sessionApp, type, id, title, expression);
     if (existingId) {
-        logger.log('LayoutComposer', `Master ${type} '${id}' already exists as ${existingId}. Reusing.`);
+        logger.log('LayoutComposer', `Master ${type} '${id}' (${title}) resolved to ${existingId}. Reusing.`);
         return existingId;
     }
 
@@ -108,7 +148,7 @@ async function injectAndCreateObject(sessionApp, sheetObj, widgetDef) {
     }
 }
 
-async function composeLayout(sessionApp, layoutPlan) {
+async function composeLayout(sessionApp, layoutPlan, existingItems = null) {
     if (!layoutPlan || !layoutPlan.blueprint) {
         logger.error('LayoutComposer', 'Invalid or missing layout plan form LayoutBrain');
         return false;
@@ -116,22 +156,33 @@ async function composeLayout(sessionApp, layoutPlan) {
 
     try {
         // Step 1: Create Master Items and capture their true Engine IDs
-        logger.log('LayoutComposer', '--- Phase 1: Creating Master Items ---');
+        logger.log('LayoutComposer', '--- Phase 1: Resolving Master Items ---');
         const idMap = {};
         const cidMap = {};
 
-        // Helper function scoped if needed or assuming it exists
+        // Helper function to generate stable visual IDs
         const generateCid = () => Math.random().toString(36).substring(2, 8);
+
+        // Pre-populate Map with existing items so AI can refer to them by Title or GUID
+        if (existingItems) {
+            [...existingItems.dimensions, ...existingItems.measures].forEach(item => {
+                idMap[item.title] = item.id;
+                idMap[item.id] = item.id; // GUID fallback
+                if (!cidMap[item.id]) cidMap[item.id] = generateCid();
+            });
+        }
 
         for (const dim of layoutPlan.masterItems?.dimensions || []) {
             const realId = await createMasterItem(sessionApp, 'dimension', dim.id, dim.title, dim.expression);
             idMap[dim.id] = realId;
-            cidMap[dim.id] = generateCid(); // Generate a CID for each master dimension 
+            idMap[dim.title] = realId;
+            if (!cidMap[realId]) cidMap[realId] = generateCid();
         }
         for (const msr of layoutPlan.masterItems?.measures || []) {
             const realId = await createMasterItem(sessionApp, 'measure', msr.id, msr.title, msr.expression);
             idMap[msr.id] = realId;
-            cidMap[msr.id] = generateCid(); // Generate a CID for each master item
+            idMap[msr.title] = realId;
+            if (!cidMap[realId]) cidMap[realId] = generateCid();
         }
 
         // Setup fallbacks in case the LLM unlinks a chart or hallucinated an array
@@ -238,4 +289,43 @@ async function composeLayout(sessionApp, layoutPlan) {
     }
 }
 
-module.exports = { composeLayout };
+async function getExistingMasterItems(sessionApp) {
+    const listDef = {
+        qInfo: { qType: 'MasterItemList' },
+        qMeasureListDef: { qType: 'measure', qData: { title: '/qMetaDef/title' } },
+        qDimensionListDef: { qType: 'dimension', qData: { title: '/qMetaDef/title' } }
+    };
+    const sessionObj = await sessionApp.createSessionObject(listDef);
+    const layout = await sessionObj.getLayout();
+    await sessionApp.destroySessionObject(layout.qInfo.qId);
+
+    const results = { dimensions: [], measures: [] };
+
+    for (const item of layout.qDimensionList.qItems) {
+        try {
+            const handle = await sessionApp.getDimension(item.qInfo.qId);
+            const props = await handle.getProperties();
+            results.dimensions.push({
+                id: item.qInfo.qId,
+                title: props.qMetaDef.title,
+                expression: props.qDim.qFieldDefs[0]
+            });
+        } catch (e) {}
+    }
+
+    for (const item of layout.qMeasureList.qItems) {
+        try {
+            const handle = await sessionApp.getMeasure(item.qInfo.qId);
+            const props = await handle.getProperties();
+            results.measures.push({
+                id: item.qInfo.qId,
+                title: props.qMetaDef.title,
+                expression: props.qMeasure.qDef
+            });
+        } catch (e) {}
+    }
+
+    return results;
+}
+
+module.exports = { composeLayout, getExistingMasterItems };
