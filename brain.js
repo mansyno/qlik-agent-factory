@@ -72,10 +72,25 @@ async function callWithRetry(fn, callerName = 'ArchitectBrain', maxRetries = 3) 
     }
 }
 
+// ─── AI Engine Configuration ─────────────────────────────────────────────────
+let activeEngine = 'gemini'; // 'gemini' or 'lmstudio'
+let lmstudioModel = null;
+
+function setAiEngineConfig(engine, model) {
+    activeEngine = engine || 'gemini';
+    lmstudioModel = model || null;
+    logger.info('Brain', `AI Engine configured to use ${activeEngine} ${model ? `(${model})` : ''}`);
+}
+
 /**
  * Generic LLM call exported for use by other agent modules.
  */
-async function generateContent(prompt, systemInstruction = null) {
+async function generateContent(prompt, systemInstruction = null, options = {}) {
+    if (activeEngine === 'lmstudio') {
+        const lmstudio = require('./llm/lmstudio');
+        return await lmstudio.generateContent(lmstudioModel, prompt, systemInstruction, options);
+    }
+
     if (!API_KEY) throw new Error("GEMINI_API_KEY not configured.");
     await throttle('LLM_General');
 
@@ -83,17 +98,36 @@ async function generateContent(prompt, systemInstruction = null) {
         const modelInfo = { model: modelName };
         if (systemInstruction) modelInfo.systemInstruction = systemInstruction;
 
+        if (options.runFolder) {
+            const fs = require('fs');
+            const path = require('path');
+            fs.writeFileSync(path.join(options.runFolder, '.debug_gemini_prompt.txt'), `SYSTEM:\n${systemInstruction}\n\nUSER:\n${prompt}`);
+        }
+
         const model = genAI.getGenerativeModel(modelInfo);
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        return response.text();
+        const text = response.text();
+
+        if (options.runFolder) {
+            const fs = require('fs');
+            const path = require('path');
+            fs.writeFileSync(path.join(options.runFolder, '.debug_gemini_response.txt'), text);
+        }
+
+        return text;
     }, 'LLM_General');
 }
 
 /**
  * Structured JSON LLM call with retry logic.
  */
-async function generateJsonContent(prompt, schema, systemInstruction = null) {
+async function generateJsonContent(prompt, schema, systemInstruction = null, options = {}) {
+    if (activeEngine === 'lmstudio') {
+        const lmstudio = require('./llm/lmstudio');
+        return await lmstudio.generateJsonContent(lmstudioModel, prompt, schema, systemInstruction, options);
+    }
+
     if (!API_KEY) throw new Error("GEMINI_API_KEY not configured.");
     await throttle('LLM_General');
 
@@ -107,10 +141,23 @@ async function generateJsonContent(prompt, schema, systemInstruction = null) {
         };
         if (systemInstruction) modelInfo.systemInstruction = systemInstruction;
 
+        if (options.runFolder) {
+            const fs = require('fs');
+            const path = require('path');
+            fs.writeFileSync(path.join(options.runFolder, '.debug_gemini_json_prompt.txt'), `SYSTEM:\n${systemInstruction}\n\nUSER:\n${prompt}\n\nSCHEMA:\n${JSON.stringify(schema, null, 2)}`);
+        }
+
         const model = genAI.getGenerativeModel(modelInfo);
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
+
+        if (options.runFolder) {
+            const fs = require('fs');
+            const path = require('path');
+            fs.writeFileSync(path.join(options.runFolder, '.debug_gemini_json_response_raw.txt'), text);
+        }
+
         try {
             return JSON.parse(text);
         } catch (e) {
@@ -612,5 +659,6 @@ module.exports = {
     resolveTemporalAndJoins,
     getActiveModel,
     setActiveModel,
+    setAiEngineConfig,
     MODELS
 };

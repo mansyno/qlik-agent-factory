@@ -12,6 +12,7 @@
     "dependencies": {
         "@google/genai": "^1.44.0",
         "@google/generative-ai": "^0.11.0",
+        "@lmstudio/sdk": "^1.5.0",
         "concurrently": "^9.1.2",
         "cors": "^2.8.5",
         "csv-parser": "^3.2.0",

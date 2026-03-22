@@ -88,7 +88,7 @@ async function generateLayoutPlan(dataModelExcerpt, existingItems = null, runFol
   }
 
   try {
-    const resultString = await generateContent(fullPrompt);
+    const resultString = await generateContent(fullPrompt, null, { runFolder });
     // Stripping backticks if LLM mistakenly added them
     const cleaned = resultString.replace(/^```json\S*/mg, '').replace(/```\S*/g, '').trim();
     

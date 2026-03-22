@@ -106,7 +106,7 @@ Ensure all parameters identified in the Pre-Flight hints are included. Provide t
 
   try {
     // Switching to raw generateContent to allow for Chain of Thought and avoid schema-induced "laziness"
-    const rawResponse = await generateContent(userPrompt, instructions);
+    const rawResponse = await generateContent(userPrompt, instructions, { runFolder });
     
     // Extract JSON from potential markdown blocks
     let cleanedResponse = rawResponse.trim();

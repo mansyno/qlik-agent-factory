@@ -5,6 +5,15 @@ const cors = require('cors');
 const path = require('path');
 const logger = require('./.agent/utils/logger.js');
 
+// ─── Global Error Handling ──────────────────────────────────────────────────
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Server', 'Unhandled Promise Rejection', { reason: reason?.message || reason, stack: reason?.stack });
+});
+process.on('uncaughtException', (err) => {
+    logger.error('Server', 'Uncaught Exception', { error: err.message, stack: err.stack });
+    // In production, we might want to exit, but here we want to stay alive if possible
+});
+
 const app = express();
 const server = http.createServer(app);
 
@@ -13,7 +22,8 @@ const io = new Server(server, {
 });
 
 const { runAgent } = require('./agent_runner');
-const { getActiveModel, MODELS, setActiveModel } = require('./brain');
+const { getActiveModel, MODELS, setActiveModel, setAiEngineConfig } = require('./brain');
+const lmstudio = require('./llm/lmstudio');
 const { listProjects, listRuns, readRunConfig, getRunFolder } = require('./path_manager');
 const fs = require('fs');
 
@@ -50,6 +60,60 @@ function broadcastAgentState(agent, message, type = 'info', data = null) {
     logger.log(level, message, data, agent);
 }
 
+// ─── API: Model Management ──────────────────────────────────────────────────
+app.get('/api/models', async (req, res) => {
+    try {
+        const isUp = lmstudio.checkServerIsUp();
+        if (!isUp) {
+            return res.status(503).json({ error: 'LM Studio server is offline.' });
+        }
+        const data = await lmstudio.getAvailableModels();
+        res.json({ engine: 'lmstudio', models: data.available, loadedModel: data.loaded });
+    } catch (e) {
+        logger.error('API', 'Failed to fetch LM Studio models: ' + e.message);
+        res.status(500).json({ error: 'Failed to fetch models or start LM Studio.' });
+    }
+});
+
+app.post('/api/lmstudio/start', async (req, res) => {
+    try {
+        await lmstudio.startServer();
+        await new Promise(r => setTimeout(r, 2000));
+        res.json({ status: 'started' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/lmstudio/load', async (req, res) => {
+    const { modelId } = req.body;
+    if (!modelId) return res.status(400).json({ error: 'modelId is required' });
+    try {
+        await lmstudio.loadModel(modelId);
+        res.json({ status: 'loaded', modelId });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/lmstudio/unload', async (req, res) => {
+    try {
+        await lmstudio.unloadAllModels();
+        res.json({ status: 'unloaded' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/lmstudio/shutdown', async (req, res) => {
+    try {
+        await lmstudio.stopServer();
+        res.json({ status: 'shutdown' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // ─── API: Run Job ──────────────────────────────────────────────────────────
 app.post('/api/run', async (req, res) => {
     console.log('[DEBUG] Received POST /api/run:', req.body);
@@ -57,10 +121,18 @@ app.post('/api/run', async (req, res) => {
         console.log('[DEBUG] Agent is already running');
         return res.status(409).json({ error: 'Agent is already running.' });
     }
-    const { projectName = 'test', dataDir, appName, pipeline = ['architect', 'enhancer'] } = req.body;
+    const { projectName = 'test', dataDir, appName, pipeline = ['architect', 'enhancer'], aiEngine = 'gemini', aiModel } = req.body;
     if (!dataDir || !appName || !projectName) {
         console.log('[DEBUG] Missing required payload', req.body);
         return res.status(400).json({ error: 'projectName, dataDir and appName are required.' });
+    }
+
+    // Configure the AI Engine before starting the pipeline
+    setAiEngineConfig(aiEngine, aiModel);
+
+    // Quick pre-flight check if using LM Studio
+    if (aiEngine === 'lmstudio' && !lmstudio.checkServerIsUp()) {
+        return res.status(503).json({ error: "LM Studio server is not running. Please start it first." });
     }
 
     res.json({ status: 'started' });

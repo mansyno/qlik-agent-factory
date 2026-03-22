@@ -47,7 +47,7 @@ async function runArchitectPhase(context) {
 
     // Step 1: Classify Tables
     context.emit('Architect', `Step 1: Classifying Tables and Fields...`, 'info');
-    const classResult = await classifyData(metadata);
+    const classResult = await classifyData(metadata, runFolder);
     const classifications = classResult.classifications;
     fs.writeFileSync(path.join(runFolder, '.debug_classifications.json'), JSON.stringify(classifications, null, 2));
 

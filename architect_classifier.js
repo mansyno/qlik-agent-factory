@@ -38,17 +38,23 @@ const CLASSIFICATION_SCHEMA = {
     required: ["tables"]
 };
 
-async function classifyWithLLM(systemPrompt, userPrompt) {
+async function classifyWithLLM(systemPrompt, userPrompt, runFolder = null) {
+    const fs = require('fs');
+    if (runFolder) {
+        fs.writeFileSync(path.join(runFolder, '.debug_architect_classify_prompt.txt'), `SYSTEM:\n${systemPrompt}\n\nUSER:\n${userPrompt}`);
+    }
     try {
-        // Use the robust, unified LLM tool from brain.js
-        // This automatically handles retries (15s waits) and throttling.
-        return await generateJsonContent(userPrompt, CLASSIFICATION_SCHEMA, systemPrompt);
+        const responseData = await generateJsonContent(userPrompt, CLASSIFICATION_SCHEMA, systemPrompt, { runFolder });
+        if (runFolder) {
+            fs.writeFileSync(path.join(runFolder, '.debug_architect_classify_response.json'), JSON.stringify(responseData, null, 2));
+        }
+        return responseData;
     } catch (error) {
         throw new Error(`[CLASSIFIER] FATAL: Failed to classify fields with LLM. Details: ${error.message}`);
     }
 }
 
-async function classifyData(profileMetadata) {
+async function classifyData(profileMetadata, runFolder = null) {
     logger.info('Classifier', "Preparing LLM Classification Prompt...");
 
     // 1. Load the semantic rules from the user's strategy document
@@ -90,32 +96,31 @@ Your task is to classify fields in a data model as IDENTIFIER, MEASURE, DATE, AT
 ${strategyRules}
 
 ### INSTRUCTIONS
-1. Analyze the provided JSON metadata containing Table configurations, Row Counts, and Field profiles (including distinct count, information density, subset ratio, type, and samples).
+1. Analyze the provided JSON metadata containing Table configurations, Row Counts, and Field profiles.
 2. Classify each Field into EXACTLY ONE of the allowed classifications.
-3. Pay special attention to the "Traps" in the rules. Fields like "Carton - Qnt" or "Units per Carton" are static attribute identifiers requiring multiplication. They MUST be classified as ATTRIBUTE, not MEASURE. "Cost" on dimension tables is also an ATTRIBUTE.
-4. Return the results in strict JSON format.
+3. Pay special attention to the "Traps" in the rules. Fields like "Carton - Qnt" or "Units per Carton" are static attribute identifiers requiring multiplication. They MUST be classified as ATTRIBUTE, not MEASURE.
+4. Return the results in strict JSON format following the schema.
 
 ### OUTPUT FORMAT
-Your output MUST be valid JSON mapping each Table to its Fields and their determined classification strings. Example:
+Your output MUST be a JSON object with a "tables" array. Each table object must have "tableName" and "columnClassifications".
+Example:
 {
-  "Customers.csv": {
-    "CustomerID": "IDENTIFIER",
-    "CustomerName": "ATTRIBUTE"
-  },
-  "Orders.csv": {
-    "OrderID": { "classification": "IDENTIFIER", "semanticAlias": "OrderID" },
-    "CustomerID": { "classification": "IDENTIFIER", "semanticAlias": "Customer" },
-    "shipVia": { "classification": "IDENTIFIER", "semanticAlias": "Shipper" },
-    "OrderDate": { "classification": "DATE", "semanticAlias": "OrderDate" },
-    "Amount": { "classification": "MEASURE", "semanticAlias": "Amount" }
-  }
+  "tables": [
+    {
+      "tableName": "Orders.csv",
+      "columnClassifications": [
+        { "columnName": "OrderID", "classification": "IDENTIFIER", "semanticAlias": "OrderID" },
+        { "columnName": "OrderDate", "classification": "DATE", "semanticAlias": "OrderDate" }
+      ]
+    }
+  ]
 }
-DO NOT RETURN MARKDOWN CODE BLOCKS. RETURN RAW JSON ONLY.`;
+RETURN RAW JSON ONLY. NO VERBOSE TEXT.`;
 
     const userPrompt = `Classify the following schema:\n\n${JSON.stringify(tablesToClassify, null, 2)}`;
 
     // 4. API Request Let's go!
-    const responseData = await classifyWithLLM(systemPrompt, userPrompt);
+    const responseData = await classifyWithLLM(systemPrompt, userPrompt, runFolder);
     
     // Map the array-based response back to the legacy map format for compatibility
     const llmClassifications = {};
@@ -132,10 +137,12 @@ DO NOT RETURN MARKDOWN CODE BLOCKS. RETURN RAW JSON ONLY.`;
     }
     
     // Write out the raw JSON for debugging purposes
-    fs.writeFileSync(
-        path.join(__dirname, 'docs', 'llm_classification_prompt.txt'),
-        `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== USER PROMPT ===\n${userPrompt}\n`
-    );
+    if (runFolder) {
+        fs.writeFileSync(
+            path.join(runFolder, 'llm_classification_prompt.txt'),
+            `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== USER PROMPT ===\n${userPrompt}\n`
+        );
+    }
 
     // 5. Build Internal Metadata Formats
     // Reconstruct the pipeline's expected object format with Primary Keys, Foreign Keys, etc.

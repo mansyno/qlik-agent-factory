@@ -29,7 +29,9 @@ The Agent Factory pipeline automates the generation of a Qlik Sense App through 
 Before installing the project, ensure you have the following on your machine:
 - **Node.js** (v18 or higher)
 - **Qlik Sense Desktop** (Must be running and authenticated in the background)
-- **Gemini API Key** (Required for the LLM agents)
+- **AI Engine Options** (You need at least one of the following):
+  - **Option A (Cloud):** A **Gemini API Key** (Required for the default cloud LLM agents).
+  - **Option B (Local):** **LM Studio** installed and running with the `lms` CLI enabled, and at least one LLM model downloaded (e.g., Llama-3-8B-Instruct).
 
 ## Installation Instructions
 
@@ -53,11 +55,12 @@ Before installing the project, ensure you have the following on your machine:
    cd ..
    ```
 
-4. **Environment Configuration**
+4. **Environment Configuration (If using Gemini Cloud)**
    Create a `.env` file in the root directory of the project and add your Gemini API key:
    ```env
    GEMINI_API_KEY=your_api_key_here
    ```
+   *(If you intend to strictly use LM Studio locally, you can skip this step).*
 
 *(Note: The `projects/` directory, which stores your agent runs, is gitignored. The application will automatically create this directory structure the first time you execute a run.)*
 

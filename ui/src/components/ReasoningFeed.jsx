@@ -34,6 +34,7 @@ export default function ReasoningFeed({ logs, isRunning }) {
             display: 'flex',
             flexDirection: 'column',
             height: '100%',
+            minWidth: 0,
         }}>
             {/* Header */}
             <div style={{

@@ -33,13 +33,14 @@ export default function App() {
     return () => socket.off()
   }, [])
 
-  const handleRun = async (dataDir, appName, pipeline, projectName) => {
-    console.log('[UI App] Calling handleRun:', { projectName, dataDir, appName, pipeline });
+  const handleRun = async (dataDir, appName, pipeline, projectName, options = {}) => {
+    const { aiEngine = 'gemini', aiModel = null } = options;
+    console.log('[UI App] Calling handleRun:', { projectName, dataDir, appName, pipeline, aiEngine, aiModel });
     try {
-        const res = await fetch('/api/run', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ projectName, dataDir, appName, pipeline }) 
+        const res = await fetch('/api/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectName, dataDir, appName, pipeline, aiEngine, aiModel })
         });
         if (!res.ok) {
             const err = await res.json();
@@ -49,8 +50,7 @@ export default function App() {
             console.log('[UI App] Request sent successfully');
         }
     } catch (err) {
-        console.error('[UI App] Fetch failed entirely:', err);
-        alert(`Network/Fetch Error: ${err.message}`);
+        console.error('[UI App] Fetch failed entirely:', err);        alert(`Network/Fetch Error: ${err.message}`);
     }
   }
   const handleStop = () => fetch('/api/stop', { method: 'POST' })
@@ -110,7 +110,7 @@ export default function App() {
           overflowY: 'auto', 
           gap: 20 
         }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, minHeight: 0, flex: 1 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 20, minHeight: 0, flex: 1 }}>
             <ReasoningFeed logs={logs} isRunning={isRunning} />
             <ScriptForge script={script} phase={scriptPhase} />
           </div>
